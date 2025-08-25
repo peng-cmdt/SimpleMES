@@ -1,0 +1,481 @@
+[
+  {
+    "DeviceId": "cmejecbm3000gtmy8aanymznt",
+    "WorkstationId": "cmejdz9u6006htmssdgc414og",
+    "Name": "PLC2",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 6000,
+      "Parameters": {
+        "plcType": "Mitsubishi_MC"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Mitsubishi_MC"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-24T13:50:08.9804221Z",
+    "UpdatedAt": "2025-08-24T13:50:08.9804262Z"
+  },
+  {
+    "DeviceId": "cmeefe70k000vtmlctgeiy9n9",
+    "WorkstationId": "cmecl9tr90001tmukdly4t3m9",
+    "Name": "PLC_1500_127.0.0.1:102",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 102,
+      "Parameters": {
+        "plcType": "Siemens_S7",
+        "rack": 0,
+        "slot": 1
+      }
+    },
+    "Enabled": true,
+    "Settings": {},
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-18T03:11:07.8839568Z",
+    "UpdatedAt": "2025-08-18T03:11:07.8839625Z"
+  },
+  {
+    "DeviceId": "cmejeppss000otmy8oxmznegf",
+    "WorkstationId": "cmejeanqe0008tmy87nr7f0l2",
+    "Name": "PLC2",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 6000,
+      "Parameters": {
+        "plcType": "Mitsubishi_MC"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Mitsubishi_MC"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-24T15:26:12.9354672Z",
+    "UpdatedAt": "2025-08-24T15:26:12.9354674Z"
+  },
+  {
+    "DeviceId": "cmegvtmk4000htm8gyyb0ye5j",
+    "WorkstationId": "cmeguw2uo005otm0kszd3qonl",
+    "Name": "PLC_1200",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 102,
+      "Parameters": {
+        "plcType": "Siemens_S7",
+        "rack": 0,
+        "slot": 1
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Siemens_S7",
+      "rack": 0,
+      "slot": 1
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-18T08:58:54.9245349Z",
+    "UpdatedAt": "2025-08-18T08:58:54.9245524Z"
+  },
+  {
+    "DeviceId": "cmejebhr1000ctmy8j3kuk3eu",
+    "WorkstationId": "cmejdz9u6006htmssdgc414og",
+    "Name": "PLC1",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 102,
+      "Parameters": {
+        "plcType": "Siemens_S7",
+        "rack": 0,
+        "slot": 1
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Siemens_S7",
+      "rack": 0,
+      "slot": 1
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-24T13:50:08.9774796Z",
+    "UpdatedAt": "2025-08-24T13:50:08.9774857Z"
+  },
+  {
+    "DeviceId": "PLC_CONTROLLER-WS-001-PLC",
+    "WorkstationId": "cmejdz9u6006htmssdgc414og",
+    "Name": "WS-001 PLC",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "192.168.1.201",
+      "Port": 502,
+      "Parameters": {
+        "plcType": "Siemens_S7",
+        "rack": 0,
+        "slot": 1
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Siemens_S7",
+      "rack": 0,
+      "slot": 1
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-21T16:26:51.3948856Z",
+    "UpdatedAt": "2025-08-21T16:26:51.3948903Z"
+  },
+  {
+    "DeviceId": "BARCODE_SCANNER-WS-001-\u626B\u7801\u67AA",
+    "WorkstationId": "cmejdz9u6006htmssdgc414og",
+    "Name": "WS-001 \u626B\u7801\u67AA",
+    "Description": null,
+    "DeviceType": "OTHER",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "192.168.1.202",
+      "Port": 9100,
+      "Parameters": {}
+    },
+    "Enabled": true,
+    "Settings": {},
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-21T16:26:56.4703287Z",
+    "UpdatedAt": "2025-08-21T16:26:56.4703617Z"
+  },
+  {
+    "DeviceId": "PLC_CONTROLLER-WS-002-PLC",
+    "WorkstationId": "cmejeanqe0008tmy87nr7f0l2",
+    "Name": "WS-002 PLC",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "192.168.1.203",
+      "Port": 502,
+      "Parameters": {
+        "rack": 0,
+        "slot": 1,
+        "plcType": "Siemens_S7"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "rack": 0,
+      "slot": 1,
+      "plcType": "Siemens_S7"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-24T15:26:14.963988Z",
+    "UpdatedAt": "2025-08-24T15:26:14.9639882Z"
+  },
+  {
+    "DeviceId": "SENSOR-WS002-01",
+    "WorkstationId": "WS002",
+    "Name": "\u538B\u529B\u4F20\u611F\u5668-\u5DE5\u4F4D2",
+    "Description": null,
+    "DeviceType": "SENSOR",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "192.168.1.111",
+      "Port": 502,
+      "Parameters": {
+        "modbusAddress": 1,
+        "registerAddress": 0,
+        "dataType": "FLOAT"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "modbusAddress": 1,
+      "registerAddress": 0,
+      "dataType": "FLOAT"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-15T13:53:24.2334915Z",
+    "UpdatedAt": "2025-08-15T13:53:24.233492Z"
+  },
+  {
+    "DeviceId": "SCANNER-WS001-01",
+    "WorkstationId": "cmecl9tqw0000tmukhimkdt69",
+    "Name": "\u626B\u7801\u67AA-\u5DE5\u4F4D1",
+    "Description": null,
+    "DeviceType": "OTHER",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "192.168.1.101",
+      "Port": 8000,
+      "Parameters": {
+        "scannerType": "Network",
+        "triggerMode": "Auto",
+        "encoding": "UTF8"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "scannerType": "Network",
+      "triggerMode": "Auto",
+      "encoding": "UTF8"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-15T14:02:14.1908948Z",
+    "UpdatedAt": "2025-08-15T14:02:14.1908955Z"
+  },
+  {
+    "DeviceId": "cmeip37pg001itm04h0zl7g6e",
+    "WorkstationId": "cmeguw2uo005otm0kszd3qonl",
+    "Name": "PLC2_127.0.0.1",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 6000,
+      "Parameters": {
+        "plcType": "Mitsubishi_MC"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Mitsubishi_MC"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-19T16:01:43.0807951Z",
+    "UpdatedAt": "2025-08-19T16:01:43.0807953Z"
+  },
+  {
+    "DeviceId": "cmeiod8yu001etm04gx7mai2r",
+    "WorkstationId": "cmeguw2uo005otm0kszd3qonl",
+    "Name": "PLC_127.0.0.1",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 102,
+      "Parameters": {
+        "plcType": "Siemens_S7",
+        "rack": 0,
+        "slot": 1
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Siemens_S7",
+      "rack": 0,
+      "slot": 1
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-19T16:01:40.9885213Z",
+    "UpdatedAt": "2025-08-19T16:01:40.9885216Z"
+  },
+  {
+    "DeviceId": "cmejep58y000ktmy81ey8kmyh",
+    "WorkstationId": "cmejeanqe0008tmy87nr7f0l2",
+    "Name": "PLC1",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 102,
+      "Parameters": {
+        "rack": 0,
+        "slot": 1,
+        "plcType": "Siemens_S7"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "rack": 0,
+      "slot": 1,
+      "plcType": "Siemens_S7"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-24T15:26:10.8610356Z",
+    "UpdatedAt": "2025-08-24T15:26:10.8610362Z"
+  },
+  {
+    "DeviceId": "c9144c2e-bdd8-4445-a96d-3165815dcd2a",
+    "WorkstationId": null,
+    "Name": "PLC01",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "",
+      "Port": null,
+      "Parameters": null
+    },
+    "Enabled": true,
+    "Settings": null,
+    "ConnectionType": "TCP",
+    "ConnectionString": "192.168.1.22:102",
+    "Configuration": {
+      "Plc": {
+        "PlcType": "Siemens_S7",
+        "Slot": 0,
+        "Rack": 0,
+        "Station": 0,
+        "Cpu": "S7_200",
+        "WordLength": 0,
+        "IsBit": false,
+        "DbNumber": null
+      },
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-15T06:59:33.5730738Z",
+    "UpdatedAt": "2025-08-15T06:59:33.5730745Z"
+  },
+  {
+    "DeviceId": "401e6e3d-685f-4999-a59d-da94509dfff0",
+    "WorkstationId": null,
+    "Name": "PLC_02",
+    "Description": null,
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "",
+      "Port": null,
+      "Parameters": null
+    },
+    "Enabled": true,
+    "Settings": null,
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": null,
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-15T05:28:20.0818709Z",
+    "UpdatedAt": "2025-08-15T05:28:20.081871Z"
+  }
+]

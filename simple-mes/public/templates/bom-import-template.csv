@@ -1,0 +1,8 @@
+BOM编码,BOM名称,BOM版本,BOM描述,BOM状态,物料号,物料名称,物料描述,数量,单位
+CAR-BODY-001,汽车车身BOM,1.0,汽车车身装配BOM,active,BODY-FRAME-001,车身框架,车身主框架结构件,1,件
+CAR-BODY-001,汽车车身BOM,1.0,汽车车身装配BOM,active,FRONT-PANEL-001,前面板,车辆前面板组件,1,件
+CAR-BODY-001,汽车车身BOM,1.0,汽车车身装配BOM,active,DOOR-LEFT-001,左侧车门,驾驶员侧车门总成,1,件
+CAR-BODY-001,汽车车身BOM,1.0,汽车车身装配BOM,active,DOOR-RIGHT-001,右侧车门,乘客侧车门总成,1,件
+CAR-CHASSIS-001,汽车底盘BOM,1.0,汽车底盘装配BOM,active,ENGINE-MOUNT-001,发动机支架,发动机安装支架,1,件
+CAR-CHASSIS-001,汽车底盘BOM,1.0,汽车底盘装配BOM,active,TRANSMISSION-001,变速箱,5速手动变速箱,1,台
+CAR-CHASSIS-001,汽车底盘BOM,1.0,汽车底盘装配BOM,active,AXLE-FRONT-001,前轴,前悬挂轴组件,1,件

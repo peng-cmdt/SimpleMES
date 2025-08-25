@@ -1,0 +1,581 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  username            String               @unique
+  password            String
+  email               String?
+  avatar              String?
+  role                UserRole             @default(OPERATOR)
+  status              String               @default("active")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  userRoles           UserRoleAssignment[]
+  workstationSessions WorkstationSession[]
+
+  @@map("users")
+}
+
+model Role {
+  id              String               @id @default(cuid())
+  name            String               @unique
+  description     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  rolePermissions RolePermission[]
+  userRoles       UserRoleAssignment[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  description     String?
+  resource        String
+  action          String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRoleAssignment {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_role_assignments")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Client {
+  id            String    @id @default(cuid())
+  clientId      String    @unique
+  name          String
+  configuredIp  String
+  currentIp     String?
+  status        String    @default("offline")
+  lastConnected DateTime?
+  settings      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("clients")
+}
+
+model Workstation {
+  id                  String               @id @default(cuid())
+  workstationId       String               @unique
+  name                String
+  description         String?
+  location            String?
+  type                WorkstationType      @default(VISUAL_CLIENT)
+  configuredIp        String
+  currentIp           String?
+  status              String               @default("offline")
+  lastConnected       DateTime?
+  settings            Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  devices             Device[]
+  orderSteps          OrderStep[]
+  currentOrders       Order[]              @relation("OrderCurrentStation")
+  productWorkstations ProductWorkstation[]
+  stepTemplates       StepTemplate[]
+  steps               Step[]
+  sessions            WorkstationSession[]
+
+  @@map("workstations")
+}
+
+model Device {
+  id               String       @id @default(cuid())
+  deviceId         String       @unique @default(cuid())
+  name             String
+  type             DeviceType
+  brand            String?
+  model            String?
+  driver           String?
+  description      String?
+  workstationId    String?
+  ipAddress        String?
+  port             Int?
+  protocol         String?
+  connectionString String?
+  status           DeviceStatus @default(OFFLINE)
+  isOnline         Boolean      @default(false)
+  lastConnected    DateTime?
+  lastHeartbeat    DateTime?
+  settings         Json?
+  capabilities     Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  actionLogs       ActionLog[]
+  actions          Action[]
+  workstation      Workstation? @relation(fields: [workstationId], references: [id])
+
+  @@map("devices")
+}
+
+model Menu {
+  id          String   @id @default(cuid())
+  name        String
+  path        String?
+  icon        String?
+  parentId    String?
+  order       Int      @default(0)
+  permissions String
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  parent      Menu?    @relation("MenuHierarchy", fields: [parentId], references: [id])
+  children    Menu[]   @relation("MenuHierarchy")
+
+  @@map("menus")
+}
+
+model WorkstationSession {
+  id               String      @id @default(cuid())
+  sessionId        String      @unique @default(cuid())
+  workstationId    String
+  userId           String?
+  username         String?
+  loginTime        DateTime    @default(now())
+  logoutTime       DateTime?
+  isActive         Boolean     @default(true)
+  lastActivity     DateTime    @default(now())
+  connectedDevices Json?
+  settings         Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  user             User?       @relation(fields: [userId], references: [id])
+  workstation      Workstation @relation(fields: [workstationId], references: [id], onDelete: Cascade)
+
+  @@map("workstation_sessions")
+}
+
+model Product {
+  id                  String               @id @default(cuid())
+  productCode         String               @unique
+  name                String
+  description         String?
+  version             String               @default("1.0")
+  status              String               @default("active")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  boms                BOM[]
+  orders              Order[]
+  processes           Process[]
+  productWorkstations ProductWorkstation[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("products")
+}
+
+model ProductWorkstation {
+  id            String      @id @default(cuid())
+  productId     String
+  workstationId String
+  sequence      Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  workstation   Workstation @relation(fields: [workstationId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, workstationId])
+  @@unique([productId, sequence])
+  @@map("product_workstations")
+}
+
+model BOM {
+  id          String    @id @default(cuid())
+  bomCode     String    @unique
+  name        String
+  version     String    @default("1.0")
+  productId   String?
+  description String?
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bomItems    BOMItem[]
+  product     Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orders      Order[]
+
+  @@map("boms")
+}
+
+model BOMItem {
+  id          String   @id @default(cuid())
+  bomId       String
+  itemCode    String
+  itemName    String
+  quantity    Float
+  unit        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  bom         BOM      @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@map("bom_items")
+}
+
+model Part {
+  id             String   @id @default(cuid())
+  partNumber     String   @unique
+  name           String
+  sapDescription String?
+  visible        Boolean  @default(true)
+  category       String?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("parts")
+}
+
+model Process {
+  id          String   @id @default(cuid())
+  processCode String   @unique
+  name        String
+  productId   String
+  version     String   @default("1.0")
+  description String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  steps       Step[]
+
+  @@index([productId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("processes")
+}
+
+model Step {
+  id             String        @id @default(cuid())
+  processId      String
+  stepTemplateId String?
+  stepCode       String
+  name           String
+  workstationId  String?
+  sequence       Int
+  description    String?
+  estimatedTime  Int?
+  isRequired     Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  actions        Action[]
+  orderSteps     OrderStep[]
+  currentOrders  Order[]       @relation("OrderCurrentStep")
+  process        Process       @relation(fields: [processId], references: [id], onDelete: Cascade)
+  stepTemplate   StepTemplate? @relation(fields: [stepTemplateId], references: [id])
+  workstation    Workstation?  @relation(fields: [workstationId], references: [id])
+
+  @@unique([processId, sequence])
+  @@index([processId])
+  @@index([workstationId])
+  @@index([stepTemplateId])
+  @@map("steps")
+}
+
+model StepTemplate {
+  id              String           @id @default(cuid())
+  stepCode        String           @unique
+  name            String
+  category        String?
+  workstationType String?
+  workstationId   String?
+  description     String?
+  instructions    String?
+  image           String?
+  estimatedTime   Int?
+  isRequired      Boolean          @default(true)
+  status          String           @default("active")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  actionTemplates ActionTemplate[]
+  conditions      StepCondition[]
+  workstation     Workstation?     @relation(fields: [workstationId], references: [id])
+  steps           Step[]
+
+  @@index([status])
+  @@index([workstationId])
+  @@index([category])
+  @@map("step_templates")
+}
+
+model StepCondition {
+  id             String        @id @default(cuid())
+  stepTemplateId String
+  type           ConditionType
+  value          String
+  description    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  stepTemplate   StepTemplate  @relation(fields: [stepTemplateId], references: [id], onDelete: Cascade)
+
+  @@map("step_conditions")
+}
+
+model Action {
+  id             String      @id @default(cuid())
+  stepId         String
+  actionCode     String
+  name           String
+  type           ActionType
+  sequence       Int
+  deviceId       String?
+  deviceAddress  String?
+  expectedValue  String?
+  validationRule String?
+  parameters     Json?
+  description    String?
+  isRequired     Boolean     @default(true)
+  timeout        Int?
+  retryCount     Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  actionLogs     ActionLog[]
+  device         Device?     @relation(fields: [deviceId], references: [id])
+  step           Step        @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, sequence])
+  @@index([stepId])
+  @@index([deviceId])
+  @@index([type])
+  @@map("actions")
+}
+
+model ActionTemplate {
+  id             String        @id @default(cuid())
+  stepTemplateId String?
+  actionCode     String        @unique
+  name           String
+  type           ActionType
+  category       String?
+  deviceType     String?
+  deviceAddress  String?
+  expectedValue  String?
+  validationRule String?
+  parameters     Json?
+  description    String?
+  instructions   String?
+  isRequired     Boolean       @default(true)
+  timeout        Int?
+  retryCount     Int           @default(0)
+  status         String        @default("active")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  stepTemplate   StepTemplate? @relation(fields: [stepTemplateId], references: [id])
+
+  @@map("action_templates")
+}
+
+model Order {
+  id                String               @id @default(cuid())
+  orderNumber       String               @unique
+  productionNumber  String
+  productId         String
+  bomId             String?
+  processId         String
+  quantity          Int
+  completedQuantity Int                  @default(0)
+  priority          Int                  @default(0)
+  sequence          Int?
+  status            OrderStatus          @default(PENDING)
+  plannedDate       DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  currentStationId  String?
+  currentStepId     String?
+  notes             String?
+  createdBy         String?
+  importSource      String?              @default("manual")
+  importBatch       String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  statusHistory     OrderStatusHistory[]
+  orderSteps        OrderStep[]
+  bom               BOM?                 @relation(fields: [bomId], references: [id])
+  currentStation    Workstation?         @relation("OrderCurrentStation", fields: [currentStationId], references: [id])
+  currentStep       Step?                @relation("OrderCurrentStep", fields: [currentStepId], references: [id])
+  process           Process              @relation(fields: [processId], references: [id])
+  product           Product              @relation(fields: [productId], references: [id])
+
+  @@index([status])
+  @@index([productId])
+  @@index([processId])
+  @@index([plannedDate])
+  @@index([priority])
+  @@index([currentStationId])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderStep {
+  id            String       @id @default(cuid())
+  orderId       String
+  stepId        String
+  workstationId String?
+  status        String       @default("pending")
+  startedAt     DateTime?
+  completedAt   DateTime?
+  executedBy    String?
+  actualTime    Int?
+  errorMessage  String?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  actionLogs    ActionLog[]
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  step          Step         @relation(fields: [stepId], references: [id])
+  workstation   Workstation? @relation(fields: [workstationId], references: [id])
+
+  @@unique([orderId, stepId])
+  @@index([orderId])
+  @@index([stepId])
+  @@index([status])
+  @@index([workstationId])
+  @@map("order_steps")
+}
+
+model ActionLog {
+  id               String    @id @default(cuid())
+  orderStepId      String
+  actionId         String
+  status           String
+  executedAt       DateTime  @default(now())
+  executedBy       String?
+  deviceId         String?
+  requestValue     String?
+  responseValue    String?
+  actualValue      String?
+  validationResult Boolean?
+  executionTime    Int?
+  errorCode        String?
+  errorMessage     String?
+  parameters       Json?
+  result           Json?
+  action           Action    @relation(fields: [actionId], references: [id])
+  device           Device?   @relation(fields: [deviceId], references: [id])
+  orderStep        OrderStep @relation(fields: [orderStepId], references: [id], onDelete: Cascade)
+
+  @@map("action_logs")
+}
+
+model OrderStatusHistory {
+  id         String   @id @default(cuid())
+  orderId    String
+  fromStatus String?
+  toStatus   String
+  changedBy  String?
+  changedAt  DateTime @default(now())
+  reason     String?
+  notes      String?
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+model DataExportRecord {
+  id           String    @id @default(cuid())
+  exportType   String
+  exportScope  String
+  filters      Json?
+  fileSize     Int?
+  filePath     String?
+  recordCount  Int?
+  startDate    DateTime?
+  endDate      DateTime?
+  exportedBy   String?
+  exportedAt   DateTime  @default(now())
+  status       String    @default("processing")
+  errorMessage String?
+
+  @@map("data_export_records")
+}
+
+enum UserRole {
+  ADMIN
+  SUPERVISOR
+  ENGINEER
+  OPERATOR
+  USER
+  CLIENT
+}
+
+enum DeviceType {
+  PLC_CONTROLLER
+  SCREWDRIVER
+  BARCODE_SCANNER
+  SENSOR
+  CAMERA
+  PRINTER
+  ROBOT
+  OTHER
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+  MAINTENANCE
+}
+
+enum WorkstationType {
+  VISUAL_CLIENT
+  SERVICE_TYPE
+}
+
+enum ConditionType {
+  BOM_CHECK
+  PART_CHECK
+  PRODUCT_CHECK
+  QUANTITY_CHECK
+  CUSTOM_FIELD
+}
+
+enum ActionType {
+  DEVICE_READ
+  DEVICE_WRITE
+  MANUAL_CONFIRM
+  DATA_VALIDATION
+  DELAY_WAIT
+  BARCODE_SCAN
+  CAMERA_CHECK
+  CUSTOM_SCRIPT
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+  CANCELLED
+  ERROR
+}
