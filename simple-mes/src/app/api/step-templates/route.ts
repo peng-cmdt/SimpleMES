@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const [stepTemplates, total] = await Promise.all([
+    const [stepTemplatesRaw, total] = await Promise.all([
       prisma.stepTemplate.findMany({
         where,
         include: {
@@ -52,6 +52,44 @@ export async function GET(request: NextRequest) {
       }),
       prisma.stepTemplate.count({ where })
     ]);
+
+    // 处理步骤模板数据，将parameters中的字段恢复到顶层
+    const stepTemplates = stepTemplatesRaw.map(template => {
+      const processedActionTemplates = template.actionTemplates.map(action => {
+        const parameters = action.parameters as any || {};
+        
+        return {
+          ...action,
+          // 从parameters中恢复前端所需的字段
+          deviceId: parameters.deviceId,
+          sensorType: parameters.sensorType,
+          sensor: parameters.sensor,
+          sensorValue: parameters.sensorValue,
+          sensorInit: parameters.sensorInit,
+          nameLocal: parameters.nameLocal,
+          componentType: parameters.componentType,
+          maxExecutionTime: parameters.maxExecutionTime,
+          expectedExecutionTime: parameters.expectedExecutionTime,
+          idleTime: parameters.idleTime,
+          okPin: parameters.okPin,
+          errorPin: parameters.errorPin,
+          dSign: parameters.dSign,
+          sSign: parameters.sSign,
+          actionAfterError: parameters.actionAfterError,
+          image: parameters.image,
+          imageWidth: parameters.imageWidth,
+          imageHeight: parameters.imageHeight,
+          fullSizeImage: parameters.fullSizeImage,
+          imagePosition: parameters.imagePosition,
+          soundFile: parameters.soundFile
+        };
+      });
+
+      return {
+        ...template,
+        actionTemplates: processedActionTemplates
+      };
+    });
 
     const totalPages = Math.ceil(total / limit);
 

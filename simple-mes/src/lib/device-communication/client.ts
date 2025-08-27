@@ -11,9 +11,9 @@ import {
 const DEFAULT_CONFIG: DeviceCommunicationServiceConfig = {
   baseUrl: 'http://localhost:5000',
   websocketUrl: 'ws://localhost:5001',
-  timeout: 5000, // 恢复为5秒总体超时，给PLC连接充裕时间
+  timeout: 800, // 减少到800ms总体超时，快速失败
   retryAttempts: 3,
-  retryDelay: 1000
+  retryDelay: 100 // 减少重试延迟到100ms
 };
 
 export class DeviceCommunicationClient {
@@ -159,7 +159,7 @@ export class DeviceCommunicationClient {
           bit: params.bit
         }
       },
-      timeout: 3000 // 设置为3秒PLC读取超时，给连接充裕时间
+      timeout: 600 // 减少到600ms PLC读取超时，快速响应
     };
 
     return this.makeRequest<{ value: any }>('/api/devices/command', {
@@ -194,7 +194,7 @@ export class DeviceCommunicationClient {
           bit: params.bit
         }
       },
-      timeout: 3000 // 设置为3秒PLC写入超时，给连接充裕时间
+      timeout: 600 // 减少到600ms PLC写入超时，快速响应
     };
 
     return this.makeRequest<{ success: boolean }>('/api/devices/command', {

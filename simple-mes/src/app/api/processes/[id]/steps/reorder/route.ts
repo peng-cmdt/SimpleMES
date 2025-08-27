@@ -79,6 +79,13 @@ export async function PUT(
                 name: true
               }
             },
+            stepTemplate: {
+              select: {
+                id: true,
+                stepCode: true,
+                name: true
+              }
+            },
             actions: {
               include: {
                 device: {

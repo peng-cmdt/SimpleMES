@@ -316,7 +316,8 @@ async function main() {
     workstation = existingWorkstation;
   }
 
-  // 为工位创建设备
+  // 为工位创建设备 - MOCK设备已禁用
+  /*
   const deviceData = [
     {
       deviceId: 'AUTOSTART',
@@ -334,7 +335,7 @@ async function main() {
     {
       deviceId: 'CLECO_BIG',
       name: 'CLECO BIG',
-      type: 'SCREWDRIVER_CONTROLLER',
+      type: 'SCREWDRIVER',
       brand: 'CLECO',
       model: 'PF 3000/4000',
       description: 'PF 3000/4000 senzor 4',
@@ -347,7 +348,7 @@ async function main() {
     {
       deviceId: 'CLECO_BIG_WIRED',
       name: 'CLECO BIG WIRED',
-      type: 'SCREWDRIVER_CONTROLLER',
+      type: 'SCREWDRIVER',
       brand: 'CLECO',
       model: 'PF 3000/4000',
       description: 'PF 3000/4000 senzor 1',
@@ -360,7 +361,7 @@ async function main() {
     {
       deviceId: 'CLECO_SMALL',
       name: 'CLECO SMALL',
-      type: 'SCREWDRIVER_CONTROLLER',
+      type: 'SCREWDRIVER',
       brand: 'CLECO',
       model: 'PF 3000/4000',
       description: 'PF 3000/4000 senzor 2',
@@ -516,6 +517,7 @@ async function main() {
       });
     }
   }
+  */
 
   // 创建零件数据
   const partsData = [

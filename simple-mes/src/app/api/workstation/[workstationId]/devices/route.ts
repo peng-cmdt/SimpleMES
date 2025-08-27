@@ -12,13 +12,21 @@ export async function GET(
       return NextResponse.json({ error: 'Workstation ID is required' }, { status: 400 });
     }
 
-    // 查找工位（支持两种查找方式）
+    // 查找工位（支持两种查找方式），同时获取新旧两种设备架构
     let workstation = await prisma.workstation.findUnique({
       where: { workstationId },
       include: {
         devices: {
           orderBy: {
             name: 'asc'
+          }
+        },
+        workstationDevices: {
+          include: {
+            template: true
+          },
+          orderBy: {
+            displayName: 'asc'
           }
         }
       }
@@ -33,6 +41,14 @@ export async function GET(
             orderBy: {
               name: 'asc'
             }
+          },
+          workstationDevices: {
+            include: {
+              template: true
+            },
+            orderBy: {
+              displayName: 'asc'
+            }
           }
         }
       });
@@ -45,8 +61,8 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // 转换设备数据格式
-    const devices = workstation.devices.map(device => ({
+    // 转换旧设备架构数据格式
+    const legacyDevices = workstation.devices.map(device => ({
       id: device.id,
       deviceId: device.deviceId,
       name: device.name,
@@ -64,8 +80,37 @@ export async function GET(
       settings: device.settings,
       capabilities: device.capabilities,
       createdAt: device.createdAt.toISOString(),
-      updatedAt: device.updatedAt.toISOString()
+      updatedAt: device.updatedAt.toISOString(),
+      source: 'legacy' // 标记数据源
     }));
+
+    // 转换新设备架构数据格式
+    const newDevices = workstation.workstationDevices.map(workstationDevice => ({
+      id: workstationDevice.id,
+      deviceId: workstationDevice.instanceId,
+      name: workstationDevice.displayName,
+      type: workstationDevice.template.type,
+      brand: workstationDevice.template.brand,
+      model: workstationDevice.template.model,
+      description: workstationDevice.template.description,
+      ipAddress: workstationDevice.ipAddress,
+      port: workstationDevice.port,
+      protocol: workstationDevice.protocol,
+      status: workstationDevice.status,
+      isOnline: workstationDevice.isOnline,
+      lastConnected: workstationDevice.lastConnected?.toISOString(),
+      lastHeartbeat: workstationDevice.lastHeartbeat?.toISOString(),
+      settings: workstationDevice.config,
+      capabilities: workstationDevice.template.capabilities,
+      createdAt: workstationDevice.createdAt.toISOString(),
+      updatedAt: workstationDevice.updatedAt.toISOString(),
+      source: 'new', // 标记数据源
+      templateId: workstationDevice.template.templateId,
+      templateName: workstationDevice.template.name
+    }));
+
+    // 合并新旧设备数据
+    const devices = [...legacyDevices, ...newDevices];
 
     return NextResponse.json({
       success: true,
@@ -80,7 +125,10 @@ export async function GET(
         currentIp: workstation.currentIp
       },
       devices,
-      deviceCount: devices.length
+      deviceCount: devices.length,
+      legacyDeviceCount: legacyDevices.length,
+      newDeviceCount: newDevices.length,
+      supportsBothArchitectures: true
     });
 
   } catch (error) {

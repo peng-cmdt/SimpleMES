@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: NextRequest) {
   try {
     const { workstationId, userId, username, clientIp, autoLogin } = await request.json();
+    
+    console.log('Workstation login request:', { workstationId, userId, username, clientIp, autoLogin });
 
     if (!workstationId) {
       return NextResponse.json({ error: 'WorkstationId is required' }, { status: 400 });
@@ -13,13 +15,27 @@ export async function POST(request: NextRequest) {
     const workstation = await prisma.workstation.findUnique({
       where: { workstationId },
       include: {
-        devices: true
+        devices: true, // 旧架构设备
+        workstationDevices: { // 新架构设备
+          include: {
+            template: true
+          }
+        }
       }
     });
 
     if (!workstation) {
+      console.log('Workstation not found:', workstationId);
       return NextResponse.json({ error: 'Workstation not found' }, { status: 404 });
     }
+    
+    console.log('Workstation found:', {
+      id: workstation.id,
+      workstationId: workstation.workstationId,
+      name: workstation.name,
+      devicesCount: workstation.devices?.length || 0,
+      workstationDevicesCount: workstation.workstationDevices?.length || 0
+    });
 
     // 如果是自动登录，验证IP地址匹配
     if (autoLogin && clientIp) {
@@ -45,8 +61,73 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 获取工位配置的设备，支持新旧架构
+    let allDevices = [];
+    
+    // 处理旧架构设备
+    if (workstation.devices && workstation.devices.length > 0) {
+      allDevices.push(...workstation.devices.map(device => ({
+        deviceId: device.deviceId,
+        name: device.name,
+        type: device.type,
+        model: device.model || '',
+        ipAddress: device.ipAddress || '',
+        port: device.port || 502,
+        settings: device.settings || {},
+        workstationId: device.workstationId || workstationId,
+        isNewArchitecture: false
+      })));
+    }
+    
+    // 处理新架构设备
+    if (workstation.workstationDevices && workstation.workstationDevices.length > 0) {
+      console.log('Processing new architecture devices:', workstation.workstationDevices.length);
+      allDevices.push(...workstation.workstationDevices.map(wsDevice => {
+        console.log('Processing device:', {
+          instanceId: wsDevice.instanceId,
+          displayName: wsDevice.displayName,
+          templateType: wsDevice.template?.type,
+          ipAddress: wsDevice.ipAddress,
+          port: wsDevice.port
+        });
+        return {
+          deviceId: wsDevice.instanceId,
+          name: wsDevice.displayName,
+          type: wsDevice.template?.type || 'OTHER',
+          model: wsDevice.template?.model || '',
+          ipAddress: wsDevice.ipAddress || '',
+          port: wsDevice.port || 502,
+          settings: wsDevice.config || {},
+          workstationId: workstationId,
+          isNewArchitecture: true
+        };
+      }));
+    }
+    
+    console.log('Found devices for workstation', workstationId, ':', allDevices.length, 'devices');
+    
+    if (allDevices.length === 0) {
+      console.log('No devices found for workstation', workstationId);
+      console.log('Workstation devices data:', JSON.stringify(workstation.devices, null, 2));
+      console.log('Workstation new devices data:', JSON.stringify(workstation.workstationDevices, null, 2));
+      
+      return NextResponse.json({ 
+        success: false,
+        error: 'NO_DEVICES_CONFIGURED',
+        message: `No devices configured for workstation ${workstationId}`,
+        debug: {
+          workstationFound: true,
+          workstationId: workstation.workstationId,
+          oldDevicesCount: workstation.devices?.length || 0,
+          newDevicesCount: workstation.workstationDevices?.length || 0,
+          oldDevices: workstation.devices || [],
+          newDevices: workstation.workstationDevices || []
+        }
+      }, { status: 400 });
+    }
+
     // 获取工位配置的设备，转换为C#服务期望的格式
-    const workstationDevices = workstation.devices.map(device => {
+    const workstationDevices = allDevices.map(device => {
       // 映射设备类型到C#枚举值
       let deviceType = 'OTHER'; // 默认值
       switch (device.type?.toUpperCase()) {
@@ -73,19 +154,19 @@ export async function POST(request: NextRequest) {
 
       return {
         id: device.deviceId,
-        workstationId: device.workstationId || workstationId,
+        workstationId: device.workstationId,
         name: device.name,
         deviceType: deviceType,
-        model: device.model || '',
+        model: device.model,
         connection: {
-          ipAddress: device.ipAddress || '',
-          port: device.port || 502,
+          ipAddress: device.ipAddress,
+          port: device.port,
           connectionType: 'TCP',
           timeout: 5000,
           retryCount: 3,
-          extraParams: device.settings ? JSON.parse(JSON.stringify(device.settings)) : {}
+          extraParams: device.settings
         },
-        parameters: device.settings ? JSON.parse(JSON.stringify(device.settings)) : {},
+        parameters: device.settings,
         isEnabled: true,
         status: 'Disconnected',
         lastConnected: null,

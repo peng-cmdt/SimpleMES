@@ -36,9 +36,45 @@ export async function GET(
       );
     }
 
+    // 处理动作模板数据，将parameters中的字段恢复到顶层
+    const processedActionTemplates = stepTemplate.actionTemplates.map(action => {
+      const parameters = action.parameters as any || {};
+      
+      return {
+        ...action,
+        // 从parameters中恢复前端所需的字段
+        deviceId: parameters.deviceId,
+        sensorType: parameters.sensorType,
+        sensor: parameters.sensor,
+        sensorValue: parameters.sensorValue,
+        sensorInit: parameters.sensorInit,
+        nameLocal: parameters.nameLocal,
+        componentType: parameters.componentType,
+        maxExecutionTime: parameters.maxExecutionTime,
+        expectedExecutionTime: parameters.expectedExecutionTime,
+        idleTime: parameters.idleTime,
+        okPin: parameters.okPin,
+        errorPin: parameters.errorPin,
+        dSign: parameters.dSign,
+        sSign: parameters.sSign,
+        actionAfterError: parameters.actionAfterError,
+        image: parameters.image,
+        imageWidth: parameters.imageWidth,
+        imageHeight: parameters.imageHeight,
+        fullSizeImage: parameters.fullSizeImage,
+        imagePosition: parameters.imagePosition,
+        soundFile: parameters.soundFile
+      };
+    });
+
+    const processedStepTemplate = {
+      ...stepTemplate,
+      actionTemplates: processedActionTemplates
+    };
+
     return NextResponse.json({
       success: true,
-      data: { stepTemplate },
+      data: { stepTemplate: processedStepTemplate },
     });
   } catch (error) {
     console.error('获取步骤模板失败:', error);

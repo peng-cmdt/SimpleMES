@@ -11,17 +11,19 @@ export async function GET(
     const workstation = await prisma.workstation.findUnique({
       where: { id },
       include: {
-        devices: {
-          select: {
-            id: true,
-            deviceId: true,
-            name: true,
-            type: true,
-            brand: true,
-            model: true,
-            status: true,
-            ipAddress: true,
-            port: true
+        workstationDevices: {
+          include: {
+            template: {
+              select: {
+                id: true,
+                templateId: true,
+                name: true,
+                type: true,
+                brand: true,
+                model: true,
+                driver: true
+              }
+            }
           }
         }
       }
@@ -34,9 +36,29 @@ export async function GET(
       )
     }
 
+    // 转换工位设备数据格式以兼容前端
+    const workstationWithDevices = {
+      ...workstation,
+      devices: workstation.workstationDevices?.map(wd => ({
+        id: wd.id,
+        deviceId: wd.instanceId,
+        name: wd.displayName,
+        type: wd.template.type,
+        brand: wd.template.brand,
+        model: wd.template.model,
+        status: wd.status,
+        ipAddress: wd.ipAddress,
+        port: wd.port,
+        workstationId: wd.workstationId
+      })) || []
+    }
+
+    // 删除原始的workstationDevices字段
+    delete workstationWithDevices.workstationDevices
+
     return NextResponse.json({
       success: true,
-      workstation
+      workstation: workstationWithDevices
     })
   } catch (error) {
     console.error('Get workstation error:', error)
@@ -104,25 +126,47 @@ export async function PUT(
         settings: settings || {}
       },
       include: {
-        devices: {
-          select: {
-            id: true,
-            deviceId: true,
-            name: true,
-            type: true,
-            brand: true,
-            model: true,
-            status: true,
-            ipAddress: true,
-            port: true
+        workstationDevices: {
+          include: {
+            template: {
+              select: {
+                id: true,
+                templateId: true,
+                name: true,
+                type: true,
+                brand: true,
+                model: true,
+                driver: true
+              }
+            }
           }
         }
       }
     })
 
+    // 转换工位设备数据格式以兼容前端
+    const workstationWithDevices = {
+      ...workstation,
+      devices: workstation.workstationDevices?.map(wd => ({
+        id: wd.id,
+        deviceId: wd.instanceId,
+        name: wd.displayName,
+        type: wd.template.type,
+        brand: wd.template.brand,
+        model: wd.template.model,
+        status: wd.status,
+        ipAddress: wd.ipAddress,
+        port: wd.port,
+        workstationId: wd.workstationId
+      })) || []
+    }
+
+    // 删除原始的workstationDevices字段
+    delete workstationWithDevices.workstationDevices
+
     return NextResponse.json({
       success: true,
-      workstation
+      workstation: workstationWithDevices
     })
   } catch (error) {
     console.error('Update workstation error:', error)
@@ -143,7 +187,7 @@ export async function DELETE(
     const existingWorkstation = await prisma.workstation.findUnique({
       where: { id },
       include: {
-        devices: true
+        workstationDevices: true
       }
     })
 

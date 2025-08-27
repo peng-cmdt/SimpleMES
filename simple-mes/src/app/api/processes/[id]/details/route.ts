@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma';
 // GET /api/processes/[id]/details - 获取工艺流程详细信息（包含步骤和动作）
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const process = await prisma.process.findUnique({
       where: { id },

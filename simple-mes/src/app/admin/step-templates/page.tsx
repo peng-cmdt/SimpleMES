@@ -246,21 +246,44 @@ export default function StepTemplatesPage() {
 
   const loadDevices = async (workstationId?: string) => {
     try {
-      // 如果提供了工位ID，只获取该工位的设备实例
-      // 否则获取所有已分配的设备实例
+      // 使用新的工位设备实例API端点
       const url = workstationId 
-        ? `/api/devices?workstationId=${workstationId}`
-        : '/api/devices?assigned=true';
+        ? `/api/workstation-devices?workstationId=${workstationId}&limit=100`
+        : '/api/workstation-devices?limit=100';
       
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setDevices(data.devices || []);
+        // 转换数据格式以适应现有的UI组件
+        const transformedDevices = (data.data?.devices || []).map((device: any) => ({
+          id: device.id,
+          instanceId: device.instanceId,
+          name: device.displayName,
+          type: device.template?.type || 'UNKNOWN',
+          brand: device.template?.brand || 'Unknown',
+          model: device.template?.model || 'Unknown',
+          driver: device.template?.driver || '',
+          ipAddress: device.ipAddress,
+          port: device.port,
+          status: device.status,
+          isOnline: device.isOnline,
+          template: device.template,
+          workstation: device.workstation
+        }));
         
-        console.log(`Available devices ${workstationId ? 'for workstation ' + workstationId : '(all assigned)'}:`, data.devices.length);
+        setDevices(transformedDevices);
+        
+        console.log(`Available workstation devices ${workstationId ? 'for workstation ' + workstationId : '(all)'}:`, transformedDevices.length);
+        if (transformedDevices.length === 0 && workstationId) {
+          console.warn(`No devices found for workstation ${workstationId}. Please check if devices are properly configured for this workstation.`);
+        }
+      } else {
+        console.error('Failed to load workstation devices:', response.status);
+        setDevices([]);
       }
     } catch (error) {
-      console.error('Load devices error:', error);
+      console.error('Load workstation devices error:', error);
+      setDevices([]);
     }
   };
 

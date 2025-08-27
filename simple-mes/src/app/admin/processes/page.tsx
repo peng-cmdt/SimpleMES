@@ -22,7 +22,7 @@ interface Action {
   name: string;
   type: string;
   sequence: number;
-  deviceId: string;
+  deviceId: string | null;
   deviceType?: string;
   sensorType?: string;
   sensorValue?: string;
@@ -164,7 +164,7 @@ export default function ProcessesPage() {
     name: '',
     type: 'DEVICE_READ',
     sequence: 1,
-    deviceId: '',
+    deviceId: null,
     deviceType: '',
     sensorType: '',
     sensorValue: '',
@@ -267,11 +267,14 @@ export default function ProcessesPage() {
 
   const loadStepTemplates = async () => {
     try {
-      // 使用轻量级API获取步骤模板列表
-      const response = await fetch('/api/step-templates/simple');
+      // 使用完整API获取步骤模板列表，包含描述、工位、动作模板等信息
+      console.log('Loading step templates from full API...');
+      const response = await fetch('/api/step-templates');
       if (response.ok) {
         const data = await response.json();
-        setStepTemplates(data.data);
+        console.log('Step templates loaded:', data.data?.stepTemplates?.length, 'templates');
+        // 修复：数据在 data.stepTemplates 路径下，不是直接在 data 下
+        setStepTemplates(data.data?.stepTemplates || []);
       }
     } catch (error) {
       console.error('Load step templates error:', error);
@@ -533,6 +536,8 @@ export default function ProcessesPage() {
 
   // 步骤管理函数
   const addStep = () => {
+    // 重置选择状态，防止之前的重复ID影响
+    setSelectedStepIds([]);
     setShowStepSelectModal(true);
   };
 
@@ -541,10 +546,11 @@ export default function ProcessesPage() {
     
     setIsLoading(true);
     try {
-      const selectedTemplates = stepTemplates.filter(template => selectedStepIds.includes(template.id));
+      const selectedTemplates = (stepTemplates || []).filter(template => selectedStepIds.includes(template.id));
       const newSteps: Step[] = [];
       
       selectedTemplates.forEach((template, templateIndex) => {
+        console.log('Creating step from template:', template.stepCode, 'description:', template.description);
         const stepSequence = (editingProcess?.steps || []).length + templateIndex + 1;
         const newStep: Step = {
           stepCode: template.stepCode,
@@ -555,7 +561,7 @@ export default function ProcessesPage() {
           description: template.description || '',
           estimatedTime: template.estimatedTime || 0,
           isRequired: template.isRequired,
-          actions: template.actionTemplates.map((actionTemplate, index) => {
+          actions: (template.actionTemplates || []).map((actionTemplate, index) => {
             // 从parameters中获取设备信息，因为实际数据存储在parameters字段中
             const params = actionTemplate.parameters as any || {};
             return {
@@ -563,7 +569,7 @@ export default function ProcessesPage() {
               name: actionTemplate.name,
               type: actionTemplate.type,
               sequence: index + 1,
-              deviceId: params.deviceId || actionTemplate.deviceId || '',
+              deviceId: (params.deviceId || actionTemplate.deviceId || '').trim() || null,
               deviceType: actionTemplate.deviceType || '',
               sensorType: params.sensorType || actionTemplate.sensorType || '',
               sensorValue: params.sensorValue || actionTemplate.sensorValue || '',
@@ -587,6 +593,17 @@ export default function ProcessesPage() {
         processId: editingProcess.id,
         stepsCount: newSteps.length,
         steps: newSteps
+      });
+      
+      console.log('Detailed steps data:');
+      newSteps.forEach((step, index) => {
+        console.log(`Step ${index + 1}:`, step);
+        if (step.actions && step.actions.length > 0) {
+          step.actions.forEach((action, actionIndex) => {
+            console.log(`  Action ${actionIndex + 1}:`, action);
+            console.log(`    deviceId type: ${typeof action.deviceId}, value: "${action.deviceId}"`);
+          });
+        }
       });
       
       // 调用API保存到数据库
@@ -635,7 +652,8 @@ export default function ProcessesPage() {
 
   const handleStepSelection = (stepId: string, isSelected: boolean) => {
     if (isSelected) {
-      setSelectedStepIds(prev => [...prev, stepId]);
+      // 防止重复添加
+      setSelectedStepIds(prev => prev.includes(stepId) ? prev : [...prev, stepId]);
     } else {
       setSelectedStepIds(prev => prev.filter(id => id !== stepId));
     }
@@ -643,7 +661,7 @@ export default function ProcessesPage() {
 
   const handleSelectAllSteps = (isSelected: boolean) => {
     if (isSelected) {
-      const filteredTemplateIds = stepTemplates
+      const filteredTemplateIds = (stepTemplates || [])
         .filter(template => {
           const matchesSearch = template.name.toLowerCase().includes(stepSearchTerm.toLowerCase()) ||
                               template.stepCode.toLowerCase().includes(stepSearchTerm.toLowerCase());
@@ -651,7 +669,8 @@ export default function ProcessesPage() {
           return matchesSearch && matchesCategory;
         })
         .map(template => template.id);
-      setSelectedStepIds(filteredTemplateIds);
+      // 使用Set去重，防止重复ID
+      setSelectedStepIds([...new Set(filteredTemplateIds)]);
     } else {
       setSelectedStepIds([]);
     }
@@ -894,7 +913,7 @@ export default function ProcessesPage() {
       name: '',
       type: 'DEVICE_READ',
       sequence: (stepFormData.actions || []).length + 1,
-      deviceId: '',
+      deviceId: null,
       deviceType: '',
       sensorType: '',
       sensorValue: '',
@@ -933,7 +952,7 @@ export default function ProcessesPage() {
         name: actionFormData.name,
         type: actionFormData.type,
         sequence: actionFormData.sequence,
-        deviceId: actionFormData.deviceId || null,
+        deviceId: actionFormData.deviceId && actionFormData.deviceId.trim() !== '' ? actionFormData.deviceId : null,
         deviceAddress: actionFormData.deviceAddress || null,
         expectedValue: actionFormData.expectedValue || null,
         validationRule: actionFormData.validationRule || null,
@@ -1712,7 +1731,7 @@ export default function ProcessesPage() {
                                         {step.name}
                                       </td>
                                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {t('processes.steps.universal')}
+                                        {step.workstation?.type || t('processes.steps.universal')}
                                       </td>
                                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {step.workstation?.name || '-'}
@@ -2161,7 +2180,7 @@ export default function ProcessesPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">{t('processes.steps.allCategories')}</option>
-                  {Array.from(new Set(stepTemplates.map(t => t.category).filter(Boolean))).map((category) => (
+                  {Array.from(new Set((stepTemplates || []).map(t => t.category).filter(Boolean))).map((category) => (
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
@@ -2177,7 +2196,7 @@ export default function ProcessesPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         <input
                           type="checkbox"
-                          checked={selectedStepIds.length > 0 && stepTemplates
+                          checked={selectedStepIds.length > 0 && (stepTemplates || [])
                             .filter(template => {
                               const matchesSearch = template.name.toLowerCase().includes(stepSearchTerm.toLowerCase()) ||
                                                   template.stepCode.toLowerCase().includes(stepSearchTerm.toLowerCase());
@@ -2207,7 +2226,7 @@ export default function ProcessesPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {stepTemplates
+                    {(stepTemplates || [])
                       .filter(template => {
                         const matchesSearch = template.name.toLowerCase().includes(stepSearchTerm.toLowerCase()) ||
                                             template.stepCode.toLowerCase().includes(stepSearchTerm.toLowerCase());
@@ -2254,7 +2273,7 @@ export default function ProcessesPage() {
                   </tbody>
                 </table>
                 
-                {stepTemplates.filter(template => {
+                {(stepTemplates || []).filter(template => {
                   const matchesSearch = template.name.toLowerCase().includes(stepSearchTerm.toLowerCase()) ||
                                       template.stepCode.toLowerCase().includes(stepSearchTerm.toLowerCase());
                   const matchesCategory = !stepCategoryFilter || template.category === stepCategoryFilter;

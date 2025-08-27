@@ -90,15 +90,15 @@ export default function WorkstationsPage() {
 
   const loadAvailableDeviceTypes = async () => {
     try {
-      // 只获取未分配给工位的设备模板，用作设备类型选择
-      const response = await fetch('/api/devices?unassigned=true');
+      // 获取所有设备模板用作设备类型选择
+      const response = await fetch('/api/device-templates');
       if (response.ok) {
         const data = await response.json();
-        // 这些是设备管理中创建的、未分配给任何工位的设备模板
+        // 这些是设备管理中创建的设备模板
         // 可以在工位中基于这些模板创建具体的设备实例
-        setAvailableDeviceTypes(data.devices);
+        setAvailableDeviceTypes(data.data.templates || []);
         
-        console.log('Available device templates (unassigned):', data.devices.length);
+        console.log('Available device templates:', data.data.templates?.length || 0);
       }
     } catch (error) {
       console.error('Load available device types error:', error);
@@ -310,49 +310,47 @@ export default function WorkstationsPage() {
     if (!selectedWorkstation || !newDeviceFormData.deviceTypeId) return;
     
     try {
-      // 获取选中的设备类型信息
-      const selectedDeviceType = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
-      if (!selectedDeviceType) {
-        alert('请选择设备类型');
+      // 获取选中的设备模板信息
+      const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
+      if (!selectedTemplate) {
+        alert('请选择设备模板');
         return;
       }
 
-      // 基于设备类型创建新的设备实例
+      // 基于设备模板创建工位设备实例
       const deviceData: any = {
-        name: newDeviceFormData.name || `${selectedDeviceType.name} - ${selectedWorkstation.name}`,
-        type: selectedDeviceType.type,
-        brand: selectedDeviceType.brand,
-        model: selectedDeviceType.model,
-        driver: selectedDeviceType.driver,
-        description: `基于 ${selectedDeviceType.name} 创建的设备实例`,
         workstationId: selectedWorkstation.id,
+        templateId: selectedTemplate.id,
+        displayName: newDeviceFormData.name || `${selectedTemplate.name} - ${selectedWorkstation.name}`,
         ipAddress: newDeviceFormData.ipAddress,
-        port: newDeviceFormData.port ? parseInt(newDeviceFormData.port) : null
+        port: newDeviceFormData.port ? parseInt(newDeviceFormData.port) : null,
+        protocol: 'TCP',
+        status: 'OFFLINE'
       };
 
-      // 如果是PLC设备，添加PLC特定参数
-      if (selectedDeviceType.type === 'PLC_CONTROLLER') {
-        const plcParams: any = {};
+      // 如果是PLC设备，添加PLC特定配置
+      if (selectedTemplate.type === 'PLC_CONTROLLER') {
+        const config: any = {};
         
         // 添加PLC类型
         if (newDeviceFormData.plcType) {
-          plcParams.plcType = newDeviceFormData.plcType;
+          config.plcType = newDeviceFormData.plcType;
         }
         
         // 只对西门子PLC添加rack和slot参数
         if (newDeviceFormData.plcType === 'Siemens_S7') {
           if (newDeviceFormData.rack) {
-            plcParams.rack = parseInt(newDeviceFormData.rack);
+            config.rack = parseInt(newDeviceFormData.rack);
           }
           if (newDeviceFormData.slot) {
-            plcParams.slot = parseInt(newDeviceFormData.slot);
+            config.slot = parseInt(newDeviceFormData.slot);
           }
         }
         
-        deviceData.plcParams = plcParams;
+        deviceData.config = config;
       }
 
-      const response = await fetch('/api/devices', {
+      const response = await fetch('/api/workstation-devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deviceData)
@@ -376,11 +374,11 @@ export default function WorkstationsPage() {
         });
       } else {
         const errorData = await response.json();
-        alert(`创建设备失败: ${errorData.error}`);
+        alert(`创建工位设备失败: ${errorData.error}`);
       }
     } catch (error) {
-      console.error('Create device instance error:', error);
-      alert('创建设备实例失败');
+      console.error('Create workstation device error:', error);
+      alert('创建工位设备实例失败');
     }
   };
 
@@ -803,7 +801,7 @@ export default function WorkstationsPage() {
                   <div className="w-full px-3 py-2 border border-orange-300 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                     <div className="flex items-center justify-between">
                       <span className="text-orange-700 dark:text-orange-400 text-sm">
-                        暂无可用的设备模板（未分配给工位的设备）
+                        暂无可用的设备模板
                       </span>
                       <a 
                         href="/admin/devices" 
@@ -822,17 +820,17 @@ export default function WorkstationsPage() {
                     required
                   >
                     <option value="">请选择设备类型</option>
-                    {availableDeviceTypes.map((deviceType) => (
-                      <option key={deviceType.id} value={deviceType.id}>
-                        {deviceType.name} ({deviceType.brand} {deviceType.model})
+                    {availableDeviceTypes.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} ({template.brand} {template.model})
                       </option>
                     ))}
                   </select>
                 )}
                 <p className="text-xs text-gray-500 mt-1">
                   {availableDeviceTypes.length > 0 
-                    ? '从设备管理中创建的未分配设备模板中选择，将基于此模板创建工位专用的设备实例' 
-                    : '请先到设备管理页面创建设备模板，或当前所有设备模板已被分配给其他工位'}
+                    ? '从设备管理中创建的设备模板中选择，将基于此模板创建工位专用的设备实例' 
+                    : '请先到设备管理页面创建设备模板'}
                 </p>
               </div>
 
@@ -881,8 +879,8 @@ export default function WorkstationsPage() {
 
               {/* PLC配置参数 */}
               {newDeviceFormData.deviceTypeId && (() => {
-                const selectedType = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
-                return selectedType?.type === 'PLC_CONTROLLER' ? (
+                const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
+                return selectedTemplate?.type === 'PLC_CONTROLLER' ? (
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -936,18 +934,18 @@ export default function WorkstationsPage() {
                 ) : null;
               })()}
 
-              {/* 显示选中设备类型的详细信息 */}
+              {/* 显示选中设备模板的详细信息 */}
               {newDeviceFormData.deviceTypeId && (() => {
-                const selectedType = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
-                return selectedType ? (
+                const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
+                return selectedTemplate ? (
                   <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">设备类型信息</h4>
+                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">设备模板信息</h4>
                     <div className="text-sm text-blue-800 dark:text-blue-200">
-                      <p><strong>类型:</strong> {selectedType.type}</p>
-                      <p><strong>品牌:</strong> {selectedType.brand}</p>
-                      <p><strong>型号:</strong> {selectedType.model}</p>
-                      <p><strong>驱动:</strong> {selectedType.driver}</p>
-                      {selectedType.description && <p><strong>描述:</strong> {selectedType.description}</p>}
+                      <p><strong>类型:</strong> {selectedTemplate.type}</p>
+                      <p><strong>品牌:</strong> {selectedTemplate.brand}</p>
+                      <p><strong>型号:</strong> {selectedTemplate.model}</p>
+                      <p><strong>驱动:</strong> {selectedTemplate.driver}</p>
+                      {selectedTemplate.description && <p><strong>描述:</strong> {selectedTemplate.description}</p>}
                     </div>
                   </div>
                 ) : null;

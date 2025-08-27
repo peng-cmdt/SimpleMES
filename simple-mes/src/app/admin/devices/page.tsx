@@ -3,52 +3,27 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { 
-  getDeviceTypes, 
-  getBrandsByDeviceType, 
-  getModelsByBrand, 
-  getDriversByDeviceType,
-  getDeviceConfig,
-  getBrandCodeByName,
-  getModelCodeByName,
-  type DeviceModel,
-  type DeviceSpec
-} from "@/lib/device-configurations";
 
-interface Device {
+// 简化的接口定义
+interface DeviceTemplate {
   id: string;
-  deviceId: string;
+  templateId: string;
   name: string;
   type: string;
   brand: string | null;
   model: string | null;
+  driver: string | null;
   description: string | null;
-  workstationId: string | null;
-  workstation?: {
-    id: string;
-    name: string;
-    workstationId: string;
-  } | null;
-  ipAddress: string | null;
-  port: number | null;
-  protocol: string | null;
-  connectionString: string | null;
-  status: string;
-  isOnline: boolean;
-  lastConnected: string | null;
-  lastHeartbeat: string | null;
+  capabilities: Record<string, unknown>;
+  configSchema: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  driver: string | null;
+  _count?: {
+    workstationDevices: number;
+  };
 }
 
-interface Workstation {
-  id: string;
-  workstationId: string;
-  name: string;
-}
-
-interface DeviceFormData {
+interface FormData {
   name: string;
   type: string;
   brand: string;
@@ -57,511 +32,534 @@ interface DeviceFormData {
   description: string;
 }
 
-export default function DevicesPage() {
-  const [devices, setDevices] = useState<Device[]>([]);
+// 设备类型配置
+const DEVICE_TYPES = [
+  { value: 'PLC_CONTROLLER', label: 'PLC控制器' },
+  { value: 'BARCODE_SCANNER', label: '扫码器' },
+  { value: 'SCREWDRIVER', label: '拧紧枪控制器' },
+  { value: 'PRINTER', label: '标签打印机' },
+  { value: 'SENSOR', label: '传感器' },
+  { value: 'CAMERA', label: '相机' },
+  { value: 'ROBOT', label: '机器人' },
+  { value: 'OTHER', label: '其他' }
+];
+
+const DEVICE_BRANDS = {
+  PLC_CONTROLLER: ['SIEMENS', 'MITSUBISHI', 'OMRON', 'SCHNEIDER'],
+  BARCODE_SCANNER: ['Honeywell', 'KEYENCE', 'IFM', 'COGNEX'],
+  SCREWDRIVER: ['CLECO', 'ATLAS_COPCO', 'BOSCH'],
+  PRINTER: ['Zebra', 'SATO', 'TSC'],
+  SENSOR: ['KEYENCE', 'OMRON', 'SICK'],
+  CAMERA: ['COGNEX', 'KEYENCE', 'BASLER'],
+  ROBOT: ['ABB', 'KUKA', 'FANUC'],
+  OTHER: ['Generic']
+};
+
+const DEVICE_MODELS: Record<string, string[]> = {
+  'PLC_CONTROLLER-SIEMENS': ['S7_1200', 'S7_1500', 'S7_300'],
+  'PLC_CONTROLLER-MITSUBISHI': ['Q_SERIES', 'FX_SERIES'],
+  'BARCODE_SCANNER-Honeywell': ['Voyager_1200g', 'Xenon_1900'],
+  'BARCODE_SCANNER-KEYENCE': ['SR_751', 'SR_700'],
+  'SCREWDRIVER-CLECO': ['PF_3000_4000', 'Livewire'],
+  'PRINTER-Zebra': ['ZT410', 'ZT230']
+};
+
+export default function DeviceManagementPage() {
+  const [templates, setTemplates] = useState<DeviceTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [formData, setFormData] = useState<DeviceFormData>({
+  const [editingTemplate, setEditingTemplate] = useState<DeviceTemplate | null>(null);
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     type: '',
     brand: '',
     model: '',
-    description: '',
-    driver: ''
+    driver: '',
+    description: ''
   });
   const [error, setError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  // 级联选择相关状态
-  const [availableBrands, setAvailableBrands] = useState<{value: string; label: string; description: string}[]>([]);
-  const [availableModels, setAvailableModels] = useState<{value: string; label: string; description: string; driver: string; plcType?: string; defaultPort?: number; specifications?: DeviceSpec[]}[]>([]);
-  const [selectedModelConfig, setSelectedModelConfig] = useState<DeviceModel | null>(null);
+  const [success, setSuccess] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { t } = useLanguage();
 
+  // 加载设备模板
   useEffect(() => {
-    loadDevices();
-    
-    // 设置自动刷新，每10秒检查一次设备状态
-    const interval = setInterval(() => {
-      loadDevices();
-      setLastUpdated(new Date());
-    }, 10000);
-
-    return () => clearInterval(interval);
+    loadTemplates();
   }, []);
 
-  // 设备类型改变时更新品牌列表
-  useEffect(() => {
-    if (formData.type) {
-      const brands = getBrandsByDeviceType(formData.type);
-      setAvailableBrands(brands);
-      // 只在非编辑模式下重置品牌和型号选择
-      if (!editingDevice) {
-        setFormData(prev => ({ ...prev, brand: '', model: '', driver: '', plcType: '' }));
-        setAvailableModels([]);
-        setSelectedModelConfig(null);
-      }
-    }
-  }, [formData.type, editingDevice]);
-
-  // 品牌改变时更新型号列表
-  useEffect(() => {
-    if (formData.type && formData.brand) {
-      const models = getModelsByBrand(formData.type, formData.brand);
-      setAvailableModels(models);
-      // 只在非编辑模式下重置型号选择
-      if (!editingDevice) {
-        setFormData(prev => ({ ...prev, model: '', driver: '', plcType: '' }));
-        setSelectedModelConfig(null);
-      }
-    }
-  }, [formData.type, formData.brand, editingDevice]);
-
-  // 型号改变时自动填充驱动等信息
-  useEffect(() => {
-    if (formData.type && formData.brand && formData.model) {
-      const config = getDeviceConfig(formData.type, formData.brand, formData.model);
-      if (config) {
-        setSelectedModelConfig(config);
-        setFormData(prev => ({
-          ...prev,
-          driver: config.driver,
-          plcType: config.plcType || '',
-          port: config.defaultPort || prev.port
-        }));
-      }
-    }
-  }, [formData.type, formData.brand, formData.model]);
-
-  const loadDevices = async () => {
+  const loadTemplates = async () => {
     try {
-      const response = await fetch('/api/devices');
+      const response = await fetch('/api/device-templates');
       if (response.ok) {
         const data = await response.json();
-        setDevices(data.devices);
+        setTemplates(data.data.templates || []);
       }
     } catch (error) {
-      console.error('Load devices error:', error);
+      console.error('加载设备模板失败:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    setError('');
-
-    try {
-      const url = editingDevice ? `/api/devices/${editingDevice.id}` : '/api/devices';
-      const method = editingDevice ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        await loadDevices();
-        setShowModal(false);
-        resetForm();
-      } else {
-        setError(data.error || t('error.operationFailed'));
-      }
-    } catch (error) {
-      setError(t('error.networkError'));
-    }
+  // 获取可用品牌
+  const getAvailableBrands = (type: string): string[] => {
+    return (DEVICE_BRANDS as Record<string, string[]>)[type] || [];
   };
 
-  const handleDelete = async (device: Device) => {
-    if (!confirm(`${t('admin.devices.deleteConfirm')} "${device.name}"?`)) {
+  // 获取可用型号
+  const getAvailableModels = (type: string, brand: string): string[] => {
+    const key = `${type}-${brand}`;
+    return DEVICE_MODELS[key] || [];
+  };
+
+  // 生成驱动名称
+  const generateDriver = (type: string, brand: string, model: string): string => {
+    const typeMap: Record<string, string> = {
+      'PLC_CONTROLLER': 'plc',
+      'BARCODE_SCANNER': 'scanner',
+      'SCREWDRIVER': 'screwdriver',
+      'PRINTER': 'printer',
+      'SENSOR': 'sensor',
+      'CAMERA': 'camera',
+      'ROBOT': 'robot',
+      'OTHER': 'other'
+    };
+    
+    const driverType = typeMap[type] || 'generic';
+    const driverBrand = brand.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    return `${driverType}_${driverBrand}`;
+  };
+
+  // 处理表单提交
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setIsSubmitting(true);
+
+    if (!formData.name.trim() || !formData.type || !formData.brand || !formData.model) {
+      setError('请填写所有必填字段');
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      const response = await fetch(`/api/devices/${device.id}`, {
+      const url = editingTemplate 
+        ? `/api/device-templates/${editingTemplate.id}` 
+        : '/api/device-templates';
+      const method = editingTemplate ? 'PUT' : 'POST';
+
+      const templateData = {
+        ...formData,
+        templateId: editingTemplate?.templateId || `${formData.type}_${formData.brand}_${formData.model}`.replace(/[^A-Z0-9_]/gi, '_').toUpperCase(),
+        driver: formData.driver || generateDriver(formData.type, formData.brand, formData.model),
+        capabilities: {},
+        configSchema: {}
+      };
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(templateData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSuccess(editingTemplate ? '设备模板更新成功！' : '设备模板创建成功！');
+        await loadTemplates();
+        // 延迟关闭模态框，让用户看到成功消息
+        setTimeout(() => {
+          closeModal();
+        }, 1500);
+      } else {
+        setError(result.error || '操作失败');
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      setError('网络错误，请重试');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 删除模板
+  const handleDelete = async (template: DeviceTemplate) => {
+    if (!confirm(`确定要删除设备模板 "${template.name}" 吗？`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/device-templates/${template.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        await loadDevices();
+        await loadTemplates();
       } else {
-        const data = await response.json();
-        alert(data.error || t('error.deleteFailed'));
+        const result = await response.json();
+        alert(result.error || '删除失败');
       }
     } catch (error) {
-      alert(t('error.networkError'));
+      alert('删除时发生错误');
     }
   };
 
-  const handleEdit = (device: Device) => {
-    setEditingDevice(device);
-    
-    // 调试信息
-    console.log('🔍 编辑设备调试信息:');
-    console.log('设备信息:', device);
-    console.log('品牌值:', device.brand);
-    console.log('型号值:', device.model);
-    
-    // 立即设置表单数据
+  // 打开编辑模态框
+  const openEditModal = (template: DeviceTemplate) => {
+    setEditingTemplate(template);
     setFormData({
-      name: device.name,
-      type: device.type,
-      brand: device.brand || '',
-      model: device.model || '',
-      description: device.description || '',
-      driver: device.driver || ''
+      name: template.name,
+      type: template.type,
+      brand: template.brand || '',
+      model: template.model || '',
+      driver: template.driver || '',
+      description: template.description || ''
     });
-    
-    // 立即初始化级联选择选项
-    if (device.type) {
-      const brands = getBrandsByDeviceType(device.type);
-      setAvailableBrands(brands);
-      console.log('可用品牌:', brands);
-      
-      if (device.brand) {
-        const models = getModelsByBrand(device.type, device.brand);
-        setAvailableModels(models);
-        console.log('可用型号:', models);
-        
-        if (device.model) {
-          const config = getDeviceConfig(device.type, device.brand, device.model);
-          setSelectedModelConfig(config);
-          console.log('设备配置:', config);
-        }
-      }
-    }
-    
-    console.log('表单数据将设置为:', {
-      name: device.name,
-      type: device.type,
-      brand: device.brand || '',
-      model: device.model || '',
-      description: device.description || '',
-      driver: device.driver || ''
-    });
-    
-    // 显示模态框
     setShowModal(true);
   };
 
-  const resetForm = () => {
-    setEditingDevice(null);
+  // 打开添加模态框
+  const openAddModal = () => {
+    setEditingTemplate(null);
     setFormData({
       name: '',
       type: '',
       brand: '',
       model: '',
-      description: '',
+      driver: '',
+      description: ''
+    });
+    setError('');
+    setShowModal(true);
+  };
+
+  // 关闭模态框
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingTemplate(null);
+    setError('');
+    setSuccess('');
+    setIsSubmitting(false);
+  };
+
+  // 处理类型变化
+  const handleTypeChange = (type: string) => {
+    setFormData({
+      ...formData,
+      type,
+      brand: '',
+      model: '',
       driver: ''
     });
-    setAvailableBrands([]);
-    setAvailableModels([]);
-    setSelectedModelConfig(null);
-    setError('');
   };
 
-  const getDeviceTypeName = (type: string) => {
-    const deviceTypes = getDeviceTypes();
-    const deviceType = deviceTypes.find(dt => dt.value === type);
-    return deviceType ? deviceType.label : type;
+  // 处理品牌变化
+  const handleBrandChange = (brand: string) => {
+    setFormData({
+      ...formData,
+      brand,
+      model: '',
+      driver: generateDriver(formData.type, brand, '')
+    });
   };
 
-  const getStatusColor = (status: string, isOnline: boolean) => {
-    if (isOnline && status?.toUpperCase() === 'ONLINE') {
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    } else if (status?.toUpperCase() === 'ERROR') {
-      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-    } else if (status?.toUpperCase() === 'MAINTENANCE') {
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-    } else {
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-    }
+  // 处理型号变化
+  const handleModelChange = (model: string) => {
+    setFormData({
+      ...formData,
+      model,
+      driver: generateDriver(formData.type, formData.brand, model)
+    });
   };
 
-  const getStatusText = (status: string, isOnline: boolean) => {
-    if (isOnline && status?.toUpperCase() === 'ONLINE') {
-      return t('admin.devices.statusOnline');
-    } else if (status?.toUpperCase() === 'ERROR') {
-      return t('admin.devices.statusError');
-    } else if (status?.toUpperCase() === 'MAINTENANCE') {
-      return t('admin.devices.statusMaintenance');
-    } else {
-      return t('admin.devices.statusOffline');
-    }
+  // 获取设备类型显示名称
+  const getTypeLabel = (type: string): string => {
+    const found = DEVICE_TYPES.find(t => t.value === type);
+    return found ? found.label : type;
   };
 
   if (isLoading) {
     return (
-      <AdminLayout title={t('admin.devices.title')}>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <AdminLayout title="设备管理">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-500">加载中...</div>
         </div>
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout title={t('admin.devices.title')}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-            {t('admin.devices.title')}
-          </h2>
-          <div className="flex items-center space-x-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('admin.devices.subtitle')}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
-              {t('common.lastUpdated')}: {lastUpdated.toLocaleTimeString('zh-CN')}
+    <AdminLayout title="设备管理">
+      <div className="space-y-6">
+        {/* 页面标题和操作 */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">设备模板管理</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              管理抽象设备模板，定义设备类型、品牌、型号和驱动信息
             </p>
           </div>
-        </div>
-        <div className="flex space-x-3">
           <button
-            onClick={() => {
-              loadDevices();
-              setLastUpdated(new Date());
-            }}
-            className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center"
+            onClick={openAddModal}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
           >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {t('common.refresh')}
-          </button>
-          <button
-            onClick={() => {
-              resetForm();
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            {t('admin.devices.addDevice')}
+            添加设备模板
           </button>
         </div>
-      </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                {t('admin.devices.deviceName')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                {t('admin.devices.deviceType')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                品牌
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                驱动名称
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                型号
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                {t('common.actions')}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {devices.map((device) => (
-              <tr key={device.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">{device.name}</div>
-                    <div className="text-xs text-gray-400">{device.description || '暂无描述'}</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {getDeviceTypeName(device.type)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {device.brand || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {device.driver || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {device.model || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleEdit(device)}
-                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3"
-                  >
-                    {t('common.edit')}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(device)}
-                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                  >
-                    {t('common.delete')}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* 设备模板列表 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          {templates.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500 dark:text-gray-400">
+                暂无设备模板，点击上方按钮添加第一个模板
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      模板信息
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      类型
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      品牌型号
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      驱动
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      实例数
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {templates.map((template) => (
+                    <tr key={template.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {template.name}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {template.description || '无描述'}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            ID: {template.templateId}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {getTypeLabel(template.type)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        <div>{template.brand || 'N/A'}</div>
+                        <div className="text-gray-500">{template.model || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">
+                          {template.driver || 'N/A'}
+                        </code>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          {template._count?.workstationDevices || 0}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => openEditModal(template)}
+                          className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          onClick={() => handleDelete(template)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          删除
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 模态框 */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {editingDevice ? t('admin.devices.editDevice') : t('admin.devices.addDevice')}
-            </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                {editingTemplate ? '编辑设备模板' : '添加设备模板'}
+              </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('admin.devices.deviceName')}
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="设备名称"
-                  required
-                />
-              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-md text-sm">
+                    {error}
+                  </div>
+                )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {success && (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-md text-sm">
+                    {success}
+                  </div>
+                )}
+
+                {/* 模板名称 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('admin.devices.deviceType')}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    模板名称 *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                    placeholder="例如：PLC SIEMENS"
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+
+                {/* 设备类型 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    设备类型 *
                   </label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                    disabled={isSubmitting}
                     required
                   >
-                    <option value="">请选择设备类型</option>
-                    {getDeviceTypes().map((deviceType) => (
-                      <option key={deviceType.value} value={deviceType.value}>
-                        {deviceType.label}
+                    <option value="">选择设备类型</option>
+                    {DEVICE_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 品牌 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      品牌 *
+                    </label>
+                    <select
+                      value={formData.brand}
+                      onChange={(e) => handleBrandChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                      disabled={!formData.type || isSubmitting}
+                      required
+                    >
+                      <option value="">选择品牌</option>
+                      {getAvailableBrands(formData.type).map((brand) => (
+                        <option key={brand} value={brand}>
+                          {brand}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 型号 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      型号 *
+                    </label>
+                    <select
+                      value={formData.model}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                      disabled={!formData.brand || isSubmitting}
+                      required
+                    >
+                      <option value="">选择型号</option>
+                      {getAvailableModels(formData.type, formData.brand).map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 驱动 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    设备驱动
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    驱动名称 *
                   </label>
-                  <select
+                  <input
+                    type="text"
                     value={formData.driver}
                     onChange={(e) => setFormData({ ...formData, driver: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                    placeholder="系统会自动生成，也可手动修改"
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+
+                {/* 描述 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    描述
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                    rows={3}
+                    placeholder="设备模板的详细描述..."
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                {/* 按钮 */}
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50"
+                    disabled={isSubmitting}
                   >
-                    <option value="">{formData.type ? '请先选择型号' : '请先选择设备类型'}</option>
-                    {formData.driver && (
-                      <option value={formData.driver}>{formData.driver}</option>
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        {editingTemplate ? '更新中...' : '创建中...'}
+                      </>
+                    ) : (
+                      editingTemplate ? '更新' : '创建'
                     )}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">驱动程序会根据选择的型号自动设置</p>
+                  </button>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('admin.devices.brand')}
-                  </label>
-                  <select
-                    value={formData.brand}
-                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    required
-                  >
-                    <option value="">{availableBrands.length > 0 ? '请选择品牌' : '请先选择设备类型'}</option>
-                    {availableBrands.map((brand) => (
-                      <option key={brand.value} value={brand.value}>
-                        {brand.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('admin.devices.model')}
-                  </label>
-                  <select
-                    value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    required
-                  >
-                    <option value="">{availableModels.length > 0 ? '请选择型号' : '请先选择品牌'}</option>
-                    {availableModels.map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedModelConfig && (
-                    <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs">
-                      <p><strong>描述:</strong> {selectedModelConfig.description}</p>
-                      {selectedModelConfig.specifications && (
-                        <div className="mt-1">
-                          <strong>规格:</strong>
-                          {selectedModelConfig.specifications.map((spec, index) => (
-                            <span key={index} className="ml-2">
-                              {spec.name}: {spec.value}{spec.unit ? ` ${spec.unit}` : ''}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('admin.devices.description')}
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  rows={3}
-                />
-              </div>
-
-              {error && (
-                <div className="text-red-600 text-sm">{error}</div>
-              )}
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  {editingDevice ? t('common.update') : t('common.create')}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

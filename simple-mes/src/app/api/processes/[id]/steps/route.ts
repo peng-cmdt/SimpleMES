@@ -44,9 +44,17 @@ export async function POST(
     const createdSteps = await prisma.$transaction(async (tx) => {
       const newSteps = [];
 
+      // First, let's check what devices exist
+      const existingDevices = await tx.device.findMany({
+        select: { id: true, deviceId: true, name: true }
+      });
+      console.log('Existing devices in database:', existingDevices);
+
       for (let i = 0; i < steps.length; i++) {
         const stepData = steps[i];
         const stepSequence = maxSequence + i + 1;
+
+        console.log('Processing step:', stepData);
 
         // 创建步骤
         const step = await tx.step.create({
@@ -65,14 +73,34 @@ export async function POST(
 
         // 创建步骤的动作
         if (stepData.actions && stepData.actions.length > 0) {
-          await tx.action.createMany({
-            data: stepData.actions.map((actionData: any) => ({
+          console.log('Creating actions for step:', step.id);
+          console.log('Actions data:', stepData.actions);
+          
+          const actionsToCreate = stepData.actions.map((actionData: any) => {
+            console.log('Processing action data:', actionData);
+            
+            let resolvedDeviceId = null;
+            if (actionData.deviceId && actionData.deviceId.trim() !== '') {
+              // Check if deviceId exists in our device list
+              const foundDevice = existingDevices.find(d => 
+                d.id === actionData.deviceId || d.deviceId === actionData.deviceId
+              );
+              if (foundDevice) {
+                resolvedDeviceId = foundDevice.id;
+                console.log(`Resolved deviceId "${actionData.deviceId}" to "${foundDevice.id}"`);
+              } else {
+                console.warn(`Device not found: "${actionData.deviceId}". Available devices:`, existingDevices.map(d => ({id: d.id, deviceId: d.deviceId})));
+                resolvedDeviceId = null; // Don't create invalid foreign key
+              }
+            }
+            
+            const processedAction = {
               stepId: step.id,
               actionCode: actionData.actionCode,
               name: actionData.name,
               type: actionData.type,
               sequence: actionData.sequence,
-              deviceId: actionData.deviceId || null,
+              deviceId: resolvedDeviceId,
               deviceAddress: actionData.deviceAddress || '',
               expectedValue: actionData.expectedValue || '',
               validationRule: actionData.validationRule || '',
@@ -81,7 +109,15 @@ export async function POST(
               isRequired: actionData.isRequired ?? true,
               timeout: actionData.timeout || null,
               retryCount: actionData.retryCount ?? 0
-            }))
+            };
+            console.log('Processed action:', processedAction);
+            return processedAction;
+          });
+          
+          console.log('Final actions to create:', actionsToCreate);
+          
+          await tx.action.createMany({
+            data: actionsToCreate
           });
         }
 

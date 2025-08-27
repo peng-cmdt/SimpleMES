@@ -117,6 +117,8 @@ interface PLCTestResult {
   success: boolean;
   value?: any;
   message?: string;
+  operation?: 'read' | 'write';
+  rawData?: string;
 }
 
 export default function WorkstationPage() {
@@ -134,7 +136,7 @@ export default function WorkstationPage() {
   const [showPLCTestModal, setShowPLCTestModal] = useState(false);
   const [currentPLCDevice, setCurrentPLCDevice] = useState<Device | null>(null);
   const [plcTestParams, setPlcTestParams] = useState<PLCTestParams>({
-    type: 'D',
+    type: 'DB',
     dbNumber: 0,
     byte: 0,
     bit: 0,
@@ -152,6 +154,10 @@ export default function WorkstationPage() {
   const [assemblyLineTimer, setAssemblyLineTimer] = useState("00:00:00");
   const [startTime, setStartTime] = useState<Date | null>(null);
   
+  // 设备连接状态监控
+  const [deviceConnectionStatus, setDeviceConnectionStatus] = useState<{[deviceId: string]: boolean}>({});
+  const [lastDeviceCheck, setLastDeviceCheck] = useState<Date>(new Date());
+  
   // 设备连接错误弹框状态
   const [showDeviceErrorModal, setShowDeviceErrorModal] = useState(false);
   const [deviceErrorInfo, setDeviceErrorInfo] = useState<{
@@ -159,6 +165,24 @@ export default function WorkstationPage() {
     deviceIP: string;
     errorMessage: string;
     actionName: string;
+  } | null>(null);
+  
+  // 服务模式设备测试错误弹框状态
+  const [showDeviceTestErrorModal, setShowDeviceTestErrorModal] = useState(false);
+  const [deviceTestErrorInfo, setDeviceTestErrorInfo] = useState<{
+    deviceName: string;
+    address: string;
+    errorMessage: string;
+  } | null>(null);
+  
+  // 通用设备测试对话框状态
+  const [showGenericTestModal, setShowGenericTestModal] = useState(false);
+  const [currentGenericDevice, setCurrentGenericDevice] = useState<Device | null>(null);
+  const [genericTestLoading, setGenericTestLoading] = useState(false);
+  const [genericTestResult, setGenericTestResult] = useState<{
+    success: boolean;
+    message: string;
+    data?: any;
   } | null>(null);
   
   // 屏幕状态
@@ -179,6 +203,37 @@ export default function WorkstationPage() {
   
   const router = useRouter();
   const { t } = useLanguage();
+
+  // 定期检测工位所有设备的连接状态
+  useEffect(() => {
+    if (!workstationSession || !isExecutionMode) return;
+    
+    const checkAllDevicesStatus = async () => {
+      try {
+        // 获取工位设备列表
+        const response = await fetch(`/api/workstation/${workstationSession.workstation.workstationId}/devices`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.devices) {
+            // 检测每个设备的连接状态
+            for (const device of data.devices) {
+              await checkDeviceConnectionStatus(device.deviceId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('批量检测设备状态失败:', error);
+      }
+    };
+
+    // 立即检测一次
+    checkAllDevicesStatus();
+    
+    // 每30秒检测一次设备状态
+    const interval = setInterval(checkAllDevicesStatus, 30000);
+    
+    return () => clearInterval(interval);
+  }, [workstationSession, isExecutionMode]);
 
   // 验证会话和加载数据
   useEffect(() => {
@@ -248,11 +303,21 @@ export default function WorkstationPage() {
       activeActionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     
-    // 当切换到新动作时，自动开始PLC监控
+    // 当切换到新动作时，检测设备状态并开始监控
     const currentAction = getCurrentAction();
     if (currentAction && currentAction.device && isExecutionMode) {
-      console.log('切换到新动作，开始自动PLC监控:', currentAction.name);
-      startPLCMonitoring(currentAction);
+      console.log('切换到新动作，开始设备状态检测:', currentAction.name);
+      
+      // 首先检测设备连接状态
+      checkCurrentActionDeviceStatus(currentAction).then((isConnected) => {
+        if (isConnected) {
+          // 设备连接正常，开始PLC监控
+          console.log('设备连接正常，开始PLC监控:', currentAction.name);
+          startPLCMonitoring(currentAction);
+        } else {
+          console.log('设备连接失败，停止执行:', currentAction.name);
+        }
+      });
     }
   }, [currentActionIndex, isExecutionMode]);
 
@@ -497,54 +562,111 @@ export default function WorkstationPage() {
 
 
   const testDeviceConnection = async (device: Device) => {
-    // 检查是否为PLC设备，如果是则显示专用测试界面
-    if (device.type === 'PLC_CONTROLLER' || device.type.toLowerCase().includes('plc')) {
-      setCurrentPLCDevice(device);
-      setShowPLCTestModal(true);
-      return;
-    }
-
-    // 对于非PLC设备，使用原来的测试逻辑
     setTestingDevices(prev => new Set([...prev, device.id]));
     
     try {
-      console.log(`Testing connection to device: ${device.name} (${device.deviceId})`);
+      console.log(`Testing device: ${device.name} (${device.deviceId})`);
       
-      // 使用真实的设备通信API进行连接测试
-      const response = await fetch(`/api/device-communication/devices/${device.deviceId}/connect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+      // 首先检查设备是否已经连接
+      console.log(`Checking connection status for device: ${device.name}`);
+      const statusResponse = await fetch(`/api/device-communication/devices/${device.deviceId}/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
       });
       
-      const result = await response.json();
+      const statusResult = await statusResponse.json();
+      const isAlreadyConnected = statusResponse.ok && statusResult.success && statusResult.isConnected;
       
-      if (response.ok && result.success) {
-        alert(`${t('serviceMode.testSuccess')}: ${device.name}`);
+      if (isAlreadyConnected) {
+        // 设备已连接，直接显示测试界面
+        console.log(`Device ${device.name} is already connected, showing test interface`);
+        
         // 更新设备状态为在线
         setDevices(prev => prev.map(d => 
           d.id === device.id 
             ? { ...d, status: 'ONLINE' as const, isOnline: true }
             : d
         ));
+        
+        // 显示测试界面（PLC显示专用界面，其他设备显示通用界面）
+        if (device.type === 'PLC_CONTROLLER' || device.type.toLowerCase().includes('plc')) {
+          setCurrentPLCDevice(device);
+          setShowPLCTestModal(true);
+        } else {
+          setCurrentGenericDevice(device);
+          setShowGenericTestModal(true);
+        }
+        
+        return;
+      }
+      
+      // 设备未连接，尝试建立连接
+      console.log(`Device ${device.name} not connected, attempting to connect...`);
+      const connectResponse = await fetch(`/api/device-communication/devices/${device.deviceId}/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const connectResult = await connectResponse.json();
+      
+      if (connectResponse.ok && connectResult.success) {
+        // 连接成功
+        console.log(`Device connected successfully: ${device.name}`);
+        
+        // 更新设备状态为在线
+        setDevices(prev => prev.map(d => 
+          d.id === device.id 
+            ? { ...d, status: 'ONLINE' as const, isOnline: true }
+            : d
+        ));
+
+        // 显示测试界面
+        if (device.type === 'PLC_CONTROLLER' || device.type.toLowerCase().includes('plc')) {
+          setCurrentPLCDevice(device);
+          setShowPLCTestModal(true);
+        } else {
+          setCurrentGenericDevice(device);
+          setShowGenericTestModal(true);
+        }
       } else {
-        const errorMsg = result.message || result.error || 'Connection failed';
-        alert(`${t('serviceMode.testFailed')}: ${device.name} - ${errorMsg}`);
+        // 连接失败
+        const errorMsg = connectResult.message || connectResult.error || 'Connection failed';
+        console.error(`Device connection failed: ${device.name} - ${errorMsg}`);
+        
+        // 更新设备状态为错误
         setDevices(prev => prev.map(d => 
           d.id === device.id 
             ? { ...d, status: 'ERROR' as const, isOnline: false }
             : d
         ));
+        
+        // 显示简单的设备测试错误弹框
+        setDeviceTestErrorInfo({
+          deviceName: device.name,
+          address: `${device.ipAddress || 'Unknown IP'}:${device.port || 'Unknown Port'}`,
+          errorMessage: `The device (${device.name}) is unreachable!`
+        });
+        setShowDeviceTestErrorModal(true);
       }
     } catch (error) {
       console.error('Device test error:', error);
-      alert(`${t('serviceMode.testFailed')}: ${device.name} - ${error instanceof Error ? error.message : 'Network error'}`);
+      
+      // 更新设备状态为错误
       setDevices(prev => prev.map(d => 
         d.id === device.id 
           ? { ...d, status: 'ERROR' as const, isOnline: false }
           : d
       ));
+      
+      // 显示简单的设备测试错误弹框
+      setDeviceTestErrorInfo({
+        deviceName: device.name,
+        address: `${device.ipAddress || 'Unknown IP'}:${device.port || 'Unknown Port'}`,
+        errorMessage: `The device (${device.name}) is unreachable!`
+      });
+      setShowDeviceTestErrorModal(true);
     } finally {
       setTestingDevices(prev => {
         const newSet = new Set(prev);
@@ -557,6 +679,70 @@ export default function WorkstationPage() {
   const exitServiceMode = () => {
     setIsServiceMode(false);
     setDevices([]);
+  };
+
+  // 检测设备连接状态
+  const checkDeviceConnectionStatus = async (deviceId: string) => {
+    try {
+      const response = await fetch(`/api/device-communication/devices/${deviceId}/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      const isConnected = response.ok && result.success && result.isConnected;
+      
+      setDeviceConnectionStatus(prev => ({
+        ...prev,
+        [deviceId]: isConnected
+      }));
+      
+      return isConnected;
+    } catch (error) {
+      console.error('设备状态检测失败:', error);
+      setDeviceConnectionStatus(prev => ({
+        ...prev,
+        [deviceId]: false
+      }));
+      return false;
+    }
+  };
+  
+  // 检测当前动作设备连接状态并显示警告
+  const checkCurrentActionDeviceStatus = async (action: Action) => {
+    if (!action.device) return true;
+    
+    const isConnected = await checkDeviceConnectionStatus(action.device.deviceId);
+    
+    if (!isConnected) {
+      // 设备未连接，触发报警
+      let deviceIP = 'Unknown IP';
+      try {
+        const deviceResponse = await fetch(`/api/devices/${action.device.id}`);
+        if (deviceResponse.ok) {
+          const deviceData = await deviceResponse.json();
+          deviceIP = deviceData.device?.ipAddress || '127.0.0.1';
+        }
+      } catch (e) {
+        console.error('获取设备IP失败:', e);
+      }
+      
+      // 设置红屏报警
+      setScreenError(true);
+      
+      // 显示设备连接错误弹框
+      setDeviceErrorInfo({
+        deviceName: action.device.name,
+        deviceIP: deviceIP,
+        errorMessage: `设备 ${action.device.name} 连接失败 - 请检查设备状态和网络连接`,
+        actionName: action.name
+      });
+      setShowDeviceErrorModal(true);
+      
+      return false;
+    }
+    
+    return true;
   };
 
   // 工艺执行相关函数
@@ -830,11 +1016,11 @@ export default function WorkstationPage() {
     if (lowerBrand.includes('siemens') || lowerBrand.includes('西门子')) {
       // 西门子PLC地址类型
       return [
+        { value: 'DB', label: 'DB - 数据块 (Data Block)' },
         { value: 'D', label: 'D - 数据区 (Data)' },
         { value: 'M', label: 'M - 存储区 (Memory)' },
         { value: 'I', label: 'I - 输入区 (Input)' },
-        { value: 'Q', label: 'Q - 输出区 (Output)' },
-        { value: 'DB', label: 'DB - 数据块 (Data Block)' }
+        { value: 'Q', label: 'Q - 输出区 (Output)' }
       ];
     } else if (lowerBrand.includes('mitsubishi') || lowerBrand.includes('三菱')) {
       // 三菱PLC地址类型
@@ -849,6 +1035,7 @@ export default function WorkstationPage() {
     } else {
       // 通用PLC地址类型
       return [
+        { value: 'DB', label: 'DB - 数据块' },
         { value: 'D', label: 'D - 数据区' },
         { value: 'M', label: 'M - 存储区' },
         { value: 'I', label: 'I - 输入区' },
@@ -887,19 +1074,24 @@ export default function WorkstationPage() {
         setPlcTestResult({
           success: true,
           value: result.value,
-          message: `读取成功: ${address} = ${result.value}`
+          message: `读取成功: ${address} = ${result.value}`,
+          operation: 'read',
+          rawData: result.rawFrame || `TX: ${result.request || 'N/A'}\nRX: ${result.response || 'N/A'}`
         });
       } else {
         setPlcTestResult({
           success: false,
-          message: result.message || result.error || '读取失败'
+          message: result.message || result.error || '读取失败',
+          operation: 'read',
+          rawData: result.rawFrame || result.debugInfo || 'No frame data available'
         });
       }
     } catch (error) {
       console.error('PLC read error:', error);
       setPlcTestResult({
         success: false,
-        message: error instanceof Error ? error.message : '网络错误'
+        message: error instanceof Error ? error.message : '网络错误',
+        operation: 'read'
       });
     } finally {
       setPlcTestLoading(false);
@@ -937,19 +1129,24 @@ export default function WorkstationPage() {
         setPlcTestResult({
           success: true,
           value: plcTestParams.writeValue,
-          message: `写入成功: ${address} = ${plcTestParams.writeValue}`
+          message: `写入成功: ${address} = ${plcTestParams.writeValue}`,
+          operation: 'write',
+          rawData: result.rawFrame || `TX: ${result.request || 'N/A'}\nRX: ${result.response || 'N/A'}`
         });
       } else {
         setPlcTestResult({
           success: false,
-          message: result.message || result.error || '写入失败'
+          message: result.message || result.error || '写入失败',
+          operation: 'write',
+          rawData: result.rawFrame || result.debugInfo || 'No frame data available'
         });
       }
     } catch (error) {
       console.error('PLC write error:', error);
       setPlcTestResult({
         success: false,
-        message: error instanceof Error ? error.message : '网络错误'
+        message: error instanceof Error ? error.message : '网络错误',
+        operation: 'write'
       });
     } finally {
       setPlcTestLoading(false);
@@ -961,12 +1158,84 @@ export default function WorkstationPage() {
     setCurrentPLCDevice(null);
     setPlcTestResult(null);
     setPlcTestParams({
-      type: 'D',
+      type: 'DB',
       dbNumber: 0,
       byte: 0,
       bit: 0,
       writeValue: false
     });
+  };
+
+  // 通用设备测试函数
+  const performGenericDeviceTest = async (testType: string) => {
+    if (!currentGenericDevice) return;
+    
+    setGenericTestLoading(true);
+    setGenericTestResult(null);
+    
+    try {
+      console.log(`Performing ${testType} test on device: ${currentGenericDevice.name}`);
+      
+      let apiUrl = '';
+      let method = 'POST';
+      let body: any = {};
+      
+      switch (testType) {
+        case 'ping':
+          // 使用状态检查API作为ping测试
+          apiUrl = `/api/device-communication/devices/${currentGenericDevice.deviceId}/status`;
+          method = 'GET';
+          body = null;
+          break;
+        case 'read':
+          // 对于通用设备的读取测试，可能需要特定参数
+          apiUrl = `/api/device-communication/devices/${currentGenericDevice.deviceId}/read`;
+          body = { testRead: true };
+          break;
+        case 'write':
+          // 对于通用设备的写入测试
+          apiUrl = `/api/device-communication/devices/${currentGenericDevice.deviceId}/write`;
+          body = { testWrite: true, value: 'test' };
+          break;
+        default:
+          throw new Error(`Unknown test type: ${testType}`);
+      }
+      
+      const response = await fetch(apiUrl, {
+        method,
+        headers: method === 'POST' ? { 'Content-Type': 'application/json' } : {},
+        body: method === 'POST' ? JSON.stringify(body) : undefined
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setGenericTestResult({
+          success: true,
+          message: `${testType.toUpperCase()} test successful`,
+          data: result
+        });
+      } else {
+        setGenericTestResult({
+          success: false,
+          message: result.message || result.error || `${testType.toUpperCase()} test failed`
+        });
+      }
+    } catch (error) {
+      console.error(`Generic device ${testType} test error:`, error);
+      setGenericTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : `${testType.toUpperCase()} test network error`
+      });
+    } finally {
+      setGenericTestLoading(false);
+    }
+  };
+
+  const closeGenericTestModal = () => {
+    setShowGenericTestModal(false);
+    setCurrentGenericDevice(null);
+    setGenericTestResult(null);
   };
 
   const getDeviceIcon = (type: string) => {
@@ -1130,7 +1399,339 @@ export default function WorkstationPage() {
           )}
         </div>
 
-        {/* PLC测试模态框保持不变 - 这里省略以节省空间 */}
+        {/* PLC测试模态框 */}
+        {showPLCTestModal && currentPLCDevice && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+              {/* 标题栏 */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {currentPLCDevice.name} [{currentPLCDevice.type}1 - {currentPLCDevice.ipAddress}:{currentPLCDevice.port},0,1]
+                </h3>
+                <button
+                  onClick={closePLCTestModal}
+                  className="text-gray-500 hover:text-gray-700 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-4">
+                {/* PLC参数设置区域 */}
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    {/* TYPE */}
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-700 uppercase">TYPE</label>
+                      <select
+                        value={plcTestParams.type}
+                        onChange={(e) => setPlcTestParams(prev => ({ ...prev, type: e.target.value }))}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-center"
+                      >
+                        {getPLCAddressTypes(currentPLCDevice.brand).map(type => (
+                          <option key={type.value} value={type.value}>{type.value}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* DB NUMBER */}
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-700 uppercase">DB NUMBER</label>
+                      <div className="flex items-stretch bg-white border-2 border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-transparent">
+                        <button
+                          type="button"
+                          onClick={() => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            dbNumber: Math.max(0, prev.dbNumber - 1) 
+                          }))}
+                          className="flex-shrink-0 w-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center transition-colors border-r-2 border-gray-300"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          value={plcTestParams.dbNumber}
+                          onChange={(e) => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            dbNumber: Math.max(0, parseInt(e.target.value) || 0) 
+                          }))}
+                          className="flex-1 px-3 py-2 text-center text-sm font-medium border-0 focus:outline-none min-w-[50px]"
+                          min="0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            dbNumber: prev.dbNumber + 1 
+                          }))}
+                          className="flex-shrink-0 w-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center transition-colors border-l-2 border-gray-300"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* BYTE */}
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-700 uppercase">BYTE</label>
+                      <div className="flex items-stretch bg-white border-2 border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-transparent">
+                        <button
+                          type="button"
+                          onClick={() => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            byte: Math.max(0, prev.byte - 1) 
+                          }))}
+                          className="flex-shrink-0 w-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center transition-colors border-r-2 border-gray-300"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          value={plcTestParams.byte}
+                          onChange={(e) => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            byte: Math.max(0, parseInt(e.target.value) || 0) 
+                          }))}
+                          className="flex-1 px-3 py-2 text-center text-sm font-medium border-0 focus:outline-none min-w-[50px]"
+                          min="0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            byte: prev.byte + 1 
+                          }))}
+                          className="flex-shrink-0 w-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center transition-colors border-l-2 border-gray-300"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* BIT */}
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-700 uppercase">BIT</label>
+                      <div className="flex items-stretch bg-white border-2 border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-transparent">
+                        <button
+                          type="button"
+                          onClick={() => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            bit: Math.max(0, prev.bit - 1) 
+                          }))}
+                          className="flex-shrink-0 w-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center transition-colors border-r-2 border-gray-300"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          value={plcTestParams.bit}
+                          onChange={(e) => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            bit: Math.max(0, Math.min(7, parseInt(e.target.value) || 0)) 
+                          }))}
+                          className="flex-1 px-3 py-2 text-center text-sm font-medium border-0 focus:outline-none min-w-[40px]"
+                          min="0"
+                          max="7"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPlcTestParams(prev => ({ 
+                            ...prev, 
+                            bit: Math.min(7, prev.bit + 1) 
+                          }))}
+                          className="flex-shrink-0 w-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center transition-colors border-l-2 border-gray-300"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Write value */}
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-gray-700 uppercase">Write value</label>
+                      <select
+                        value={plcTestParams.writeValue.toString()}
+                        onChange={(e) => setPlcTestParams(prev => ({ 
+                          ...prev, 
+                          writeValue: e.target.value === 'true' 
+                        }))}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-center"
+                      >
+                        <option value="false">FALSE</option>
+                        <option value="true">TRUE</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 操作按钮 */}
+                <div className="flex justify-center gap-4 mb-6">
+                  <button
+                    onClick={handlePLCRead}
+                    disabled={plcTestLoading}
+                    className="px-8 py-3 bg-blue-600 text-white font-bold text-base rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
+                  >
+                    {plcTestLoading ? 'READING...' : 'READ'}
+                  </button>
+                  <button
+                    onClick={handlePLCWrite}
+                    disabled={plcTestLoading}
+                    className="px-8 py-3 bg-green-600 text-white font-bold text-base rounded-md hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
+                  >
+                    {plcTestLoading ? 'WRITING...' : 'WRITE'}
+                  </button>
+                </div>
+
+                {/* 结果显示区域 */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-base font-bold text-center text-gray-900 mb-3 uppercase">Result</h4>
+                    <div className="min-h-[60px] bg-gray-50 border-2 border-gray-300 rounded-md p-3 flex items-center justify-center">
+                      {plcTestResult ? (
+                        <div className={`text-center ${plcTestResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                          <div className="text-base font-medium">
+                            {plcTestResult.success ? 
+                              <>
+                                {plcTestResult.operation === 'read' ? (
+                                  plcTestResult.value !== undefined ? 
+                                    `Read Value: ${plcTestResult.value}` : 
+                                    'Read successful'
+                                ) : (
+                                  'Write successful'
+                                )}
+                              </> : 
+                              `Error: ${plcTestResult.message || 'Operation failed'}`
+                            }
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-gray-500 text-base">Result will appear here</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-base font-bold text-center text-gray-900 mb-3 uppercase">Message</h4>
+                    <div className="min-h-[60px] bg-gray-50 border-2 border-gray-300 rounded-md p-3">
+                      {plcTestResult?.rawData ? (
+                        <div className="font-mono text-xs text-gray-700 whitespace-pre-wrap break-all">
+                          {plcTestResult.rawData}
+                        </div>
+                      ) : (
+                        <div className="text-gray-500 text-base text-center">Raw data frame will appear here</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 服务模式设备测试错误对话框 */}
+        {showDeviceTestErrorModal && deviceTestErrorInfo && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-96 mx-4 shadow-xl">
+              <div className="text-center">
+                {/* 错误标题 */}
+                <h3 className="text-lg font-medium text-red-600 mb-4">
+                  {deviceTestErrorInfo.errorMessage}
+                </h3>
+                
+                {/* 地址信息 */}
+                <div className="text-sm text-gray-600 mb-6">
+                  <p><strong>Address:</strong> {deviceTestErrorInfo.address}</p>
+                </div>
+                
+                {/* 关闭按钮 */}
+                <button
+                  onClick={() => {
+                    setShowDeviceTestErrorModal(false);
+                    setDeviceTestErrorInfo(null);
+                  }}
+                  className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 通用设备测试对话框 */}
+        {showGenericTestModal && currentGenericDevice && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-96 mx-4 shadow-xl">
+              <div className="text-center">
+                {/* 设备信息标题 */}
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {currentGenericDevice.name}
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  {currentGenericDevice.type} - {currentGenericDevice.brand || 'Generic'} 
+                  {currentGenericDevice.model && ` ${currentGenericDevice.model}`}
+                </p>
+                
+                {/* 设备地址 */}
+                <div className="text-sm text-gray-600 mb-6 bg-gray-50 p-3 rounded">
+                  <p><strong>Address:</strong> {currentGenericDevice.ipAddress || 'N/A'}:{currentGenericDevice.port || 'N/A'}</p>
+                  <p><strong>Protocol:</strong> {currentGenericDevice.protocol || 'TCP'}</p>
+                </div>
+                
+                {/* 测试按钮组 */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <button
+                    onClick={() => performGenericDeviceTest('ping')}
+                    disabled={genericTestLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-sm transition-colors"
+                  >
+                    {genericTestLoading ? '...' : 'PING'}
+                  </button>
+                  <button
+                    onClick={() => performGenericDeviceTest('read')}
+                    disabled={genericTestLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-sm transition-colors"
+                  >
+                    {genericTestLoading ? '...' : 'READ'}
+                  </button>
+                  <button
+                    onClick={() => performGenericDeviceTest('write')}
+                    disabled={genericTestLoading}
+                    className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:bg-orange-400 disabled:cursor-not-allowed text-sm transition-colors"
+                  >
+                    {genericTestLoading ? '...' : 'WRITE'}
+                  </button>
+                </div>
+                
+                {/* 测试结果 */}
+                {genericTestResult && (
+                  <div className={`mb-6 p-3 rounded text-sm ${
+                    genericTestResult.success 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    <p className="font-medium">
+                      {genericTestResult.success ? '✅' : '❌'} {genericTestResult.message}
+                    </p>
+                    {genericTestResult.data && (
+                      <pre className="mt-2 text-xs overflow-x-auto">
+                        {JSON.stringify(genericTestResult.data, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                )}
+                
+                {/* 关闭按钮 */}
+                <button
+                  onClick={closeGenericTestModal}
+                  className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1141,9 +1742,18 @@ export default function WorkstationPage() {
     const currentAction = getCurrentAction();
 
     return (
-      <div className="h-screen bg-white flex flex-col overflow-hidden">
+      <div className={`h-screen flex flex-col overflow-hidden ${screenError ? 'bg-red-100' : 'bg-white'}`}>
+        {/* 红屏错误覆盖层 */}
+        {screenError && (
+          <div className="fixed inset-0 bg-red-500 bg-opacity-30 z-10 pointer-events-none animate-pulse">
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-lg">
+              ⚠️ 设备连接异常 - 请检查设备状态
+            </div>
+          </div>
+        )}
+        
         {/* 顶部状态栏 */}
-        <div className="bg-blue-500 text-white px-4 py-2 flex justify-between items-center text-sm flex-shrink-0">
+        <div className={`${screenError ? 'bg-red-600 animate-pulse' : 'bg-blue-500'} text-white px-4 py-2 flex justify-between items-center text-sm flex-shrink-0`}>
           <div className="flex items-center space-x-6">
             <span>1. station: {workstationSession.workstation.workstationId}</span>
             <span>2. name: {userInfo.username}</span>
@@ -1177,7 +1787,7 @@ export default function WorkstationPage() {
                       <div 
                         key={orderStep.id}
                         ref={index === currentStepIndex ? activeStepRef : null}
-                        className={`p-2 text-sm border rounded ${
+                        className={`p-2 text-lg border rounded ${
                           index === currentStepIndex 
                             ? 'bg-yellow-400 text-black font-bold' 
                             : orderStep.status === 'completed'
@@ -1185,7 +1795,9 @@ export default function WorkstationPage() {
                             : 'bg-gray-50 text-gray-700'
                         }`}
                       >
-                        {orderStep.step.name}
+                        <div className="font-bold text-xl">
+                          {orderStep.step.name}
+                        </div>
                       </div>
                     ))
                   )}
@@ -1215,7 +1827,7 @@ export default function WorkstationPage() {
                       <div 
                         key={action.id}
                         ref={index === currentActionIndex ? activeActionRef : null}
-                        className={`p-2 text-sm rounded ${
+                        className={`p-2 text-base rounded ${
                           index === currentActionIndex 
                             ? 'bg-yellow-400 text-black font-bold' 
                             : action.status === 'completed'
@@ -1223,7 +1835,7 @@ export default function WorkstationPage() {
                             : 'bg-gray-50 text-gray-700'
                         }`}
                       >
-                        <div className="font-medium">{action.name}</div>
+                        <div className="font-bold text-xl">{action.name}</div>
                         {action.description && (
                           <div className="text-xs text-gray-600 mt-1">{action.description}</div>
                         )}
@@ -1245,18 +1857,55 @@ export default function WorkstationPage() {
                     <span className="ml-2 text-xs text-red-600 font-normal animate-pulse">● 监控中</span>
                   )}
                 </div>
-                <div className="flex-1 p-2 text-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                  {currentAction?.device ? (
-                    <>
-                      <div className="text-gray-700 font-medium">{currentAction.device.type}</div>
-                      <div className="text-green-600 font-bold">{currentAction.device.name}</div>
-                      {isMonitoringPLC && (currentAction.name === 'Action1' || currentAction.name === 'SCANNING SENSOR 1') && (
-                        <div className="text-red-600 text-xs mt-1 font-medium">监控: DB10.DBX0.0</div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-gray-500">当前动作无设备配置</div>
-                  )}
+                <div className="flex-1 p-2 text-sm overflow-hidden overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                  {(() => {
+                    // 直接显示当前动作的设备信息
+                    if (!currentAction) {
+                      return <div className="text-gray-500">无当前动作</div>;
+                    }
+
+                    if (!currentAction.device) {
+                      return <div className="text-gray-500">当前动作无设备配置</div>;
+                    }
+
+                    // 显示实际的设备信息
+                    const device = currentAction.device;
+                    console.log('当前动作设备信息:', {
+                      actionName: currentAction.name,
+                      deviceName: device.name,
+                      deviceType: device.type,
+                      deviceId: device.deviceId
+                    });
+
+                    return (
+                      <div className="mb-2 p-1 rounded bg-yellow-100">
+                        <div className="font-bold text-lg text-blue-600">
+                          {device.name}
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="text-xs text-gray-600">{device.type}</div>
+                          <div className={`w-2 h-2 rounded-full ${
+                            deviceConnectionStatus[device.deviceId] === false
+                              ? 'bg-red-500'
+                              : deviceConnectionStatus[device.deviceId] === true
+                              ? 'bg-green-500'  
+                              : 'bg-yellow-500'
+                          }`} title={
+                            deviceConnectionStatus[device.deviceId] === false
+                              ? '设备离线'
+                              : deviceConnectionStatus[device.deviceId] === true
+                              ? '设备在线'
+                              : '检测中...'
+                          }></div>
+                        </div>
+                        {isMonitoringPLC && currentAction?.deviceAddress && (
+                          <div className="text-red-600 text-xs mt-1 font-medium">
+                            监控: {currentAction.deviceAddress}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1320,15 +1969,15 @@ export default function WorkstationPage() {
               )}
             </div>
 
-            {/* 指导文字叠加 */}
-            {currentStep && (
+            {/* 动作描述信息叠加 */}
+            {currentAction && (
               <div 
                 className="absolute bottom-4 left-4 right-4 bg-white bg-opacity-95 text-black p-4 rounded-lg shadow-lg overflow-y-auto"
                 style={{ maxHeight: '15vh' }}
               >
-                <h3 className="text-2xl font-bold mb-2 text-gray-900">{currentStep.step.name}</h3>
-                {currentStep.step.stepTemplate.instructions && (
-                  <p className="text-lg leading-relaxed whitespace-pre-line text-gray-800">{currentStep.step.stepTemplate.instructions}</p>
+                <h3 className="text-2xl font-bold mb-2 text-gray-900">{currentAction.name}</h3>
+                {currentAction.description && (
+                  <p className="text-lg leading-relaxed whitespace-pre-line text-gray-800">{currentAction.description}</p>
                 )}
               </div>
             )}

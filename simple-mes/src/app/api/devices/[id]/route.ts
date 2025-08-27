@@ -46,6 +46,34 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    
+    // 检查请求体是否为空
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return NextResponse.json(
+        { error: '请求必须包含JSON内容' },
+        { status: 400 }
+      )
+    }
+
+    const body = await request.text();
+    if (!body.trim()) {
+      return NextResponse.json(
+        { error: '请求体不能为空' },
+        { status: 400 }
+      )
+    }
+
+    let requestData;
+    try {
+      requestData = JSON.parse(body);
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: '无效的JSON格式' },
+        { status: 400 }
+      )
+    }
+
     const {
       name,
       type,
@@ -53,7 +81,7 @@ export async function PUT(
       model,
       description,
       driver
-    } = await request.json()
+    } = requestData
 
     // 检查设备是否存在
     const existingDevice = await prisma.device.findUnique({

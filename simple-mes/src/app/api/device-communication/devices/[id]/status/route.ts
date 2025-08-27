@@ -6,14 +6,24 @@ interface RouteParams {
 }
 
 // 获取设备状态
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const status = await deviceCommunicationClient.getDeviceStatus(params.id);
-    return NextResponse.json({ status });
+    const { id } = await params;
+    const status = await deviceCommunicationClient.getDeviceStatus(id);
+    
+    // 返回标准格式
+    return NextResponse.json({ 
+      success: true,
+      isConnected: status.isOnline && (status.status === 'ONLINE' || status.status === 'Connected'),
+      status: status.status,
+      data: { deviceId: id, status }
+    });
   } catch (error) {
     console.error('Get device status API error:', error);
     return NextResponse.json(
       { 
+        success: false,
+        isConnected: false,
         error: 'Failed to get device status',
         message: error instanceof Error ? error.message : 'Unknown error'
       },

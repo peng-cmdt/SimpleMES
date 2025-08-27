@@ -154,7 +154,7 @@ namespace DeviceCommunicationService.Drivers
                     case "MITSUBISHI":
                         var mitsubishiMc = new MelsecMcNet(ipAddress, port)
                         {
-                            ConnectTimeOut = 5000
+                            ConnectTimeOut = 500
                         };
                         _logger.LogInformation("Attempting to connect to Mitsubishi PLC at {IpAddress}:{Port}", 
                             ipAddress, port);
@@ -166,7 +166,7 @@ namespace DeviceCommunicationService.Drivers
                     case "MODBUS":
                         var modbusTcp = new ModbusTcpNet(ipAddress, port)
                         {
-                            ConnectTimeOut = 5000
+                            ConnectTimeOut = 500
                         };
                         _logger.LogInformation("Attempting to connect to Modbus TCP device at {IpAddress}:{Port}", 
                             ipAddress, port);
@@ -183,7 +183,7 @@ namespace DeviceCommunicationService.Drivers
                             Port = port,
                             Rack = (byte)rack,
                             Slot = (byte)slot,
-                            ConnectTimeOut = 5000
+                            ConnectTimeOut = 500
                         };
                         _logger.LogInformation("Attempting to connect to Siemens PLC at {IpAddress}:{Port}, Rack={Rack}, Slot={Slot}", 
                             ipAddress, port, rack, slot);
@@ -215,7 +215,7 @@ namespace DeviceCommunicationService.Drivers
                         { "port", port }
                     },
                     KeepAlive = true,
-                    HeartbeatInterval = 5000
+                    HeartbeatInterval = 1000
                 };
 
                 _contexts[config.DeviceId] = new PlcDriverContext
