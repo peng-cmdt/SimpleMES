@@ -90,8 +90,8 @@ export default function WorkstationsPage() {
 
   const loadAvailableDeviceTypes = async () => {
     try {
-      // 获取所有设备模板用作设备类型选择
-      const response = await fetch('/api/device-templates');
+      // 获取所有设备模板用作设备类型选择，设置高限制以获取所有模板
+      const response = await fetch('/api/device-templates?limit=1000&_t=' + Date.now());
       if (response.ok) {
         const data = await response.json();
         // 这些是设备管理中创建的设备模板
@@ -113,6 +113,15 @@ export default function WorkstationsPage() {
         const data = await response.json();
         console.log('加载工位数据:', data.workstations); // Debug log
         setWorkstations(data.workstations);
+        
+        // 如果当前有编辑中的工位，从新数据中更新它
+        if (editingWorkstation?.id) {
+          const updatedEditingWorkstation = data.workstations.find(ws => ws.id === editingWorkstation.id);
+          if (updatedEditingWorkstation) {
+            setEditingWorkstation(updatedEditingWorkstation);
+            console.log('更新编辑工位数据:', updatedEditingWorkstation.devices?.length, '个设备'); // Debug log
+          }
+        }
       }
     } catch (error) {
       console.error('Load workstations error:', error);
@@ -142,6 +151,7 @@ export default function WorkstationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
+      // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
       await loadWorkstations();
       setExpandedWorkstationId(null);
     } catch (err) { setError('Failed to save workstation') }
@@ -151,6 +161,7 @@ export default function WorkstationsPage() {
     if (!confirm('Are you sure?')) return;
     try {
       await fetch(`/api/workstations/${workstationId}`, { method: 'DELETE' });
+      // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
       await loadWorkstations();
     } catch (err) { alert('Failed to delete') }
   };
@@ -176,7 +187,7 @@ export default function WorkstationsPage() {
 
       if (response.ok) {
         setShowAddWorkstationModal(false);
-        await loadWorkstations();
+        // 重置表单
         setNewWorkstationFormData({
           workstationId: '',
           name: '',
@@ -184,6 +195,8 @@ export default function WorkstationsPage() {
           location: '',
           configuredIp: ''
         });
+        // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
+        await loadWorkstations();
       } else {
         const errorData = await response.json();
         alert(`创建工位失败: ${errorData.error}`);
@@ -203,23 +216,37 @@ export default function WorkstationsPage() {
   const handleUpdateDevice = async () => {
     if (!deviceFormData.id) return;
     try {
-      const response = await fetch(`/api/devices/${deviceFormData.id}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(deviceFormData)
-        }
-      );
+      // 准备工位设备更新数据，映射到正确的字段名
+      const updateData = {
+        displayName: deviceFormData.name, // 前端使用name，后端使用displayName
+        ipAddress: deviceFormData.ipAddress,
+        port: deviceFormData.port ? parseInt(deviceFormData.port.toString()) : null,
+        protocol: deviceFormData.protocol || 'TCP',
+        status: deviceFormData.status || 'OFFLINE'
+      };
+
+      const response = await fetch(`/api/workstation-devices/${deviceFormData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+      
       if (response.ok) {
         setShowEditDeviceModal(false);
-        const updatedWs = await fetch(`/api/workstations/${editingWorkstation.id}`).then(res => res.json());
-        setEditingWorkstation(updatedWs.workstation);
+        setEditingDevice(null);
+        setDeviceFormData({});
+        
+        // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
         await loadWorkstations();
+        
+        alert('设备更新成功！');
       } else {
-        alert('Failed to update device');
+        const errorData = await response.json();
+        alert(`更新设备失败: ${errorData.error || '未知错误'}`);
       }
     } catch (error) {
-      alert('Error updating device');
+      console.error('Update device error:', error);
+      alert(`更新设备时发生错误: ${error.message}`);
     }
   };
 
@@ -229,7 +256,7 @@ export default function WorkstationsPage() {
     try {
       console.log('正在删除设备:', deviceId); // Debug log
       
-      const response = await fetch(`/api/devices/${deviceId}`, { 
+      const response = await fetch(`/api/workstation-devices/${deviceId}`, { 
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -261,22 +288,8 @@ export default function WorkstationsPage() {
         setEditingDevice(null);
         setDeviceFormData({});
         
-        // 强制重新加载所有数据
+        // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
         await loadWorkstations();
-        
-        // 如果当前有展开的工位，重新获取其详细信息
-        if (editingWorkstation?.id) {
-          try {
-            const updatedWsResponse = await fetch(`/api/workstations/${editingWorkstation.id}?_t=${Date.now()}`);
-            const updatedWsData = await updatedWsResponse.json();
-            if (updatedWsData.workstation) {
-              setEditingWorkstation(updatedWsData.workstation);
-              console.log('更新后的工位设备:', updatedWsData.workstation.devices); // Debug log
-            }
-          } catch (updateError) {
-            console.warn('更新工位信息失败:', updateError);
-          }
-        }
         
         alert('设备删除成功！');
       } else {
@@ -358,10 +371,6 @@ export default function WorkstationsPage() {
 
       if (response.ok) {
         setShowAddDeviceModal(false);
-        // 更新工位信息
-        const updatedWs = await fetch(`/api/workstations/${selectedWorkstation.id}`).then(res => res.json());
-        setEditingWorkstation(updatedWs.workstation);
-        await loadWorkstations();
         // 重置表单
         setNewDeviceFormData({
           name: '',
@@ -372,6 +381,11 @@ export default function WorkstationsPage() {
           rack: '0',
           slot: '1'
         });
+        
+        // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
+        await loadWorkstations();
+        
+        alert('设备创建成功！');
       } else {
         const errorData = await response.json();
         alert(`创建工位设备失败: ${errorData.error}`);
@@ -379,22 +393,6 @@ export default function WorkstationsPage() {
     } catch (error) {
       console.error('Create workstation device error:', error);
       alert('创建工位设备实例失败');
-    }
-  };
-
-  const handleRemoveDeviceFromWorkstation = async (deviceId: string) => {
-    if (!confirm('Are you sure you want to remove this device from the workstation?')) return;
-    try {
-      await fetch(`/api/devices/${deviceId}`, { 
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workstationId: null, ipAddress: null, port: null })
-      });
-      const updatedWs = await fetch(`/api/workstations/${editingWorkstation.id}`).then(res => res.json());
-      setEditingWorkstation(updatedWs.workstation);
-      await loadWorkstations();
-    } catch (error) {
-      alert('Failed to remove device');
     }
   };
 

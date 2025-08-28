@@ -189,6 +189,15 @@ export default function WorkstationPage() {
   const [screenError, setScreenError] = useState(false);
   const [isMonitoringPLC, setIsMonitoringPLC] = useState(false);
   
+  // 使用ref来跟踪监控状态，避免在异步循环中读取过期的状态值
+  const monitoringControlRef = useRef<{
+    isActive: boolean;
+    shouldStop: boolean;
+  }>({
+    isActive: false,
+    shouldStop: false
+  });
+  
   // 6区域设计状态
   const [showMenuArea, setShowMenuArea] = useState(false);
   const [showProcessMenu, setShowProcessMenu] = useState(false);
@@ -204,6 +213,30 @@ export default function WorkstationPage() {
   const router = useRouter();
   const { t } = useLanguage();
 
+  // 检查值是否匹配期望值的函数
+  const checkValueMatch = (actualValue: any, expectedValue: string): boolean => {
+    // 将期望值转换为适当的类型进行比较
+    const expected = expectedValue.toLowerCase();
+    
+    // 布尔值比较
+    if (expected === 'true' || expected === '1') {
+      return actualValue === true || actualValue === 1 || actualValue === '1' || actualValue === 'true';
+    }
+    if (expected === 'false' || expected === '0') {
+      return actualValue === false || actualValue === 0 || actualValue === '0' || actualValue === 'false';
+    }
+    
+    // 数值比较
+    if (!isNaN(Number(expected))) {
+      const expectedNum = Number(expected);
+      const actualNum = Number(actualValue);
+      return !isNaN(actualNum) && actualNum === expectedNum;
+    }
+    
+    // 字符串比较
+    return actualValue?.toString() === expectedValue;
+  };
+
   // 定期检测工位所有设备的连接状态
   useEffect(() => {
     if (!workstationSession || !isExecutionMode) return;
@@ -217,7 +250,7 @@ export default function WorkstationPage() {
           if (data.success && data.devices) {
             // 检测每个设备的连接状态
             for (const device of data.devices) {
-              await checkDeviceConnectionStatus(device.deviceId);
+              await checkDeviceConnectionStatus(device.id, device.deviceId);
             }
           }
         }
@@ -270,6 +303,18 @@ export default function WorkstationPage() {
     }
   }, [workstationSession]);
 
+  // 实时刷新订单列表 - 每3秒刷新一次（仅在非执行模式下）
+  useEffect(() => {
+    if (!workstationSession || isExecutionMode) return;
+    
+    const orderRefreshInterval = setInterval(() => {
+      console.log('Auto-refreshing order list...');
+      loadOrdersWithSession(workstationSession);
+    }, 3000); // 更改为每3秒刷新一次
+    
+    return () => clearInterval(orderRefreshInterval);
+  }, [workstationSession, isExecutionMode]);
+
   // 更新时间显示和计时器
   useEffect(() => {
     const timer = setInterval(() => {
@@ -321,63 +366,42 @@ export default function WorkstationPage() {
     }
   }, [currentActionIndex, isExecutionMode]);
 
-  const loadOrders = async () => {
-    if (!workstationSession) return;
-    
-    try {
-      // 从API加载真实数据 - 使用工位的workstationId字段而不是UUID id
-      const workstationId = workstationSession.workstation.workstationId;
-      const response = await fetch(`/api/orders?status=pending&workstationId=${workstationId}&limit=20`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data.orders) {
-          // 映射API数据到界面格式
-          const mappedOrders = data.data.orders.map((order: any) => ({
-            id: order.id,
-            orderNumber: order.orderNumber,
-            productionNumber: order.productionNumber,
-            productFamily: order.product?.name || order.product?.productCode || 'N/A',
-            carrierId: order.notes || `CARR-${order.id.slice(-6)}`, // 使用备注或生成载具ID
-            status: order.status.toLowerCase(),
-            priority: order.priority,
-            product: order.product
-          }));
-          setOrders(mappedOrders);
-          return;
-        }
-      }
-      
-      // API失败时不加载任何数据  
-      setOrders([]);
-    } catch (error) {
-      console.error('Failed to load orders:', error);
-      setOrders([]);
-    }
-  };
-
   // 使用传入的session对象加载订单，避免状态异步更新问题
   const loadOrdersWithSession = async (session: WorkstationSession) => {
     if (!session) return;
     
     try {
       // 从API加载真实数据 - 使用工位的workstationId字段而不是UUID id
+      // 查询非已完成状态的订单，包括 pending 和 in_progress
       const workstationId = session.workstation.workstationId;
-      const response = await fetch(`/api/orders?status=pending&workstationId=${workstationId}&limit=20`);
+      const response = await fetch(`/api/orders?status=pending,in_progress&workstationId=${workstationId}&limit=20`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data.orders) {
-          // 映射API数据到界面格式
-          const mappedOrders = data.data.orders.map((order: any) => ({
-            id: order.id,
-            orderNumber: order.orderNumber,
-            productionNumber: order.productionNumber,
-            productFamily: order.product?.name || order.product?.productCode || 'N/A',
-            carrierId: order.notes || `CARR-${order.id.slice(-6)}`, // 使用备注或生成载具ID
-            status: order.status.toLowerCase(),
-            priority: order.priority,
-            product: order.product
-          }));
+          // 映射API数据到界面格式，并按订单号排序
+          const mappedOrders = data.data.orders
+            .map((order: any) => ({
+              id: order.id,
+              orderNumber: order.orderNumber,
+              productionNumber: order.productionNumber,
+              productFamily: order.product?.name || order.product?.productCode || 'N/A',
+              carrierId: order.notes || `CARR-${order.id.slice(-6)}`, // 使用备注或生成载具ID
+              status: order.status.toLowerCase(),
+              priority: order.priority,
+              product: order.product
+            }))
+            // 按订单号从小到大排序（T001, T002, T003...）
+            .sort((a: any, b: any) => {
+              // 提取数字部分进行比较
+              const getOrderNumber = (orderNumber: string) => {
+                const match = orderNumber.match(/T(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+              };
+              return getOrderNumber(a.orderNumber) - getOrderNumber(b.orderNumber);
+            });
+          
           setOrders(mappedOrders);
+          console.log('已加载订单列表 (按订单号排序):', mappedOrders);
           return;
         }
       }
@@ -390,19 +414,81 @@ export default function WorkstationPage() {
     }
   };
 
+  // 简单的loadOrders函数，使用当前workstationSession
+  const loadOrders = () => {
+    if (workstationSession) {
+      loadOrdersWithSession(workstationSession);
+    }
+  };
+
   const handleStart = async () => {
-    // 自动选择第一个订单（按顺序排列）
-    const firstOrder = orders.length > 0 ? orders[0] : null;
+    // 找到第一个PENDING状态的订单
+    const firstPendingOrder = orders.find(order => order.status?.toLowerCase() === 'pending');
     
-    if (!firstOrder) {
-      alert('暂无订单可以处理');
+    if (!firstPendingOrder) {
+      alert('暂无待开始的订单');
       return;
     }
     
+    await handleStartOrder(firstPendingOrder);
+  };
+
+  const handleStartOrder = async (order: Order) => {
     setIsProcessing(true);
     try {
+      // First get a valid workstation ID to avoid foreign key constraint errors
+      let validWorkstationId: string | undefined = undefined;
+      if (workstationSession?.workstation.id) {
+        try {
+          // Verify the workstation exists in the database
+          const wsResponse = await fetch(`/api/workstations/${workstationSession.workstation.id}`);
+          if (wsResponse.ok) {
+            validWorkstationId = workstationSession.workstation.id;
+          } else {
+            console.warn('Workstation ID not found in database:', workstationSession.workstation.id);
+          }
+        } catch (error) {
+          console.warn('Error validating workstation ID:', error);
+        }
+      }
+      
+      // First update order status to IN_PROGRESS
+      console.log('Updating order status to IN_PROGRESS:', order.id);
+      const statusUpdateResponse = await fetch(`/api/orders/${order.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'changeStatus',
+          status: 'IN_PROGRESS',
+          updatedBy: userInfo?.username || 'client',
+          reason: '开始工艺执行',
+          currentStationId: validWorkstationId
+        })
+      });
+      
+      if (statusUpdateResponse.ok) {
+        const statusResult = await statusUpdateResponse.json();
+        console.log('订单状态更新成功:', statusResult);
+      } else {
+        console.error('订单状态更新失败，停止执行');
+        const errorData = await statusUpdateResponse.json();
+        console.error('错误详情:', errorData);
+        console.error('Request payload:', {
+          action: 'changeStatus',
+          status: 'IN_PROGRESS',
+          updatedBy: userInfo?.username || 'client',
+          reason: '开始工艺执行',
+          currentStationId: validWorkstationId
+        });
+        console.error('Workstation session:', workstationSession);
+        alert('无法启动订单执行 - 状态更新失败: ' + (errorData.error || '未知错误'));
+        return; // 停止执行
+      }
+      
       // 加载订单详细信息包括工艺步骤
-      const response = await fetch(`/api/orders/${firstOrder.id}`);
+      const response = await fetch(`/api/orders/${order.id}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
@@ -448,6 +534,11 @@ export default function WorkstationPage() {
             setTimeout(() => {
               setCurrentActionIndex(0); // 触发重新渲染
             }, 50);
+            
+            // 刷新订单列表以反映状态变化
+            if (workstationSession) {
+              loadOrdersWithSession(workstationSession);
+            }
           } else if (data.data.process?.steps && data.data.process.steps.length > 0) {
             // 如果没有orderSteps但有process.steps，创建orderSteps
             console.log('没有OrderSteps，使用Process Steps创建OrderSteps');
@@ -484,6 +575,11 @@ export default function WorkstationPage() {
             setTimeout(() => {
               setCurrentActionIndex(0); // 触发重新渲染
             }, 50);
+            
+            // 刷新订单列表以反映状态变化
+            if (workstationSession) {
+              loadOrdersWithSession(workstationSession);
+            }
           } else {
             console.log('API返回成功但无有效步骤数据');
             alert('订单没有配置工艺步骤 - 请在管理系统中为订单配置工艺流程');
@@ -502,6 +598,85 @@ export default function WorkstationPage() {
     } catch (error) {
       console.error('Failed to load order details:', error);
       alert('加载订单详情时发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
+      return;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleContinueOrder = async (order: Order) => {
+    // 对于进行中的订单，直接加载并继续执行
+    setIsProcessing(true);
+    try {
+      // 加载订单详细信息包括工艺步骤
+      const response = await fetch(`/api/orders/${order.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          console.log('继续执行订单:', data.data);
+          
+          if (data.data.orderSteps && data.data.orderSteps.length > 0) {
+            const processedOrderSteps = data.data.orderSteps.map((orderStep: any) => ({
+              ...orderStep,
+              step: {
+                ...orderStep.step,
+                actions: orderStep.step.actions?.map((action: any) => ({
+                  ...action,
+                  status: action.status || 'pending'
+                })) || []
+              }
+            }));
+            
+            const processedOrder = {
+              ...data.data,
+              orderSteps: processedOrderSteps
+            };
+            
+            // 找到当前应该执行的步骤和动作
+            let currentStepIdx = 0;
+            let currentActionIdx = 0;
+            
+            // 查找第一个未完成的步骤
+            for (let i = 0; i < processedOrderSteps.length; i++) {
+              if (processedOrderSteps[i].status !== 'completed') {
+                currentStepIdx = i;
+                // 在该步骤中找到第一个未完成的动作
+                const actions = processedOrderSteps[i].step.actions || [];
+                for (let j = 0; j < actions.length; j++) {
+                  if (actions[j].status !== 'completed') {
+                    currentActionIdx = j;
+                    break;
+                  }
+                }
+                break;
+              }
+            }
+            
+            setCurrentOrder(processedOrder);
+            setCurrentStepIndex(currentStepIdx);
+            setCurrentActionIndex(currentActionIdx);
+            setIsExecutionMode(true);
+            setStartTime(new Date()); // 启动计时器
+            console.log('Continued order execution:', processedOrder);
+            
+            setTimeout(() => {
+              setCurrentActionIndex(currentActionIdx);
+            }, 50);
+          } else {
+            alert('订单没有配置工艺步骤');
+            return;
+          }
+        } else {
+          alert('无法加载订单详情');
+          return;
+        }
+      } else {
+        alert('无法连接到服务器');
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to continue order:', error);
+      alert('继续执行订单时发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
     } finally {
       setIsProcessing(false);
@@ -569,7 +744,7 @@ export default function WorkstationPage() {
       
       // 首先检查设备是否已经连接
       console.log(`Checking connection status for device: ${device.name}`);
-      const statusResponse = await fetch(`/api/device-communication/devices/${device.deviceId}/status`, {
+      const statusResponse = await fetch(`/api/device-communication/devices/${device.id}/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -602,7 +777,7 @@ export default function WorkstationPage() {
       
       // 设备未连接，尝试建立连接
       console.log(`Device ${device.name} not connected, attempting to connect...`);
-      const connectResponse = await fetch(`/api/device-communication/devices/${device.deviceId}/connect`, {
+      const connectResponse = await fetch(`/api/device-communication/devices/${device.id}/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -682,9 +857,9 @@ export default function WorkstationPage() {
   };
 
   // 检测设备连接状态
-  const checkDeviceConnectionStatus = async (deviceId: string) => {
+  const checkDeviceConnectionStatus = async (deviceDatabaseId: string, deviceInstanceId?: string) => {
     try {
-      const response = await fetch(`/api/device-communication/devices/${deviceId}/status`, {
+      const response = await fetch(`/api/device-communication/devices/${deviceDatabaseId}/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -692,17 +867,21 @@ export default function WorkstationPage() {
       const result = await response.json();
       const isConnected = response.ok && result.success && result.isConnected;
       
+      // Use deviceInstanceId as key if provided, otherwise use deviceDatabaseId
+      const stateKey = deviceInstanceId || deviceDatabaseId;
+      
       setDeviceConnectionStatus(prev => ({
         ...prev,
-        [deviceId]: isConnected
+        [stateKey]: isConnected
       }));
       
       return isConnected;
     } catch (error) {
       console.error('设备状态检测失败:', error);
+      const stateKey = deviceInstanceId || deviceDatabaseId;
       setDeviceConnectionStatus(prev => ({
         ...prev,
-        [deviceId]: false
+        [stateKey]: false
       }));
       return false;
     }
@@ -712,7 +891,7 @@ export default function WorkstationPage() {
   const checkCurrentActionDeviceStatus = async (action: Action) => {
     if (!action.device) return true;
     
-    const isConnected = await checkDeviceConnectionStatus(action.device.deviceId);
+    const isConnected = await checkDeviceConnectionStatus(action.device.id, action.device.deviceId);
     
     if (!isConnected) {
       // 设备未连接，触发报警
@@ -780,9 +959,83 @@ export default function WorkstationPage() {
       setCurrentStepIndex(currentStepIndex + 1);
       setCurrentActionIndex(0);
     } else {
-      // 所有步骤完成
-      alert('所有工艺步骤已完成！');
-      handleExitExecution();
+      // 所有步骤完成 - 直接完成订单并退出执行模式
+      console.log('所有工艺步骤已完成，订单完成');
+      
+      // 异步更新订单状态为已完成
+      const completeOrder = async () => {
+        try {
+          // 首先检查当前订单状态，确保是IN_PROGRESS才能完成
+          const checkResponse = await fetch(`/api/orders/${currentOrder.id}`);
+          if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            if (checkData.success && checkData.data.status !== 'IN_PROGRESS') {
+              console.warn(`订单状态为 ${checkData.data.status}，无法完成订单`);
+              alert(`无法完成订单：当前订单状态为 ${checkData.data.status}，只有进行中的订单才能完成`);
+              return;
+            }
+          }
+
+          console.log('更新订单状态为已完成:', currentOrder.id);
+          const statusUpdateResponse = await fetch(`/api/orders/${currentOrder.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              action: 'changeStatus',
+              status: 'COMPLETED',
+              updatedBy: userInfo?.username || 'client',
+              reason: '所有工艺步骤已完成',
+              currentStationId: workstationSession?.workstation.id
+            })
+          });
+          
+          if (statusUpdateResponse.ok) {
+            const statusResult = await statusUpdateResponse.json();
+            console.log('订单状态更新为已完成:', statusResult);
+          } else {
+            console.error('订单状态更新失败');
+            const errorData = await statusUpdateResponse.json();
+            console.error('错误详情:', errorData);
+            alert('订单完成失败: ' + (errorData.error || '未知错误'));
+          }
+        } catch (error) {
+          console.error('更新订单状态时出错:', error);
+          alert('订单完成时发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
+        }
+      };
+      
+      // 先更新状态，然后清理界面
+      completeOrder();
+      
+      // 停止PLC监控
+      setIsMonitoringPLC(false);
+      monitoringControlRef.current.isActive = false;
+      monitoringControlRef.current.shouldStop = true;
+      setScreenError(false);
+      
+      // 退出执行模式
+      setIsExecutionMode(false);
+      setCurrentOrder(null);
+      setCurrentStepIndex(0);
+      setCurrentActionIndex(0);
+      setShowStepSelectMenu(false);
+      setStartTime(null); // 重置计时器
+      
+      // 立即刷新订单列表（移除已完成的订单） - 确保在状态更新完成后执行
+      setTimeout(async () => {
+        if (workstationSession) {
+          console.log('订单完成后立即刷新订单列表...');
+          await loadOrdersWithSession(workstationSession);
+          // 再次刷新确保数据同步
+          setTimeout(() => {
+            if (workstationSession) {
+              loadOrdersWithSession(workstationSession);
+            }
+          }, 1000);
+        }
+      }, 500);
     }
   };
 
@@ -797,9 +1050,15 @@ export default function WorkstationPage() {
       return;
     }
 
-    // 重置屏幕状态
+    // 重置屏幕状态和监控控制
     setScreenError(false);
     setIsMonitoringPLC(true);
+    
+    // 重置监控控制ref
+    monitoringControlRef.current = {
+      isActive: true,
+      shouldStop: false
+    };
 
     try {
       // 获取设备的真实IP信息
@@ -817,26 +1076,38 @@ export default function WorkstationPage() {
       
       console.log(`自动开始监控PLC: ${action.name}, 设备: ${device.name} (${deviceIP}:${devicePort})`);
       
-      // 从动作配置中读取传感器值地址
+      // 从动作配置中读取传感器值地址和期望值
       const sensorValue = action.parameters?.sensorValue || action.parameters?.completionCondition || action.deviceAddress || '';
       
       console.log('动作配置调试信息:', {
         actionName: action.name,
         parameters: action.parameters,
         deviceAddress: action.deviceAddress,
-        sensorValue: sensorValue
+        sensorValue: sensorValue,
+        expectedValue: action.expectedValue
       });
       
       if (!sensorValue) {
         console.log('动作未配置传感器值地址，跳过监控');
         setIsMonitoringPLC(false);
+        monitoringControlRef.current.isActive = false;
         return;
       }
       
-      // 解析PLC地址 - 从配置的传感器值读取
-      const parseAddress = (address: string) => {
-        // 移除等号后的值部分
-        const cleanAddress = address.split('=')[0];
+      // 解析PLC地址和期望值 - 支持 DB10.DBX0.0=1 格式
+      const parseAddressAndExpectedValue = (addressString: string) => {
+        // 检查是否包含等号，分离地址和期望值
+        let cleanAddress = addressString.trim();
+        let expectedValue = '1'; // 默认期望值为1
+        
+        if (addressString.includes('=')) {
+          const parts = addressString.split('=');
+          cleanAddress = parts[0].trim();
+          expectedValue = parts[1].trim();
+        } else if (action.expectedValue) {
+          // 如果动作有单独配置的期望值，使用它
+          expectedValue = action.expectedValue.toString();
+        }
         
         // 解析DB10.DBX0.0格式
         const dbMatch = cleanAddress.match(/DB(\d+)\.DBX(\d+)\.(\d+)/);
@@ -846,22 +1117,26 @@ export default function WorkstationPage() {
             dbNumber: parseInt(dbMatch[1]),
             byte: parseInt(dbMatch[2]),
             bit: parseInt(dbMatch[3]),
-            address: cleanAddress
+            address: cleanAddress,
+            expectedValue: expectedValue,
+            fullCondition: `${cleanAddress}=${expectedValue}`
           };
         }
         
-        // 如果解析失败，返回默认值
+        // 如果解析失败，尝试其他格式或返回默认值
         return {
           type: 'DB',
           dbNumber: 0,
           byte: 0,
           bit: 0,
-          address: cleanAddress
+          address: cleanAddress,
+          expectedValue: expectedValue,
+          fullCondition: `${cleanAddress}=${expectedValue}`
         };
       };
       
-      const addressInfo = parseAddress(sensorValue);
-      console.log('解析的PLC地址:', addressInfo);
+      const addressInfo = parseAddressAndExpectedValue(sensorValue);
+      console.log('解析的PLC地址和期望值:', addressInfo);
       
       // 设置超时时间（默认30秒）
       const timeoutMs = (action.timeout || action.parameters?.timeout || 30) * 1000;
@@ -869,16 +1144,11 @@ export default function WorkstationPage() {
       
       // 持续监控PLC值
       const monitorPLCValue = async (): Promise<boolean> => {
-        while (Date.now() - startTime < timeoutMs) {
-          // 检查是否还在监控状态
-          if (!isMonitoringPLC) {
-            return false;
-          }
-          
+        while (Date.now() - startTime < timeoutMs && monitoringControlRef.current.isActive && !monitoringControlRef.current.shouldStop) {
           try {
             console.log(`读取PLC地址: ${addressInfo.address}`);
             
-            const response = await fetch(`/api/device-communication/devices/${action.device.deviceId}/read`, {
+            const response = await fetch(`/api/device-communication/devices/${action.device.id}/read`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -894,15 +1164,16 @@ export default function WorkstationPage() {
               const result = await response.json();
               if (result.success) {
                 const value = result.value;
-                console.log(`PLC读取结果: ${addressInfo.address} = ${value}`);
+                console.log(`PLC读取结果: ${addressInfo.address} = ${value}, 期望值: ${addressInfo.expectedValue}`);
                 
-                // 判断值是否为1
-                if (value === 1 || value === true || value === '1') {
-                  console.log('PLC值检测通过，动作完成');
+                // 判断值是否匹配期望值
+                const isMatch = checkValueMatch(value, addressInfo.expectedValue);
+                if (isMatch) {
+                  console.log(`PLC值检测通过，动作完成 (${addressInfo.fullCondition})`);
                   return true;
                 }
                 
-                console.log(`等待PLC值变为1，当前值: ${value}`);
+                console.log(`等待PLC值变为期望值，当前: ${addressInfo.address}=${value}, 期望: ${addressInfo.expectedValue}`);
               } else {
                 console.warn('PLC读取失败:', result.error);
               }
@@ -920,8 +1191,11 @@ export default function WorkstationPage() {
           }
         }
         
-        // 超时
-        throw new Error('TIMEOUT');
+        // 超时或被停止
+        if (Date.now() - startTime >= timeoutMs) {
+          throw new Error('TIMEOUT');
+        }
+        return false;
       };
 
       // 开始监控
@@ -929,14 +1203,16 @@ export default function WorkstationPage() {
       
       if (success) {
         // 监控成功，动作通过
-        console.log(`动作自动完成: ${action.name}, PLC地址 ${addressInfo.address} 值已变为1`);
+        console.log(`动作自动完成: ${action.name}, PLC条件 ${addressInfo.fullCondition} 已满足`);
         setIsMonitoringPLC(false);
+        monitoringControlRef.current.isActive = false;
         setTimeout(() => handleNextAction(), 500); // 短暂延迟后自动下一步
       }
       
     } catch (error) {
       console.error('PLC监控失败:', error);
       setIsMonitoringPLC(false);
+      monitoringControlRef.current.isActive = false;
       
       // 获取设备IP用于错误显示
       let deviceIP = 'Unknown IP';
@@ -958,7 +1234,7 @@ export default function WorkstationPage() {
         deviceName: action.device.name,
         deviceIP: deviceIP,
         errorMessage: error instanceof Error && error.message === 'TIMEOUT' ? 
-          `设备连接超时 - PLC地址 ${addressInfo.address} 监控超时` : 
+          `设备连接超时 - PLC条件 ${addressInfo.fullCondition} 监控超时` : 
           `连接错误: ${error instanceof Error ? error.message : '未知错误'}`,
         actionName: action.name
       });
@@ -998,6 +1274,8 @@ export default function WorkstationPage() {
     if (confirm('确定要退出工艺执行吗？')) {
       // 停止PLC监控
       setIsMonitoringPLC(false);
+      monitoringControlRef.current.isActive = false;
+      monitoringControlRef.current.shouldStop = true;
       setScreenError(false);
       
       setIsExecutionMode(false);
@@ -1006,6 +1284,14 @@ export default function WorkstationPage() {
       setCurrentActionIndex(0);
       setShowStepSelectMenu(false);
       setStartTime(null); // 重置计时器
+      
+      // 退出执行模式后立即刷新订单列表
+      setTimeout(() => {
+        if (workstationSession) {
+          console.log('退出执行模式后刷新订单列表...');
+          loadOrdersWithSession(workstationSession);
+        }
+      }, 100);
     }
   };
 
@@ -1053,8 +1339,10 @@ export default function WorkstationPage() {
     try {
       const address = `${plcTestParams.type}${plcTestParams.dbNumber}.${plcTestParams.byte}.${plcTestParams.bit}`;
       console.log(`Reading PLC address: ${address}`);
+      console.log(`Current PLC Device:`, currentPLCDevice);
+      console.log(`Using device ID for API call:`, currentPLCDevice.id);
       
-      const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.deviceId}/read`, {
+      const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.id}/read`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1108,7 +1396,7 @@ export default function WorkstationPage() {
       const address = `${plcTestParams.type}${plcTestParams.dbNumber}.${plcTestParams.byte}.${plcTestParams.bit}`;
       console.log(`Writing PLC address: ${address} = ${plcTestParams.writeValue}`);
       
-      const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.deviceId}/write`, {
+      const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.id}/write`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1183,7 +1471,7 @@ export default function WorkstationPage() {
       switch (testType) {
         case 'ping':
           // 使用状态检查API作为ping测试
-          apiUrl = `/api/device-communication/devices/${currentGenericDevice.deviceId}/status`;
+          apiUrl = `/api/device-communication/devices/${currentGenericDevice.id}/status`;
           method = 'GET';
           body = null;
           break;
@@ -1898,9 +2186,17 @@ export default function WorkstationPage() {
                               : '检测中...'
                           }></div>
                         </div>
-                        {isMonitoringPLC && currentAction?.deviceAddress && (
+                        {isMonitoringPLC && currentAction && (
                           <div className="text-red-600 text-xs mt-1 font-medium">
-                            监控: {currentAction.deviceAddress}
+                            监控: {(() => {
+                              const sensorValue = currentAction.parameters?.sensorValue || currentAction.parameters?.completionCondition || currentAction.deviceAddress || '';
+                              if (sensorValue.includes('=')) {
+                                return sensorValue; // 显示完整的条件，如 DB10.DBX0.0=1
+                              } else {
+                                const expectedValue = currentAction.expectedValue || '1';
+                                return `${sensorValue}=${expectedValue}`;
+                              }
+                            })()}
                           </div>
                         )}
                       </div>
@@ -2220,6 +2516,8 @@ export default function WorkstationPage() {
                       setDeviceErrorInfo(null);
                       // 保持红屏状态以提醒员工
                       setIsMonitoringPLC(false); // 停止监控
+                      monitoringControlRef.current.isActive = false;
+                      monitoringControlRef.current.shouldStop = true;
                     }}
                     className="flex-1 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
                   >
@@ -2230,9 +2528,16 @@ export default function WorkstationPage() {
                       setShowDeviceErrorModal(false);
                       setDeviceErrorInfo(null);
                       setScreenError(false); // 清除红屏状态
-                      setIsMonitoringPLC(false); // 停止监控
-                      // 重试执行
-                      setTimeout(() => executeCurrentAction(), 100);
+                      setIsMonitoringPLC(false); // 停止当前监控
+                      monitoringControlRef.current.shouldStop = true; // 停止当前监控循环
+                      
+                      // 重试执行 - 重新开始PLC监控
+                      setTimeout(() => {
+                        const currentAction = getCurrentAction();
+                        if (currentAction) {
+                          startPLCMonitoring(currentAction);
+                        }
+                      }, 100);
                     }}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
@@ -2274,10 +2579,10 @@ export default function WorkstationPage() {
           {/* 表格标题 */}
           <div className="bg-gray-50 px-6 py-4 border-b">
             <div className="grid grid-cols-4 gap-4 font-black text-gray-900 text-3xl">
-              <div className="text-center">Customer seq #</div>
-              <div className="text-center">Car number</div>
-              <div className="text-center">Product family</div>
-              <div className="text-center">carrier_id</div>
+              <div className="text-center">订单号</div>
+              <div className="text-center">生产号</div>
+              <div className="text-center">产品信息</div>
+              <div className="text-center">交付时间</div>
             </div>
           </div>
           
@@ -2303,11 +2608,29 @@ export default function WorkstationPage() {
                     key={order.id}
                     className="px-6 py-4 border-b hover:bg-gray-50 transition-colors"
                   >
-                    <div className="grid grid-cols-4 gap-4 text-2xl font-bold">
-                      <div className="font-mono text-center">{order.orderNumber}</div>
-                      <div className="font-mono text-center">{order.productionNumber}</div>
-                      <div className="font-bold text-center">{order.productFamily}</div>
-                      <div className="font-mono text-center">{order.carrierId}</div>
+                    <div className="grid grid-cols-4 gap-4 text-2xl font-bold items-center">
+                      {/* 订单号 */}
+                      <div className="text-center">
+                        <div className="font-mono">{order.orderNumber}</div>
+                      </div>
+                      
+                      {/* 生产号 */}
+                      <div className="text-center">
+                        <div className="font-mono text-blue-600">{order.productionNumber}</div>
+                      </div>
+                      
+                      {/* 产品信息 */}
+                      <div className="text-center">
+                        <div className="font-bold">{order.productFamily}</div>
+                        <div className="text-sm text-gray-600 font-normal">BOM: 未配置</div>
+                        <div className="text-sm text-gray-600 font-normal">工艺: P1</div>
+                      </div>
+                      
+                      {/* 交付时间 */}
+                      <div className="text-center">
+                        <div className="text-lg">2025-01-15</div>
+                        <div className="text-sm text-gray-600 font-normal">计划交付日期</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2323,16 +2646,18 @@ export default function WorkstationPage() {
             {/* START 按钮 */}
             <button
               onClick={handleStart}
-              disabled={orders.length === 0 || isProcessing}
+              disabled={orders.length === 0 || !orders.some(order => order.status?.toLowerCase() === 'pending') || isProcessing}
               className="w-full h-20 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xl font-bold rounded-lg transition-colors shadow-lg"
             >
               {isProcessing ? (
                 <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-2"></div>
-                  {t('workstation.startProcessing')}
+                  启动中...
                 </div>
+              ) : orders.some(order => order.status?.toLowerCase() === 'pending') ? (
+                "开始"
               ) : (
-                t('workstation.start')
+                "暂无待开始订单"
               )}
             </button>
 
@@ -2355,12 +2680,38 @@ export default function WorkstationPage() {
             {/* 订单状态信息 */}
             {orders.length > 0 && (
               <div className="bg-white rounded-lg p-4 shadow-sm border">
-                <h3 className="font-semibold text-gray-900 mb-2">下一个订单</h3>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <div>订单号: {orders[0].orderNumber}</div>
-                  <div>车号: {orders[0].productionNumber}</div>
-                  <div>产品: {orders[0].productFamily}</div>
-                  <div>载具ID: {orders[0].carrierId}</div>
+                <h3 className="font-semibold text-gray-900 mb-2">订单概览</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">待开始:</span>
+                    <span className="font-bold text-yellow-600">{orders.filter(order => order.status?.toLowerCase() === 'pending').length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">进行中:</span>
+                    <span className="font-bold text-green-600">{orders.filter(order => order.status?.toLowerCase() === 'in_progress').length}</span>
+                  </div>
+                  {(() => {
+                    const nextOrder = orders.find(order => order.status?.toLowerCase() === 'pending') || orders[0];
+                    return (
+                      <>
+                        <hr className="my-2" />
+                        <div className="text-xs text-gray-500">下一个订单:</div>
+                        <div>订单号: <span className="font-mono">{nextOrder.orderNumber}</span></div>
+                        <div>车号: <span className="font-mono">{nextOrder.productionNumber}</span></div>
+                        <div>产品: {nextOrder.productFamily}</div>
+                        <div>状态: 
+                          <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                            nextOrder.status?.toLowerCase() === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            nextOrder.status?.toLowerCase() === 'in_progress' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {nextOrder.status?.toLowerCase() === 'pending' ? '待开始' :
+                             nextOrder.status?.toLowerCase() === 'in_progress' ? '进行中' : '未知'}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}

@@ -32,5 +32,41 @@
     "ConnectionInfo": null,
     "CreatedAt": "2025-08-26T06:02:37.0986298Z",
     "UpdatedAt": "2025-08-26T06:02:37.0986298Z"
+  },
+  {
+    "DeviceId": "cmesomk650021tm1ojqbqm4pi",
+    "WorkstationId": "cmes6s081006htmuwhsl0gpri",
+    "Name": "PLC_127.0.0.1_6000",
+    "Description": "M1工位三菱PLC设备",
+    "DeviceType": "PLC",
+    "Connection": {
+      "Type": "TCP",
+      "Address": "127.0.0.1",
+      "Port": 6000,
+      "Parameters": {
+        "plcType": "Mitsubishi_MC",
+        "connectionType": "TCP"
+      }
+    },
+    "Enabled": true,
+    "Settings": {
+      "plcType": "Mitsubishi_MC",
+      "connectionType": "TCP"
+    },
+    "ConnectionType": "TCP",
+    "ConnectionString": "",
+    "Configuration": {
+      "Plc": {
+        "Brand": "MITSUBISHI",
+        "Model": "Q_SERIES",
+        "Driver": "plc_mitsubishi"
+      },
+      "Scanner": null,
+      "Camera": null,
+      "Additional": {}
+    },
+    "ConnectionInfo": null,
+    "CreatedAt": "2025-08-26T15:09:39.101Z",
+    "UpdatedAt": "2025-08-27T01:13:00.000Z"
   }
 ]

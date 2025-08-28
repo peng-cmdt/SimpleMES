@@ -14,17 +14,22 @@ namespace DeviceCommunicationService.Services
         private readonly ILogger<WorkstationDeviceManager> _logger;
         private readonly IDeviceManager _deviceManager;
         private readonly HttpClient _httpClient;
+        private readonly IConfiguration _configuration;
+        private readonly string _frontendApiBaseUrl;
         private readonly ConcurrentDictionary<string, WorkstationSession> _sessions = new();
         private readonly ConcurrentDictionary<string, List<WorkstationDevice>> _workstationDevices = new();
 
         public WorkstationDeviceManager(
             ILogger<WorkstationDeviceManager> logger, 
             IDeviceManager deviceManager,
-            HttpClient httpClient)
+            HttpClient httpClient,
+            IConfiguration configuration)
         {
             _logger = logger;
             _deviceManager = deviceManager;
             _httpClient = httpClient;
+            _configuration = configuration;
+            _frontendApiBaseUrl = _configuration.GetValue<string>("FrontendApi:BaseUrl") ?? "http://localhost:3009";
         }
 
         /// <summary>
@@ -366,7 +371,7 @@ namespace DeviceCommunicationService.Services
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 // 调用前端heartbeat API
-                var response = await _httpClient.PostAsync("http://localhost:3008/api/devices/heartbeat", content);
+                var response = await _httpClient.PostAsync($"{_frontendApiBaseUrl}/api/devices/heartbeat", content);
                 
                 if (response.IsSuccessStatusCode)
                 {

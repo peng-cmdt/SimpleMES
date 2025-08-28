@@ -1,0 +1,29 @@
+{
+  "deviceId": "cmeu267pm000ztm18haxdg7oe",
+  "workstationId": "cmes6s081006htmuwhsl0gpri",
+  "name": "PLC_10.102.11.64",
+  "description": "Test PLC device at 10.102.11.64",
+  "deviceType": "PLC",
+  "connectionType": "TCP",
+  "connectionString": "",
+  "enabled": true,
+  "connection": {
+    "type": "TCP",
+    "address": "10.102.11.64",
+    "port": 102,
+    "parameters": {
+      "plcType": "Siemens_S7",
+      "rack": 0,
+      "slot": 1
+    }
+  },
+  "settings": {
+    "plcType": "Siemens_S7"
+  },
+  "configuration": {
+    "plc": {},
+    "scanner": {},
+    "camera": {},
+    "additional": {}
+  }
+}

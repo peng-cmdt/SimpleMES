@@ -8,18 +8,25 @@ namespace DeviceCommunicationService.Services
     public class DeviceManager : IDeviceManager
     {
         private readonly ILogger<DeviceManager> _logger;
+        private readonly IDeviceConfigSyncService _syncService;
         private readonly ConcurrentDictionary<string, DeviceConfig> _devices = new();
         private readonly ConcurrentDictionary<DeviceType, IDeviceDriver> _drivers = new();
         private readonly ConcurrentDictionary<string, DeviceStatusInfo> _deviceStatus = new();
-        private readonly string _configFilePath;
+        private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-        public DeviceManager(ILogger<DeviceManager> logger, IConfiguration configuration)
+        public DeviceManager(ILogger<DeviceManager> logger, IDeviceConfigSyncService syncService)
         {
             _logger = logger;
-            _configFilePath = configuration.GetValue<string>("DeviceConfigPath") ?? "devices.json";
+            _syncService = syncService;
+            
+            // 订阅配置更新事件
+            _syncService.OnDeviceConfigsUpdated += OnDeviceConfigsUpdated;
             
             // 在启动时加载设备配置
             _ = Task.Run(LoadDeviceConfigsAsync);
+            
+            // 启动定期同步
+            _ = Task.Run(() => _syncService.StartPeriodicSyncAsync(_cancellationTokenSource.Token));
         }
 
         public void RegisterDriver(IDeviceDriver driver)
@@ -337,44 +344,118 @@ namespace DeviceCommunicationService.Services
         {
             try
             {
-                if (File.Exists(_configFilePath))
+                // 从前台API获取设备配置而不是读取静态文件
+                var configs = await _syncService.FetchDeviceConfigsAsync();
+                
+                if (configs.Any())
                 {
-                    var json = await File.ReadAllTextAsync(_configFilePath);
-                    var configs = JsonSerializer.Deserialize<List<DeviceConfig>>(json);
-                    
-                    if (configs != null)
-                    {
-                        foreach (var config in configs)
-                        {
-                            _devices.TryAdd(config.DeviceId, config);
-                            _deviceStatus.TryAdd(config.DeviceId, new DeviceStatusInfo
-                            {
-                                DeviceId = config.DeviceId,
-                                Status = DeviceStatus.DISCONNECTED
-                            });
-                        }
-                        _logger.LogInformation("Loaded {Count} device configurations", configs.Count);
-                    }
+                    OnDeviceConfigsUpdated(configs);
+                    _logger.LogInformation("Loaded {Count} device configurations from frontend API", configs.Count);
+                }
+                else
+                {
+                    _logger.LogWarning("No device configurations received from frontend API");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to load device configurations from {FilePath}", _configFilePath);
+                _logger.LogError(ex, "Failed to load device configurations from frontend API");
             }
         }
 
-        private async Task SaveDeviceConfigsAsync()
+        private void OnDeviceConfigsUpdated(List<DeviceConfig> configs)
         {
             try
             {
-                var configs = _devices.Values.ToList();
-                var json = JsonSerializer.Serialize(configs, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(_configFilePath, json);
+                // 记录现有设备ID
+                var oldDeviceIds = _devices.Keys.ToList();
+                var newDeviceIds = configs.Select(c => c.DeviceId).ToHashSet();
+                
+                // 添加或更新设备（不清除整个列表）
+                foreach (var config in configs)
+                {
+                    // 检查设备是否是最近添加的（10秒内）
+                    if (_devices.TryGetValue(config.DeviceId, out var existingDevice))
+                    {
+                        // 如果是最近通过AddDeviceAsync添加的设备，保留原始信息
+                        if (existingDevice.CreatedAt.AddSeconds(10) > DateTime.UtcNow)
+                        {
+                            _logger.LogDebug("Preserving recently added device: {DeviceId}", config.DeviceId);
+                            continue;
+                        }
+                    }
+                    
+                    // 更新或添加设备
+                    _devices.AddOrUpdate(config.DeviceId, config, (key, old) => {
+                        // 保留创建时间
+                        config.CreatedAt = old.CreatedAt;
+                        config.UpdatedAt = DateTime.UtcNow;
+                        return config;
+                    });
+                    
+                    // 初始化或更新设备状态
+                    if (!_deviceStatus.ContainsKey(config.DeviceId))
+                    {
+                        _deviceStatus.TryAdd(config.DeviceId, new DeviceStatusInfo
+                        {
+                            DeviceId = config.DeviceId,
+                            Status = DeviceStatus.DISCONNECTED
+                        });
+                    }
+                }
+                
+                // 只删除不在新列表中且不是最近添加的设备
+                foreach (var oldDeviceId in oldDeviceIds)
+                {
+                    if (!newDeviceIds.Contains(oldDeviceId))
+                    {
+                        if (_devices.TryGetValue(oldDeviceId, out var device))
+                        {
+                            // 如果设备是最近添加的（10秒内），不要删除
+                            if (device.CreatedAt.AddSeconds(10) > DateTime.UtcNow)
+                            {
+                                _logger.LogInformation("Keeping recently added device: {DeviceId} (added {Seconds}s ago)", 
+                                    oldDeviceId, (DateTime.UtcNow - device.CreatedAt).TotalSeconds);
+                                continue;
+                            }
+                        }
+                        
+                        _devices.TryRemove(oldDeviceId, out _);
+                        _deviceStatus.TryRemove(oldDeviceId, out _);
+                        _logger.LogInformation("Removed device status for deleted device: {DeviceId}", oldDeviceId);
+                    }
+                }
+                
+                _logger.LogInformation("Device configurations updated: {Count} devices active", _devices.Count);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save device configurations to {FilePath}", _configFilePath);
+                _logger.LogError(ex, "Failed to update device configurations");
             }
+        }
+
+        // 添加手动同步方法
+        public async Task<bool> RefreshDeviceConfigurationsAsync(string? workstationId = null)
+        {
+            try
+            {
+                _logger.LogInformation("Manually refreshing device configurations for workstation: {WorkstationId}", workstationId ?? "all");
+                return await _syncService.SyncDeviceConfigsAsync(workstationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to refresh device configurations");
+                return false;
+            }
+        }
+
+        // 移除文件保存逻辑，改为更轻量级的实现
+        private Task SaveDeviceConfigsAsync()
+        {
+            // 不再保存到文件，配置由前台管理
+            // 如果需要持久化，可以选择性地同步回前台API
+            _logger.LogDebug("Device configurations are managed by frontend API, no file save needed");
+            return Task.CompletedTask;
         }
     }
 }

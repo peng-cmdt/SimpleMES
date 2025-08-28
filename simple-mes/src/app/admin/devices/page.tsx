@@ -89,7 +89,8 @@ export default function DeviceManagementPage() {
 
   const loadTemplates = async () => {
     try {
-      const response = await fetch('/api/device-templates');
+      // 添加高限制以获取所有设备模板，避免分页问题
+      const response = await fetch('/api/device-templates?limit=1000&_t=' + Date.now());
       if (response.ok) {
         const data = await response.json();
         setTemplates(data.data.templates || []);

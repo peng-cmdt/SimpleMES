@@ -20,9 +20,37 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<PlcDriver>();
 builder.Services.AddSingleton<ScannerDriver>();
 
+// 注册HTTP客户端 - 用于与前台API通信
+builder.Services.AddHttpClient<IDeviceConfigSyncService, DeviceConfigSyncService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "SimpleMES-DeviceCommunicationService/1.0");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.ConfigurePrimaryHttpMessageHandler(() => 
+{
+    // 创建自定义代理配置，明确绕过localhost
+    var proxy = new System.Net.WebProxy();
+    proxy.BypassProxyOnLocal = true;
+    proxy.BypassList = new string[] { "localhost", "127.0.0.1", "::1" };
+    
+    return new HttpClientHandler
+    {
+        Proxy = proxy,  // 使用自定义代理配置
+        UseProxy = true,  // 启用代理以便使用BypassProxyOnLocal
+        UseDefaultCredentials = false,
+        ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true,
+        MaxConnectionsPerServer = 5,
+        PreAuthenticate = false,
+        UseCookies = false
+    };
+})
+.SetHandlerLifetime(TimeSpan.FromMinutes(5));
+
 // 注册自定义服务
 builder.Services.AddHttpClient<WorkstationDeviceManager>();
 builder.Services.AddSingleton<IDeviceManager, DeviceManager>();
+builder.Services.AddSingleton<DeviceManager>(); // 额外注册具体类型以便在ConfigSyncController中使用
 builder.Services.AddSingleton<IWorkstationDeviceManager, WorkstationDeviceManager>();
 builder.Services.AddSingleton<DeviceWebSocketManager>();
 builder.Services.AddSingleton<IWebSocketManager>(provider => provider.GetService<DeviceWebSocketManager>()!);

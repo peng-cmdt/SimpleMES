@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     }
     
     if (status) {
-      // 映射小写状态值到Prisma枚举值
+      // 支持多个状态查询，用逗号分隔，如：status=pending,in_progress
+      const statusList = status.split(',').map(s => s.trim());
       const statusMap: { [key: string]: string } = {
         'pending': 'PENDING',
         'in_progress': 'IN_PROGRESS', 
@@ -37,7 +38,14 @@ export async function GET(request: NextRequest) {
         'cancelled': 'CANCELLED',
         'error': 'ERROR'
       };
-      where.status = statusMap[status.toLowerCase()] || status.toUpperCase();
+      
+      const mappedStatuses = statusList
+        .map(s => statusMap[s.toLowerCase()] || s.toUpperCase())
+        .filter(Boolean); // 过滤掉无效状态
+      
+      if (mappedStatuses.length > 0) {
+        where.status = { in: mappedStatuses };
+      }
     }
     
     if (productId) {
@@ -117,6 +125,8 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: [
+        // 首先按订单号排序（提取数字部分进行排序）
+        { orderNumber: 'asc' },
         { priority: 'asc' },
         { sequence: 'asc' },
         { plannedDate: 'asc' },

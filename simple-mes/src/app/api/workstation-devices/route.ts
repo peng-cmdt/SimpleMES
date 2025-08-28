@@ -201,6 +201,52 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // 等待一小段时间确保数据库事务完成
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 立即通知.NET服务更新设备配置
+    try {
+      console.log('Notifying .NET service about new device:', device.displayName);
+      
+      const notificationPayload = {
+        changeType: 'device_added',
+        workstationId: workstation.workstationId,
+        affectedDevices: [device.id],
+        deviceData: {
+          deviceId: device.id,
+          name: device.displayName,
+          type: device.template?.type || 'PLC_CONTROLLER',
+          brand: device.template?.brand || 'SIEMENS',
+          model: device.template?.model || 'S7_1200',
+          ipAddress: device.ipAddress,
+          port: device.port,
+          status: device.status,
+          workstationId: device.workstationId
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      // 尝试通知.NET服务
+      const notificationResponse = await fetch('http://localhost:5000/api/ConfigSync/notify-change', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Frontend-DeviceSync/1.0'
+        },
+        body: JSON.stringify(notificationPayload),
+        signal: AbortSignal.timeout(3000) // 3秒超时
+      });
+
+      if (notificationResponse.ok) {
+        console.log('✓ .NET service notified successfully about new device');
+      } else {
+        console.warn('⚠ Failed to notify .NET service, status:', notificationResponse.status);
+      }
+    } catch (notificationError) {
+      console.warn('⚠ Could not notify .NET service about new device:', notificationError.message);
+      // 不影响设备创建，只是记录警告
+    }
+
     return NextResponse.json({
       success: true,
       data: device

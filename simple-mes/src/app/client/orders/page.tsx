@@ -81,14 +81,19 @@ export default function ClientOrdersPage() {
 
   const loadOrders = async () => {
     try {
-      // 首先尝试从API加载真实数据
-      const response = await fetch('/api/orders?status=pending&limit=20');
+      // 首先尝试从API加载真实数据 - 只显示进行中的订单
+      const response = await fetch('/api/orders?status=in_progress&limit=20');
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data.orders) {
-          // 按照车号(T00x)排序
+          // 按照车号(Txxx)数字部分从小到大排序
           const sortedOrders = data.data.orders.sort((a: Order, b: Order) => {
-            return a.productionNumber.localeCompare(b.productionNumber);
+            // 提取T后面的数字部分进行比较
+            const getOrderNumber = (orderNumber: string) => {
+              const match = orderNumber.match(/T(\d+)/);
+              return match ? parseInt(match[1]) : 0;
+            };
+            return getOrderNumber(a.productionNumber) - getOrderNumber(b.productionNumber);
           });
           setOrders(sortedOrders);
           setIsLoading(false);
@@ -160,27 +165,6 @@ export default function ClientOrdersPage() {
     setIsLoading(false);
   };
 
-  const handleStart = () => {
-    if (orders.length === 0) {
-      alert('暂无订单可以处理');
-      return;
-    }
-    
-    // 自动选择第一个订单（按T00x排序后的第一个）
-    const firstOrder = orders[0];
-    
-    // 跳转到工艺执行界面，传递订单ID
-    router.push(`/client/workstation/execute?orderId=${firstOrder.id}`);
-  };
-
-  const handleAdjustSequence = () => {
-    alert('调整序列功能 - 开发中');
-  };
-
-  const handleManualInput = () => {
-    alert('手动输入功能 - 开发中');
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("clientAuth");
     localStorage.removeItem("clientUserInfo");
@@ -242,7 +226,7 @@ export default function ClientOrdersPage() {
 
       {/* 主内容区域 */}
       <div className="flex flex-1">
-        {/* 左侧订单列表 */}
+        {/* 订单列表 */}
         <div className="flex-1 p-6">
           {/* 订单表格 */}
           <div className="bg-white border border-gray-300 rounded">
@@ -253,13 +237,19 @@ export default function ClientOrdersPage() {
                     Customer seq #
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
-                    Car number
+                    生产序号
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
+                    生产订单
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
                     Product family
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
                     carrier_id
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 border-b border-gray-200">
+                    交付时间
                   </th>
                 </tr>
               </thead>
@@ -273,49 +263,28 @@ export default function ClientOrdersPage() {
                       {order.carNumber}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 border-b border-gray-200">
+                      {order.orderNumber}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 border-b border-gray-200">
                       {order.productFamily}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 border-b border-gray-200">
                       {order.carrierId}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 border-b border-gray-200">
+                      待定
+                    </td>
                   </tr>
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       暂无订单数据
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* 右侧操作按钮 */}
-        <div className="w-80 bg-gray-50 border-l border-gray-200 p-6">
-          <div className="space-y-4">
-            <button
-              onClick={handleStart}
-              disabled={orders.length === 0}
-              className="w-full h-16 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-lg font-medium rounded transition-colors"
-            >
-              开始
-            </button>
-            
-            <button
-              onClick={handleAdjustSequence}
-              className="w-full h-16 bg-blue-500 hover:bg-blue-600 text-white text-lg font-medium rounded transition-colors"
-            >
-              调整序列
-            </button>
-            
-            <button
-              onClick={handleManualInput}
-              className="w-full h-16 bg-blue-500 hover:bg-blue-600 text-white text-lg font-medium rounded transition-colors"
-            >
-              手动输入
-            </button>
           </div>
         </div>
       </div>

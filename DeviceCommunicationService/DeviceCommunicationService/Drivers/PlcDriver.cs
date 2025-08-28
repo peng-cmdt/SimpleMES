@@ -666,7 +666,30 @@ namespace DeviceCommunicationService.Drivers
             {
                 case DataType.BOOL:
                     var boolValue = ExtractValue<bool>(value);
-                    return await client.WriteAsync(address, boolValue);
+                    
+                    _logger.LogInformation("Writing bool value {Value} to Mitsubishi address {Address}", boolValue, address);
+                    
+                    // 尝试使用WriteAsync而不是WriteBoolAsync
+                    // 因为ReadAsync能成功，WriteAsync可能也能成功处理相同的地址格式
+                    try
+                    {
+                        return await client.WriteAsync(address, boolValue);
+                    }
+                    catch (Exception ex1)
+                    {
+                        _logger.LogWarning("WriteAsync failed for {Address}: {Error}, trying WriteAsync with boolean", address, ex1.Message);
+                        // 如果WriteAsync失败，尝试使用另一种方式写入布尔值
+                        try
+                        {
+                            return await client.WriteAsync(address, new bool[] { boolValue });
+                        }
+                        catch (Exception ex2)
+                        {
+                            _logger.LogError("Both WriteAsync methods failed for {Address}. WriteAsync: {Error1}, WriteAsync array: {Error2}", 
+                                address, ex1.Message, ex2.Message);
+                            throw new Exception($"Mitsubishi PLC write failed. WriteAsync error: {ex1.Message}, WriteAsync array error: {ex2.Message}");
+                        }
+                    }
 
                 case DataType.INT:
                     var intValue = ExtractValue<short>(value);

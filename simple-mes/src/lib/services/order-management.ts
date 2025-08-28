@@ -56,17 +56,50 @@ export class OrderManagementService {
       // 验证状态转换的合法性
       this.validateStatusTransition(oldStatus as OrderStatus, newStatus);
 
+      // 准备更新数据
+      const updateData: any = {
+        status: newStatus,
+        startedAt: newStatus === 'IN_PROGRESS' && !currentOrder.startedAt ? new Date() : currentOrder.startedAt,
+        completedAt: newStatus === 'COMPLETED' ? new Date() : currentOrder.completedAt,
+        updatedAt: new Date()
+      };
+
+      // Only update workstation and step IDs if they are valid and exist in the database
+      if (workstationId) {
+        try {
+          // Verify workstation exists
+          const workstationExists = await tx.workstation.findUnique({
+            where: { id: workstationId }
+          });
+          if (workstationExists) {
+            updateData.currentStationId = workstationId;
+          } else {
+            console.warn(`Workstation ID ${workstationId} not found, skipping workstation update`);
+          }
+        } catch (error) {
+          console.warn(`Error validating workstation ID ${workstationId}:`, error);
+        }
+      }
+      if (stepId) {
+        try {
+          // Verify step exists
+          const stepExists = await tx.step.findUnique({
+            where: { id: stepId }
+          });
+          if (stepExists) {
+            updateData.currentStepId = stepId;
+          } else {
+            console.warn(`Step ID ${stepId} not found, skipping step update`);
+          }
+        } catch (error) {
+          console.warn(`Error validating step ID ${stepId}:`, error);
+        }
+      }
+
       // 更新订单状态
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
-        data: {
-          status: newStatus,
-          currentStationId: workstationId || currentOrder.currentStationId,
-          currentStepId: stepId || currentOrder.currentStepId,
-          startedAt: newStatus === 'IN_PROGRESS' && !currentOrder.startedAt ? new Date() : currentOrder.startedAt,
-          completedAt: newStatus === 'COMPLETED' ? new Date() : currentOrder.completedAt,
-          updatedAt: new Date()
-        }
+        data: updateData
       });
 
       // 记录状态变更历史
@@ -333,11 +366,11 @@ export class OrderManagementService {
   private validateStatusTransition(fromStatus: OrderStatus, toStatus: OrderStatus) {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       PENDING: ['IN_PROGRESS', 'CANCELLED', 'PAUSED'],
-      IN_PROGRESS: ['COMPLETED', 'PAUSED', 'CANCELLED', 'ERROR'],
-      COMPLETED: ['CANCELLED'], // 已完成的订单一般不允许再次更改，除非取消
-      PAUSED: ['IN_PROGRESS', 'CANCELLED'],
-      CANCELLED: [], // 已取消的订单不允许更改状态
-      ERROR: ['IN_PROGRESS', 'CANCELLED'] // 错误状态可以恢复或取消
+      IN_PROGRESS: ['COMPLETED', 'PAUSED', 'CANCELLED', 'PENDING', 'ERROR'],
+      COMPLETED: ['IN_PROGRESS', 'PENDING', 'CANCELLED'], // 允许重启和重置
+      PAUSED: ['IN_PROGRESS', 'CANCELLED', 'PENDING'],
+      CANCELLED: ['PENDING'], // 允许已取消订单恢复为待开始
+      ERROR: ['IN_PROGRESS', 'CANCELLED', 'PENDING'] // 错误状态可以恢复或重置
     };
 
     const allowedStatuses = validTransitions[fromStatus] || [];

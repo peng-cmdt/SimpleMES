@@ -112,6 +112,11 @@ namespace DeviceCommunicationService.Interfaces
         /// 获取所有设备状态
         /// </summary>
         Task<IEnumerable<DeviceStatusInfo>> GetAllDeviceStatusAsync();
+        
+        /// <summary>
+        /// 刷新设备配置 - 从前台API同步最新配置
+        /// </summary>
+        Task<bool> RefreshDeviceConfigurationsAsync(string? workstationId = null);
     }
 
     /// <summary>

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deviceCommunicationClient } from '@/lib/device-communication/client';
+import { prisma } from '@/lib/prisma';
 
 interface RouteParams {
   params: { id: string }
 }
 
-// PLC写入操作 - 使用标准设备命令API
-export async function POST(request: NextRequest, { params }: RouteParams) {
+// PLC写入操作 - 使用新架构
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -21,29 +21,133 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       value
     });
 
-    // 构造完整的PLC地址
-    let fullAddress = '';
-    if (type === 'DB') {
-      fullAddress = `DB${dbNumber}.DBX${byte}.${bit}`;
+    // 尝试从两种架构中获取设备信息
+    let device = await prisma.device.findUnique({
+      where: { id }
+    });
+    
+    let deviceInfo: any = null;
+    
+    if (device) {
+      deviceInfo = {
+        deviceId: device.deviceId,
+        name: device.name,
+        type: device.type,
+        ipAddress: device.ipAddress,
+        port: device.port,
+        brand: device.brand,
+        protocol: device.protocol
+      };
     } else {
-      fullAddress = `${type}${dbNumber}.${bit}`;
+      const workstationDevice = await prisma.workstationDevice.findUnique({
+        where: { id },
+        include: { template: true }
+      });
+      
+      if (workstationDevice) {
+        deviceInfo = {
+          deviceId: workstationDevice.instanceId,
+          name: workstationDevice.displayName,
+          type: workstationDevice.template.type,
+          ipAddress: workstationDevice.ipAddress,
+          port: workstationDevice.port,
+          brand: workstationDevice.template.brand,
+          protocol: workstationDevice.protocol
+        };
+      }
+    }
+    
+    if (!deviceInfo) {
+      return NextResponse.json({
+        success: false,
+        error: 'Device not found in database'
+      }, { status: 404 });
     }
 
-    try {
-      // 使用真实的设备通信API进行PLC写入
-      const response = await deviceCommunicationClient.writePLC(id, {
+    // 根据PLC类型构造正确的地址格式
+    let fullAddress = '';
+    const isPlc6000Port = deviceInfo?.port === 6000 || 
+                         deviceInfo?.brand?.toLowerCase().includes('mitsubishi') ||
+                         deviceInfo?.type?.toLowerCase().includes('mitsubishi');
+    
+    if (isPlc6000Port) {
+      // 三菱PLC地址格式
+      if (type === 'DB') {
+        // 三菱PLC使用D寄存器 (数据寄存器)
+        if (bit !== undefined && bit !== null && (byte !== undefined && byte !== null)) {
+          // 位操作：D寄存器的位寻址 D100.0 表示D100寄存器的第0位
+          const bitPosition = byte * 8 + bit;
+          fullAddress = `D${dbNumber}.${bitPosition}`;
+        } else if (bit !== undefined && bit !== null) {
+          // 仅有位号，直接使用
+          fullAddress = `D${dbNumber}.${bit}`;
+        } else {
+          // 字操作：使用D寄存器 D100 表示整个16位寄存器
+          fullAddress = `D${dbNumber}`;
+        }
+      } else {
+        // 其他寄存器类型 (M, X, Y等)
+        fullAddress = `${type}${dbNumber}${bit !== undefined ? '.' + bit : ''}`;
+      }
+    } else {
+      // 西门子PLC地址格式（原有逻辑）
+      if (type === 'DB') {
+        fullAddress = `DB${dbNumber}.DBX${byte}.${bit}`;
+      } else {
+        fullAddress = `${type}${dbNumber}.${bit}`;
+      }
+    }
+
+    // 构建设备执行请求
+    const deviceExecutionRequest = {
+      deviceId: deviceInfo.deviceId,
+      deviceType: deviceInfo.type || 'PLC',
+      deviceInfo: {
+        ipAddress: deviceInfo.ipAddress,
+        port: deviceInfo.port,
+        plcType: deviceInfo.brand || 'Siemens_S7',
+        protocol: deviceInfo.protocol || 'TCP/IP'
+      },
+      operation: {
+        type: 'DEVICE_WRITE',
         address: fullAddress,
-        type,
-        dbNumber,
-        byte,
-        bit,
-        value
+        value: value,
+        dataType: 'BOOL'
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('Sending write request for device:', deviceInfo.name, deviceExecutionRequest);
+
+    try {
+      // 调用.NET设备通信服务的执行API
+      const dotnetServiceUrl = 'http://localhost:5000';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+      
+      const response = await fetch(`${dotnetServiceUrl}/api/devices/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(deviceExecutionRequest),
+        signal: controller.signal
       });
 
-      console.log(`PLC Write response:`, response);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Device service error:', errorText);
+        throw new Error(`Device service returned ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      console.log(`PLC Write response:`, result);
 
       // 检查响应格式
-      if (response && (response.success === true || typeof response.success === 'undefined')) {
+      if (result && result.success) {
         return NextResponse.json({
           success: true,
           value: value,
@@ -52,15 +156,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           timestamp: new Date().toISOString()
         });
       } else {
-        // 如果响应格式不符合预期，但没有错误，仍然认为成功
-        return NextResponse.json({
-          success: true,
-          value: value,
-          address: fullAddress,
-          message: `写入完成 ${fullAddress} = ${value}`,
-          timestamp: new Date().toISOString(),
-          raw_response: response
-        });
+        // 设备执行失败
+        throw new Error(result.error || result.message || 'Device execution failed');
       }
 
     } catch (serviceError) {

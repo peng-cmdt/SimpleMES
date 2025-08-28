@@ -295,8 +295,16 @@ export default function OrdersPage() {
   // BOM数据刷新触发器
   const [bomRefreshTrigger, setBomRefreshTrigger] = useState<{[orderId: string]: number}>({});
   
+  // BOM模态框零部件搜索状态
+  const [bomModalSearchType, setBomModalSearchType] = useState<'bom-items' | 'parts'>('bom-items'); // 搜索类型切换
+  const [bomModalPartQuery, setBomModalPartQuery] = useState('');
+  const [bomModalPartResults, setBomModalPartResults] = useState<Part[]>([]);
+  const [bomModalShowPartResults, setBomModalShowPartResults] = useState(false);
+  const [bomModalSearchingParts, setBomModalSearchingParts] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const bomModalPartSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useLanguage();
 
   // 触发特定订单的BOM数据刷新
@@ -318,6 +326,16 @@ export default function OrdersPage() {
       loadProcessesByProduct(formData.productId);
     }
   }, [formData.productId]);
+
+  // 实时刷新订单列表 - 每15秒刷新一次
+  useEffect(() => {
+    const orderRefreshInterval = setInterval(() => {
+      console.log('Admin: Auto-refreshing order list...');
+      loadOrders();
+    }, 15000); // 每15秒刷新一次
+    
+    return () => clearInterval(orderRefreshInterval);
+  }, []);
 
   useEffect(() => {
     // 当零件数据加载完成后，为所有展开的订单初始化过滤数据
@@ -462,11 +480,12 @@ export default function OrdersPage() {
   const handleAddBomToOrder = (order: Order) => {
     setSelectedOrderForBom(order);
     setShowAddPartModal(true);
-    setPartSearchQuery('');
+    setPartSearchQuery(''); // 清空搜索框
     setSelectedPart(null);
     setPartQuantity(1);
     setPartSearchResults([]);
     setShowPartSuggestions(false);
+    setIsSearchingParts(false); // 重置搜索状态
   };
 
   // 搜索零件
@@ -480,18 +499,22 @@ export default function OrdersPage() {
 
     setIsSearchingParts(true);
     try {
-      // 从partsData中搜索匹配的零件
-      const filtered = partsData.filter(part => {
-        const nameMatch = part.name.toLowerCase().includes(query.toLowerCase());
-        const numberMatch = part.partNumber.toLowerCase().includes(query.toLowerCase());
-        const descriptionMatch = part.sapDescription?.toLowerCase().includes(query.toLowerCase());
-        return nameMatch || numberMatch || descriptionMatch;
-      });
-      
-      setPartSearchResults(filtered.slice(0, 10)); // 限制结果数量
-      setShowPartSuggestions(true);
+      // 直接从Parts API搜索零部件
+      const response = await fetch(`/api/parts?search=${encodeURIComponent(query)}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        const parts = data.data?.parts || [];
+        setPartSearchResults(parts);
+        setShowPartSuggestions(true);
+      } else {
+        console.error('Parts search API failed');
+        setPartSearchResults([]);
+        setShowPartSuggestions(false);
+      }
     } catch (error) {
       console.error('Failed to search parts:', error);
+      setPartSearchResults([]);
+      setShowPartSuggestions(false);
     } finally {
       setIsSearchingParts(false);
     }
@@ -515,7 +538,7 @@ export default function OrdersPage() {
   // 选择零件
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setPartSearchQuery(part.name);
+    setPartSearchQuery(`${part.partNumber} - ${part.name}`); // 显示零部件号和名称
     setShowPartSuggestions(false);
   };
 
@@ -742,6 +765,51 @@ export default function OrdersPage() {
       } else {
         const data = await response.json();
         alert(data.error || '删除失败');
+      }
+    } catch (error) {
+      alert('网络错误');
+    }
+  };
+
+  const handleStatusChange = async (order: Order, newStatus: string) => {
+    const statusLabels = {
+      'PENDING': '待开始',
+      'IN_PROGRESS': '进行中', 
+      'COMPLETED': '已完成',
+      'PAUSED': '已暂停',
+      'CANCELLED': '已取消'
+    };
+
+    const currentLabel = statusLabels[order.status as keyof typeof statusLabels] || order.status;
+    const newLabel = statusLabels[newStatus as keyof typeof statusLabels] || newStatus;
+
+    if (!confirm(`确定要将订单 "${order.orderNumber}" 的状态从"${currentLabel}"变更为"${newLabel}"吗？`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/orders/${order.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'changeStatus',
+          status: newStatus,
+          updatedBy: 'admin',
+          reason: `管理员手动变更状态：${currentLabel} -> ${newLabel}`
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await loadOrders();
+        setLastUpdated(new Date());
+        // 显示成功消息
+        alert(data.message || '订单状态变更成功');
+      } else {
+        alert(data.error || '状态变更失败');
       }
     } catch (error) {
       alert('网络错误');
@@ -1155,6 +1223,65 @@ export default function OrdersPage() {
     }
   };
 
+  // BOM模态框零部件搜索功能
+  const searchBomModalParts = async (query: string) => {
+    if (!query || query.length < 2) {
+      setBomModalPartResults([]);
+      setBomModalShowPartResults(false);
+      setBomModalSearchingParts(false);
+      return;
+    }
+
+    setBomModalSearchingParts(true);
+    try {
+      const response = await fetch(`/api/parts?search=${encodeURIComponent(query)}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        setBomModalPartResults(data.data?.parts || []);
+        setBomModalShowPartResults(true);
+      } else {
+        console.error('Parts search failed');
+        setBomModalPartResults([]);
+        setBomModalShowPartResults(false);
+      }
+    } catch (error) {
+      console.error('Parts search error:', error);
+      setBomModalPartResults([]);
+      setBomModalShowPartResults(false);
+    } finally {
+      setBomModalSearchingParts(false);
+    }
+  };
+
+  // 处理BOM模态框零部件搜索输入
+  const handleBomModalPartSearchChange = (query: string) => {
+    setBomModalPartQuery(query);
+    
+    // 清除之前的timeout
+    if (bomModalPartSearchTimeoutRef.current) {
+      clearTimeout(bomModalPartSearchTimeoutRef.current);
+    }
+    
+    // 延迟搜索以提高性能
+    bomModalPartSearchTimeoutRef.current = setTimeout(() => {
+      searchBomModalParts(query);
+    }, 300);
+  };
+
+  // 在BOM模态框中选择零部件
+  const handleBomModalSelectPart = (part: Part) => {
+    setBomItemFormData({
+      itemCode: part.partNumber,
+      itemName: part.name,
+      quantity: 1,
+      unit: '个',
+      description: part.sapDescription || ''
+    });
+    setBomModalPartQuery('');
+    setBomModalShowPartResults(false);
+    setBomModalPartResults([]);
+  };
+
   const handleSearchInputChange = (value: string) => {
     setSearchQuery(value);
     // 延迟搜索，避免频繁请求
@@ -1189,6 +1316,12 @@ export default function OrdersPage() {
     setSearchQuery('');
     setShowSearchResults(false);
     setSearchResults([]);
+    // 重置BOM模态框零部件搜索状态
+    setBomModalSearchType('bom-items');
+    setBomModalPartQuery('');
+    setBomModalPartResults([]);
+    setBomModalShowPartResults(false);
+    setBomModalSearchingParts(false);
   };
 
   if (isLoading) {
@@ -1257,7 +1390,10 @@ export default function OrdersPage() {
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                订单信息
+                生产序号
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                生产订单
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 产品信息
@@ -1270,9 +1406,6 @@ export default function OrdersPage() {
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 计划日期
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                操作
               </th>
             </tr>
           </thead>
@@ -1290,9 +1423,11 @@ export default function OrdersPage() {
                     title="点击展开订单详情"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      <div className="font-medium text-gray-900 dark:text-white">{order.productionNumber}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                       <div>
                         <div className="font-medium text-gray-900 dark:text-white">{order.orderNumber}</div>
-                        <div className="text-xs text-gray-400">生产号: {order.productionNumber}</div>
                         {order.notes && (
                           <div className="text-xs text-gray-400 mt-1">{order.notes}</div>
                         )}
@@ -1318,24 +1453,6 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                       {order.plannedDate ? new Date(order.plannedDate).toLocaleDateString('zh-CN') : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleDelete(order)}
-                        className={`${
-                          canDelete(order)
-                            ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300'
-                            : 'text-gray-400 cursor-not-allowed'
-                        }`}
-                        disabled={!canDelete(order)}
-                        title={
-                          canDelete(order)
-                            ? '删除订单'
-                            : '只有待开始和已取消的订单可以删除'
-                        }
-                      >
-                        删除
-                      </button>
                     </td>
                   </tr>
                   
@@ -1376,8 +1493,104 @@ export default function OrdersPage() {
                                   <h4 className="text-base font-medium text-gray-900 dark:text-white">
                                     订单信息编辑
                                   </h4>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    修改后请点击保存按钮
+                                  <div className="flex items-center space-x-3">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      修改后请点击保存按钮
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* 状态管理按钮区域 */}
+                                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                                  <h5 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3">
+                                    订单状态管理
+                                  </h5>
+                                  <div className="flex flex-wrap gap-2">
+                                    {/* 状态变更按钮 */}
+                                    {order.status === 'PENDING' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order, 'IN_PROGRESS')}
+                                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                        title="开始订单"
+                                      >
+                                        🚀 开始订单
+                                      </button>
+                                    )}
+                                    {order.status === 'IN_PROGRESS' && (
+                                      <>
+                                        <button
+                                          onClick={() => handleStatusChange(order, 'COMPLETED')}
+                                          className="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                          title="完成订单"
+                                        >
+                                          ✅ 完成订单
+                                        </button>
+                                        <button
+                                          onClick={() => handleStatusChange(order, 'PAUSED')}
+                                          className="px-3 py-2 text-sm bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+                                          title="暂停订单"
+                                        >
+                                          ⏸️ 暂停订单
+                                        </button>
+                                      </>
+                                    )}
+                                    {order.status === 'COMPLETED' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order, 'IN_PROGRESS')}
+                                        className="px-3 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                                        title="重新开始订单"
+                                      >
+                                        🔄 重启订单
+                                      </button>
+                                    )}
+                                    {order.status === 'PAUSED' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order, 'IN_PROGRESS')}
+                                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                        title="恢复订单"
+                                      >
+                                        ▶️ 恢复订单
+                                      </button>
+                                    )}
+                                    {(order.status === 'IN_PROGRESS' || order.status === 'COMPLETED' || order.status === 'PAUSED') && (
+                                      <button
+                                        onClick={() => handleStatusChange(order, 'PENDING')}
+                                        className="px-3 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                                        title="重置为待开始"
+                                      >
+                                        🔄 重置为待开始
+                                      </button>
+                                    )}
+                                    {order.status !== 'CANCELLED' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order, 'CANCELLED')}
+                                        className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                        title="取消订单"
+                                      >
+                                        ❌ 取消订单
+                                      </button>
+                                    )}
+                                    {canDelete(order) && (
+                                      <button
+                                        onClick={() => handleDelete(order)}
+                                        className="px-3 py-2 text-sm bg-red-800 text-white rounded-md hover:bg-red-900 transition-colors border-2 border-red-600"
+                                        title="删除订单"
+                                      >
+                                        🗑️ 删除订单
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleViewProgress(order)}
+                                      className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                                      title="查看执行进度"
+                                    >
+                                      📊 查看进度
+                                    </button>
+                                  </div>
+                                  <div className="mt-3 text-xs text-blue-800 dark:text-blue-300">
+                                    当前状态: <span className={`px-2 py-1 rounded-full ${getStatusConfig(order.status).color}`}>
+                                      {getStatusConfig(order.status).label}
+                                    </span>
                                   </div>
                                 </div>
                                 
@@ -1976,56 +2189,144 @@ export default function OrdersPage() {
 
             {/* 物料搜索区域 - 仅在添加新物料时显示 */}
             {!editingBOMItem && (
-              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3">
-                  🔍 搜索现有物料
-                </h3>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchInputChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="输入物料编码或名称搜索..."
-                  />
-                  {isSearching && (
-                    <div className="absolute right-3 top-2.5">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                    </div>
-                  )}
+              <div className="mb-6">
+                {/* 搜索类型选择标签页 */}
+                <div className="border-b border-gray-200 dark:border-gray-600 mb-4">
+                  <nav className="flex space-x-8">
+                    <button
+                      onClick={() => setBomModalSearchType('bom-items')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        bomModalSearchType === 'bom-items'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      从现有物料选择
+                    </button>
+                    <button
+                      onClick={() => setBomModalSearchType('parts')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        bomModalSearchType === 'parts'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      从零部件库选择
+                    </button>
+                  </nav>
                 </div>
-                
-                {/* 搜索结果列表 */}
-                {showSearchResults && searchResults.length > 0 && (
-                  <div className="mt-3 border border-gray-200 dark:border-gray-600 rounded-md max-h-40 overflow-y-auto bg-white dark:bg-gray-800">
-                    {searchResults.map((item) => (
-                      <div
-                        key={`${item.id}-${item.itemCode}`}
-                        onClick={() => selectSearchResult(item)}
-                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-600 last:border-b-0"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium text-sm text-gray-900 dark:text-white">
-                              {item.itemCode} - {item.itemName}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              数量: {item.quantity} {item.unit}
-                              {item.description && ` | ${item.description}`}
-                            </div>
-                          </div>
-                          <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                            点击选择
-                          </div>
+
+                {/* 现有物料搜索 */}
+                {bomModalSearchType === 'bom-items' && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3">
+                      🔍 搜索现有物料
+                    </h3>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => handleSearchInputChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="输入物料编码或名称搜索..."
+                      />
+                      {isSearching && (
+                        <div className="absolute right-3 top-2.5">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         </div>
+                      )}
+                    </div>
+                    
+                    {/* 搜索结果列表 */}
+                    {showSearchResults && searchResults.length > 0 && (
+                      <div className="mt-3 border border-gray-200 dark:border-gray-600 rounded-md max-h-40 overflow-y-auto bg-white dark:bg-gray-800">
+                        {searchResults.map((item) => (
+                          <div
+                            key={`${item.id}-${item.itemCode}`}
+                            onClick={() => selectSearchResult(item)}
+                            className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-600 last:border-b-0"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                  {item.itemCode} - {item.itemName}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  数量: {item.quantity} {item.unit}
+                                  {item.description && ` | ${item.description}`}
+                                </div>
+                              </div>
+                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                点击选择
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                    
+                    {showSearchResults && searchResults.length === 0 && searchQuery.trim() && !isSearching && (
+                      <div className="mt-3 p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-md">
+                        未找到匹配的物料，您可以切换到零部件库选择或在下方手动添加新物料
+                      </div>
+                    )}
                   </div>
                 )}
-                
-                {showSearchResults && searchResults.length === 0 && searchQuery.trim() && !isSearching && (
-                  <div className="mt-3 p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-md">
-                    未找到匹配的物料，您可以在下方手动添加新物料
+
+                {/* 零部件库搜索 */}
+                {bomModalSearchType === 'parts' && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <h3 className="text-sm font-medium text-green-900 dark:text-green-200 mb-3">
+                      🔍 从零部件库选择
+                    </h3>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={bomModalPartQuery}
+                        onChange={(e) => handleBomModalPartSearchChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="输入零部件号、名称或SAP描述搜索..."
+                      />
+                      {bomModalSearchingParts && (
+                        <div className="absolute right-3 top-2.5">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* 零部件搜索结果列表 */}
+                    {bomModalShowPartResults && bomModalPartResults.length > 0 && (
+                      <div className="mt-3 border border-gray-200 dark:border-gray-600 rounded-md max-h-40 overflow-y-auto bg-white dark:bg-gray-800">
+                        {bomModalPartResults.map((part) => (
+                          <div
+                            key={part.id}
+                            onClick={() => handleBomModalSelectPart(part)}
+                            className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-600 last:border-b-0"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                  {part.partNumber} - {part.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  {part.sapDescription && `SAP描述: ${part.sapDescription}`}
+                                  {part.category && ` | 类别: ${part.category}`}
+                                </div>
+                              </div>
+                              <div className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                点击选择
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {bomModalShowPartResults && bomModalPartResults.length === 0 && bomModalPartQuery.trim() && !bomModalSearchingParts && (
+                      <div className="mt-3 p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-md">
+                        未找到匹配的零部件，您可以在下方手动添加新物料
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2271,14 +2572,30 @@ export default function OrdersPage() {
                     value={partSearchQuery}
                     onChange={(e) => handlePartSearchChange(e.target.value)}
                     placeholder="Start typing..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 pr-20 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     autoComplete="off"
                   />
-                  {isSearchingParts && (
-                    <div className="absolute right-3 top-2.5">
+                  <div className="absolute right-2 top-2 flex items-center space-x-1">
+                    {partSearchQuery && !isSearchingParts && (
+                      <button
+                        onClick={() => {
+                          setPartSearchQuery('');
+                          setSelectedPart(null);
+                          setPartSearchResults([]);
+                          setShowPartSuggestions(false);
+                        }}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
+                        title="清空搜索"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                    {isSearchingParts && (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   
                   {/* 搜索建议下拉列表 */}
                   {showPartSuggestions && partSearchResults.length > 0 && (
@@ -2290,14 +2607,19 @@ export default function OrdersPage() {
                           className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                         >
                           <div className="font-medium text-gray-900 dark:text-white">
-                            {part.name}
+                            <span className="text-blue-600 dark:text-blue-400 font-mono">{part.partNumber}</span>
+                            <span className="ml-2">{part.name}</span>
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {part.partNumber}
-                          </div>
-                          <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                            {part.sapDescription}
-                          </div>
+                          {part.sapDescription && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-1">
+                              {part.sapDescription}
+                            </div>
+                          )}
+                          {part.category && (
+                            <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                              类别: {part.category}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
