@@ -17,6 +17,12 @@ interface Client {
   updatedAt: string;
 }
 
+interface SystemSettings {
+  clientOrderDisplayCount: number;
+  autoRefreshInterval: number;
+  defaultLanguage: string;
+}
+
 interface ClientFormData {
   clientId: string;
   name: string;
@@ -30,8 +36,14 @@ interface ClientFormData {
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    clientOrderDisplayCount: 20,
+    autoRefreshInterval: 3000,
+    defaultLanguage: 'zh'
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showSystemSettingsModal, setShowSystemSettingsModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState<ClientFormData>({
     clientId: '',
@@ -49,6 +61,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     loadClients();
+    loadSystemSettings();
     
     // 设置自动刷新，每5秒检查一次客户端状态
     const interval = setInterval(async () => {
@@ -78,6 +91,46 @@ export default function ClientsPage() {
       console.error('Load clients error:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadSystemSettings = async () => {
+    try {
+      const response = await fetch('/api/system/settings');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.settings) {
+          setSystemSettings({
+            clientOrderDisplayCount: data.settings.clientOrderDisplayCount || 20,
+            autoRefreshInterval: data.settings.autoRefreshInterval || 3000,
+            defaultLanguage: data.settings.defaultLanguage || 'zh'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load system settings:', error);
+    }
+  };
+
+  const saveSystemSettings = async () => {
+    try {
+      const response = await fetch('/api/system/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(systemSettings)
+      });
+
+      if (response.ok) {
+        alert('系统设置保存成功！');
+        setShowSystemSettingsModal(false);
+      } else {
+        alert('保存失败，请重试');
+      }
+    } catch (error) {
+      console.error('Save system settings error:', error);
+      alert('保存失败，请重试');
     }
   };
 
@@ -207,6 +260,16 @@ export default function ClientsPage() {
           </div>
         </div>
         <div className="flex space-x-3">
+          <button
+            onClick={() => setShowSystemSettingsModal(true)}
+            className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            系统配置
+          </button>
           <button
             onClick={async () => {
               try {
@@ -423,6 +486,119 @@ export default function ClientsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 系统设置模态框 */}
+      {showSystemSettingsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              系统配置设置
+            </h2>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  客户端订单显示条数
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={systemSettings.clientOrderDisplayCount}
+                  onChange={(e) => setSystemSettings(prev => ({
+                    ...prev,
+                    clientOrderDisplayCount: parseInt(e.target.value) || 20
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  控制客户端工位页面显示的订单数量（5-100之间）
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  自动刷新间隔（毫秒）
+                </label>
+                <select
+                  value={systemSettings.autoRefreshInterval}
+                  onChange={(e) => setSystemSettings(prev => ({
+                    ...prev,
+                    autoRefreshInterval: parseInt(e.target.value)
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value={1000}>1 秒</option>
+                  <option value={2000}>2 秒</option>
+                  <option value={3000}>3 秒</option>
+                  <option value={5000}>5 秒</option>
+                  <option value={10000}>10 秒</option>
+                  <option value={30000}>30 秒</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  客户端订单列表自动刷新的时间间隔
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  默认语言
+                </label>
+                <select
+                  value={systemSettings.defaultLanguage}
+                  onChange={(e) => setSystemSettings(prev => ({
+                    ...prev,
+                    defaultLanguage: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="zh">中文</option>
+                  <option value="en">English</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  新用户的默认界面语言设置
+                </p>
+              </div>
+
+              {/* 当前配置预览 */}
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">当前配置预览</h4>
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">订单显示条数:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{systemSettings.clientOrderDisplayCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">刷新间隔:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{systemSettings.autoRefreshInterval / 1000}秒</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">默认语言:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{systemSettings.defaultLanguage === 'zh' ? '中文' : 'English'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowSystemSettingsModal(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveSystemSettings}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                保存配置
+              </button>
+            </div>
           </div>
         </div>
       )}

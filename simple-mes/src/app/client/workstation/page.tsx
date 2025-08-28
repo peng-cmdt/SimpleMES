@@ -145,6 +145,9 @@ export default function WorkstationPage() {
   const [plcTestResult, setPlcTestResult] = useState<PLCTestResult | null>(null);
   const [plcTestLoading, setPlcTestLoading] = useState(false);
   
+  // 系统设置相关状态
+  const [orderDisplayLimit, setOrderDisplayLimit] = useState<number>(20); // 默认20条
+  
   // 工艺执行相关状态
   const [isExecutionMode, setIsExecutionMode] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
@@ -185,6 +188,17 @@ export default function WorkstationPage() {
     data?: any;
   } | null>(null);
   
+  // 手动插入订单对话框状态
+  const [showManualInsertModal, setShowManualInsertModal] = useState(false);
+  const [manualProductionNumber, setManualProductionNumber] = useState('');
+  const [manualInsertLoading, setManualInsertLoading] = useState(false);
+  
+  // 扫描工单界面状态
+  const [showScanWorkorderScreen, setShowScanWorkorderScreen] = useState(false);
+  const [scanProductionNumber, setScanProductionNumber] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [showScanRightPanel, setShowScanRightPanel] = useState(false); // 扫描界面右侧菜单状态
+  
   // 屏幕状态
   const [screenError, setScreenError] = useState(false);
   const [isMonitoringPLC, setIsMonitoringPLC] = useState(false);
@@ -212,6 +226,26 @@ export default function WorkstationPage() {
   
   const router = useRouter();
   const { t } = useLanguage();
+
+  // 加载系统设置
+  useEffect(() => {
+    const loadSystemSettings = async () => {
+      try {
+        const response = await fetch('/api/system/settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.settings) {
+            setOrderDisplayLimit(data.settings.clientOrderDisplayCount || 20);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load system settings:', error);
+        // 使用默认值20
+      }
+    };
+
+    loadSystemSettings();
+  }, []);
 
   // 检查值是否匹配期望值的函数
   const checkValueMatch = (actualValue: any, expectedValue: string): boolean => {
@@ -301,7 +335,7 @@ export default function WorkstationPage() {
     if (workstationSession) {
       loadOrders();
     }
-  }, [workstationSession]);
+  }, [workstationSession, orderDisplayLimit]);
 
   // 实时刷新订单列表 - 每3秒刷新一次（仅在非执行模式下）
   useEffect(() => {
@@ -313,7 +347,7 @@ export default function WorkstationPage() {
     }, 3000); // 更改为每3秒刷新一次
     
     return () => clearInterval(orderRefreshInterval);
-  }, [workstationSession, isExecutionMode]);
+  }, [workstationSession, isExecutionMode, orderDisplayLimit]);
 
   // 更新时间显示和计时器
   useEffect(() => {
@@ -374,7 +408,7 @@ export default function WorkstationPage() {
       // 从API加载真实数据 - 使用工位的workstationId字段而不是UUID id
       // 查询非已完成状态的订单，包括 pending 和 in_progress
       const workstationId = session.workstation.workstationId;
-      const response = await fetch(`/api/orders?status=pending,in_progress&workstationId=${workstationId}&limit=20`);
+      const response = await fetch(`/api/orders?status=pending,in_progress&workstationId=${workstationId}&limit=${orderDisplayLimit}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data.orders) {
@@ -688,7 +722,128 @@ export default function WorkstationPage() {
   };
 
   const handleManualInsert = () => {
-    alert(t('workstation.manualInsertFunction'));
+    setShowScanWorkorderScreen(true);
+    setScanProductionNumber('');
+    setScanError(''); // 清除错误信息
+    setShowScanRightPanel(false); // 默认折叠状态
+  };
+
+  const handleManualInsertSubmit = async () => {
+    if (!manualProductionNumber.trim()) {
+      alert(t('manualInsert.pleaseEnter'));
+      return;
+    }
+
+    setManualInsertLoading(true);
+    try {
+      // 根据生产号查找订单
+      const response = await fetch(`/api/orders?productionNumber=${manualProductionNumber.trim()}&limit=1`);
+      if (!response.ok) {
+        throw new Error(t('manualInsert.searchFailed'));
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.data.orders || data.data.orders.length === 0) {
+        alert(t('manualInsert.orderNotFound'));
+        return;
+      }
+
+      const order = data.data.orders[0];
+      
+      // 映射订单数据格式
+      const mappedOrder = {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        productionNumber: order.productionNumber,
+        productFamily: order.product?.name || order.product?.productCode || 'N/A',
+        carrierId: order.notes || `CARR-${order.id.slice(-6)}`,
+        status: order.status.toLowerCase(),
+        priority: order.priority,
+        product: order.product,
+        process: order.process
+      };
+
+      // 关闭弹框
+      setShowManualInsertModal(false);
+      setManualProductionNumber('');
+      
+      // 根据订单状态执行不同操作
+      if (mappedOrder.status === 'pending') {
+        // 待开始的订单，直接开始执行
+        await handleStartOrder(mappedOrder);
+      } else if (mappedOrder.status === 'in_progress') {
+        // 进行中的订单，继续执行
+        await handleContinueOrder(mappedOrder);
+      } else {
+        alert(t('manualInsert.invalidStatus').replace('{status}', mappedOrder.status));
+      }
+    } catch (error) {
+      console.error('手动插入订单失败:', error);
+      alert(t('manualInsert.searchFailed') + ': ' + (error instanceof Error ? error.message : '未知错误'));
+    } finally {
+      setManualInsertLoading(false);
+    }
+  };
+
+  const handleScanWorkorderSubmit = async () => {
+    if (!scanProductionNumber.trim()) {
+      setScanError('Please enter workorder number');
+      return;
+    }
+
+    setManualInsertLoading(true);
+    setScanError(''); // 清除之前的错误信息
+    
+    try {
+      // 根据生产号查找订单
+      const response = await fetch(`/api/orders?productionNumber=${scanProductionNumber.trim()}&limit=1`);
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.data.orders || data.data.orders.length === 0) {
+        setScanError('No step found for the record!');
+        return;
+      }
+
+      const order = data.data.orders[0];
+      
+      // 映射订单数据格式
+      const mappedOrder = {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        productionNumber: order.productionNumber,
+        productFamily: order.product?.name || order.product?.productCode || 'N/A',
+        carrierId: order.notes || `CARR-${order.id.slice(-6)}`,
+        status: order.status.toLowerCase(),
+        priority: order.priority,
+        product: order.product,
+        process: order.process
+      };
+
+      // 关闭扫描界面
+      setShowScanWorkorderScreen(false);
+      setScanProductionNumber('');
+      setScanError('');
+      setShowScanRightPanel(false);
+      
+      // 根据订单状态执行不同操作
+      if (mappedOrder.status === 'pending') {
+        // 待开始的订单，直接开始执行
+        await handleStartOrder(mappedOrder);
+      } else if (mappedOrder.status === 'in_progress') {
+        // 进行中的订单，继续执行
+        await handleContinueOrder(mappedOrder);
+      } else {
+        setScanError(`Invalid order status: ${mappedOrder.status}`);
+      }
+    } catch (error) {
+      console.error('扫描工单失败:', error);
+      setScanError('No step found for the record!');
+    } finally {
+      setManualInsertLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -1271,28 +1426,26 @@ export default function WorkstationPage() {
   };
 
   const handleExitExecution = () => {
-    if (confirm('确定要退出工艺执行吗？')) {
-      // 停止PLC监控
-      setIsMonitoringPLC(false);
-      monitoringControlRef.current.isActive = false;
-      monitoringControlRef.current.shouldStop = true;
-      setScreenError(false);
-      
-      setIsExecutionMode(false);
-      setCurrentOrder(null);
-      setCurrentStepIndex(0);
-      setCurrentActionIndex(0);
-      setShowStepSelectMenu(false);
-      setStartTime(null); // 重置计时器
-      
-      // 退出执行模式后立即刷新订单列表
-      setTimeout(() => {
-        if (workstationSession) {
-          console.log('退出执行模式后刷新订单列表...');
-          loadOrdersWithSession(workstationSession);
-        }
-      }, 100);
-    }
+    // 停止PLC监控
+    setIsMonitoringPLC(false);
+    monitoringControlRef.current.isActive = false;
+    monitoringControlRef.current.shouldStop = true;
+    setScreenError(false);
+    
+    setIsExecutionMode(false);
+    setCurrentOrder(null);
+    setCurrentStepIndex(0);
+    setCurrentActionIndex(0);
+    setShowStepSelectMenu(false);
+    setStartTime(null); // 重置计时器
+    
+    // 退出执行模式后立即刷新订单列表
+    setTimeout(() => {
+      if (workstationSession) {
+        console.log('退出执行模式后刷新订单列表...');
+        loadOrdersWithSession(workstationSession);
+      }
+    }, 100);
   };
 
   // PLC测试相关函数
@@ -2030,18 +2183,10 @@ export default function WorkstationPage() {
     const currentAction = getCurrentAction();
 
     return (
-      <div className={`h-screen flex flex-col overflow-hidden ${screenError ? 'bg-red-100' : 'bg-white'}`}>
-        {/* 红屏错误覆盖层 */}
-        {screenError && (
-          <div className="fixed inset-0 bg-red-500 bg-opacity-30 z-10 pointer-events-none animate-pulse">
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-lg">
-              ⚠️ 设备连接异常 - 请检查设备状态
-            </div>
-          </div>
-        )}
+      <div className="h-screen flex flex-col overflow-hidden bg-white">
         
         {/* 顶部状态栏 */}
-        <div className={`${screenError ? 'bg-red-600 animate-pulse' : 'bg-blue-500'} text-white px-4 py-2 flex justify-between items-center text-sm flex-shrink-0`}>
+        <div className="bg-blue-500 text-white px-4 py-2 flex justify-between items-center text-sm flex-shrink-0">
           <div className="flex items-center space-x-6">
             <span>1. station: {workstationSession.workstation.workstationId}</span>
             <span>2. name: {userInfo.username}</span>
@@ -2238,13 +2383,21 @@ export default function WorkstationPage() {
 
           {/* 中间主屏幕区域 - 图片显示 */}
           <div 
-            className={`flex-1 relative overflow-hidden transition-all duration-500 ${screenError ? 'bg-red-500' : 'bg-white'}`}
+            className="flex-1 relative overflow-hidden transition-all duration-500 bg-white"
             onClick={() => {
               // 点击中间区域隐藏弹出的菜单
               setShowMenuArea(false);
               setShowProcessMenu(false);
             }}
           >
+            {/* 中间区域红屏错误覆盖层 - 只覆盖图片区域 */}
+            {screenError && (
+              <div className="absolute inset-0 bg-red-500 bg-opacity-30 z-20 pointer-events-none animate-pulse">
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-lg">
+                  ⚠️ 设备连接异常 - 请检查设备状态
+                </div>
+              </div>
+            )}
             <div className="w-full h-full flex items-center justify-center">
               {currentStep?.step.stepTemplate.image ? (
                 <img 
@@ -2552,11 +2705,155 @@ export default function WorkstationPage() {
     );
   }
 
+  // 扫描工单界面 - 全屏显示，保留右侧菜单
+  if (showScanWorkorderScreen) {
+    return (
+      <div className="h-screen flex flex-col overflow-hidden bg-white">
+        {/* 顶部状态栏 */}
+        <div className="bg-blue-500 text-white px-4 py-2 flex justify-between items-center text-sm flex-shrink-0">
+          <div className="flex items-center space-x-6">
+            <span>1. station: {workstationSession.workstation.workstationId}</span>
+            <span>2. name: {userInfo.username}</span>
+            <span>3. login date: {new Date(workstationSession.loginTime).toLocaleDateString('zh-CN')} {new Date(workstationSession.loginTime).toLocaleTimeString('zh-CN')}</span>
+          </div>
+          <div className="text-lg font-mono">{formatDateTime(currentTime)}</div>
+        </div>
+
+        {/* 主内容区域 */}
+        <div className="flex flex-1 relative overflow-hidden">
+
+          {/* 中间扫描区域 - 占据主要空间 */}
+          <div className="flex-1 relative overflow-hidden bg-white flex flex-col items-center pt-20">
+            {/* 扫描工单标题 */}
+            <div className="text-center mb-8">
+              <h1 className="text-6xl font-bold text-gray-800 mb-4">
+                Scan Workorder to start Assembly process
+              </h1>
+            </div>
+
+            {/* 输入框区域 */}
+            <div className="w-full max-w-4xl px-8">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={scanProductionNumber}
+                  onChange={(e) => setScanProductionNumber(e.target.value)}
+                  placeholder="CAR NUMBER"
+                  className="w-full px-8 py-8 text-4xl text-center border-4 border-blue-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:border-transparent bg-white shadow-lg"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleScanWorkorderSubmit();
+                    }
+                    if (e.key === 'Escape') {
+                      setShowScanWorkorderScreen(false);
+                      setScanProductionNumber('');
+                      setScanError('');
+                      setShowScanRightPanel(false);
+                    }
+                  }}
+                  onFocus={() => setScanError('')} // 清除错误信息当用户重新输入时
+                  autoFocus
+                  disabled={manualInsertLoading}
+                />
+              </div>
+              
+              {/* 提示信息和错误信息 */}
+              <div className="text-center mt-4">
+                {scanError ? (
+                  <div className="text-red-500 text-2xl font-semibold mb-2">
+                    {scanError}
+                  </div>
+                ) : (
+                  <div className="text-gray-600 text-xl">
+                    <p>扫描或输入车号以开始装配流程</p>
+                    <p className="text-base mt-2">按 Enter 确认 | 按 ESC 取消</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 取消手动插入按钮 */}
+              <div className="text-center mt-6">
+                <button
+                  onClick={() => {
+                    setShowScanWorkorderScreen(false);
+                    setScanProductionNumber('');
+                    setScanError('');
+                    setShowScanRightPanel(false);
+                  }}
+                  disabled={manualInsertLoading}
+                  className="px-8 py-3 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white text-xl font-medium rounded-lg"
+                >
+                  取消手动插入
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 右侧区域 - 仅MENU，默认折叠 */}
+          {showScanRightPanel ? (
+            /* 展开状态 - 只有MENU */
+            <div 
+              className="w-64 flex flex-shrink-0 bg-white"
+              onClick={() => setShowScanRightPanel(false)}
+            >
+              {/* 左侧垂直MENU文字 */}
+              <div className="w-16 flex flex-col bg-gray-300 h-full flex-shrink-0">
+                {/* MENU垂直文字 */}
+                <div className="h-full flex items-center justify-center border-r border-gray-400">
+                  <span 
+                    className="text-black text-3xl font-bold tracking-widest"
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                  >
+                    MENU
+                  </span>
+                </div>
+              </div>
+
+              {/* 右侧菜单内容区域 */}
+              <div className="flex-1 flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
+                {/* MENU菜单内容区域 - 占满整个高度 */}
+                <div className="flex-1 bg-gray-100 border border-gray-300 flex flex-col">
+                  <div className="flex-1 p-2 space-y-2">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full py-6 bg-gray-200 hover:bg-gray-300 text-black text-lg font-medium border border-gray-400"
+                    >
+                      LOGOUT
+                    </button>
+                    <button
+                      className="w-full py-6 bg-gray-200 hover:bg-gray-300 text-black text-lg font-medium border border-gray-400"
+                    >
+                      LANGUAGE
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* 收缩状态 - 只有MENU */
+            <div className="w-16 flex flex-col h-full flex-shrink-0">
+              {/* MENU垂直文字区域 */}
+              <div className="h-full bg-gray-300 flex items-center justify-center border-r border-gray-400">
+                <button
+                  onClick={() => setShowScanRightPanel(true)}
+                  className="h-full w-full text-black flex items-center justify-center hover:bg-gray-400 transition-colors"
+                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                >
+                  <span className="text-3xl font-bold tracking-widest">MENU</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // 默认的订单列表界面
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="h-screen bg-gray-100 p-4 flex flex-col">
       {/* 顶部工位信息栏 */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-8">
             <h1 className="text-2xl font-bold text-gray-900">MES</h1>
@@ -2572,22 +2869,23 @@ export default function WorkstationPage() {
         </div>
       </div>
 
-      {/* 主要内容区域 */}
-      <div className="flex gap-4 h-[calc(100vh-200px)]">
-        {/* 左侧订单列表 */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm overflow-hidden">
+      {/* 主要内容区域 - 占据剩余空间 */}
+      <div className="flex gap-4 flex-1">
+        {/* 左侧订单列表 - 底部对齐 */}
+        <div className="flex-1 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
           {/* 表格标题 */}
-          <div className="bg-gray-50 px-6 py-4 border-b">
-            <div className="grid grid-cols-4 gap-4 font-black text-gray-900 text-3xl">
+          <div className="bg-gray-50 px-6 py-4 border-b flex-shrink-0">
+            <div className="grid grid-cols-5 gap-4 font-black text-gray-900 text-4xl">
               <div className="text-center">订单号</div>
               <div className="text-center">生产号</div>
-              <div className="text-center">产品信息</div>
+              <div className="text-center">产品号</div>
+              <div className="text-center">工艺</div>
               <div className="text-center">交付时间</div>
             </div>
           </div>
           
           {/* 订单列表 */}
-          <div className="overflow-auto max-h-full">
+          <div className="overflow-auto flex-1">
             {orders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-4xl mb-4">📭</div>
@@ -2608,7 +2906,7 @@ export default function WorkstationPage() {
                     key={order.id}
                     className="px-6 py-4 border-b hover:bg-gray-50 transition-colors"
                   >
-                    <div className="grid grid-cols-4 gap-4 text-2xl font-bold items-center">
+                    <div className="grid grid-cols-5 gap-4 text-3xl font-bold items-center">
                       {/* 订单号 */}
                       <div className="text-center">
                         <div className="font-mono">{order.orderNumber}</div>
@@ -2619,17 +2917,19 @@ export default function WorkstationPage() {
                         <div className="font-mono text-blue-600">{order.productionNumber}</div>
                       </div>
                       
-                      {/* 产品信息 */}
+                      {/* 产品号 */}
                       <div className="text-center">
-                        <div className="font-bold">{order.productFamily}</div>
-                        <div className="text-sm text-gray-600 font-normal">BOM: 未配置</div>
-                        <div className="text-sm text-gray-600 font-normal">工艺: P1</div>
+                        <div className="font-bold">{order.product?.productCode || order.productFamily}</div>
+                      </div>
+                      
+                      {/* 工艺 */}
+                      <div className="text-center">
+                        <div className="font-bold">{order.process?.processCode || 'P1'}</div>
                       </div>
                       
                       {/* 交付时间 */}
                       <div className="text-center">
-                        <div className="text-lg">2025-01-15</div>
-                        <div className="text-sm text-gray-600 font-normal">计划交付日期</div>
+                        <div className="text-2xl">2025-01-15</div>
                       </div>
                     </div>
                   </div>
@@ -2639,8 +2939,8 @@ export default function WorkstationPage() {
           </div>
         </div>
 
-        {/* 右侧操作菜单 */}
-        <div className="flex">
+        {/* 右侧操作菜单 - 上对齐 */}
+        <div className="flex items-start pt-4" style={{ height: 'calc(100vh - 120px)' }}>
           {/* 主要操作按钮区域 */}
           <div className="w-64 space-y-4">
             {/* START 按钮 */}
@@ -2717,8 +3017,8 @@ export default function WorkstationPage() {
             )}
           </div>
 
-          {/* 垂直MENU按钮 */}
-          <div className="w-20 ml-4">
+          {/* 垂直MENU按钮 - 底部对齐 */}
+          <div className="w-20 ml-4" style={{ height: 'calc(100vh - 120px)' }}>
             <button
               onClick={toggleMenu}
               className="h-full w-full bg-gray-600 hover:bg-gray-700 text-white text-lg font-bold transition-colors shadow-lg flex items-center justify-center"
@@ -2728,9 +3028,9 @@ export default function WorkstationPage() {
             </button>
           </div>
 
-          {/* 可展开的菜单选项 */}
+          {/* 可展开的菜单选项 - 上对齐 */}
           {isMenuExpanded && (
-            <div className="w-48 space-y-4 ml-4">
+            <div className="w-48 space-y-4 ml-4 flex flex-col justify-start pt-4" style={{ height: 'calc(100vh - 120px)' }}>
               {/* LOGOUT 按钮 */}
               <button
                 onClick={handleLogout}
@@ -2744,12 +3044,72 @@ export default function WorkstationPage() {
                 onClick={handleServiceMode}
                 className="w-full h-16 bg-gray-300 hover:bg-gray-400 text-gray-800 text-lg font-bold rounded-lg transition-colors shadow-lg"
               >
-                {t('workstation.serviceMode')}
+                SERVICE MODE
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* 手动插入订单对话框 */}
+      {showManualInsertModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 mx-4 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">{t('manualInsert.title')}</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('manualInsert.inputLabel')}
+              </label>
+              <input
+                type="text"
+                value={manualProductionNumber}
+                onChange={(e) => setManualProductionNumber(e.target.value)}
+                placeholder={t('manualInsert.placeholder')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={manualInsertLoading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleManualInsertSubmit();
+                  }
+                }}
+                autoFocus
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                {t('manualInsert.description')}
+              </p>
+            </div>
+            
+            {/* 操作按钮 */}
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowManualInsertModal(false);
+                  setManualProductionNumber('');
+                }}
+                disabled={manualInsertLoading}
+                className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors disabled:bg-gray-400"
+              >
+                {t('manualInsert.cancel')}
+              </button>
+              <button
+                onClick={handleManualInsertSubmit}
+                disabled={!manualProductionNumber.trim() || manualInsertLoading}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+              >
+                {manualInsertLoading ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {t('manualInsert.searching')}
+                  </span>
+                ) : (
+                  t('manualInsert.submit')
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
