@@ -8,8 +8,14 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const workstation = await prisma.workstation.findUnique({
-      where: { id },
+    // 尝试通过ID或workstationId查找工位
+    const workstation = await prisma.workstation.findFirst({
+      where: {
+        OR: [
+          { id }, // 数据库主键
+          { workstationId: id } // 工位标识符
+        ]
+      },
       include: {
         workstationDevices: {
           include: {
@@ -30,6 +36,7 @@ export async function GET(
     })
 
     if (!workstation) {
+      console.log(`Workstation ID not found in database: ${id}`)
       return NextResponse.json(
         { error: '工位不存在' },
         { status: 404 }

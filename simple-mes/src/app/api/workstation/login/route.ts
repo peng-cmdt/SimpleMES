@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const { workstationId, userId, username, clientIp, autoLogin } = await request.json();
+    const { workstationId, userId, username, clientIp, autoLogin, skipSessionCheck } = await request.json();
     
-    console.log('Workstation login request:', { workstationId, userId, username, clientIp, autoLogin });
+    console.log('Workstation login request:', { workstationId, userId, username, clientIp, autoLogin, skipSessionCheck });
 
     if (!workstationId) {
       return NextResponse.json({ error: 'WorkstationId is required' }, { status: 400 });
@@ -190,6 +190,50 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error('Error initializing devices:', error);
+      }
+    }
+
+    // 检查是否已有活跃会话（如果未跳过会话检查）
+    if (!skipSessionCheck) {
+      const activeSession = await prisma.workstationSession.findFirst({
+        where: {
+          workstationId: workstation.id,
+          isActive: true,
+          logoutTime: null
+        },
+        orderBy: {
+          loginTime: 'desc'
+        }
+      });
+
+      if (activeSession) {
+        // 检查会话是否超时（超过2小时视为超时）
+        const sessionTimeout = 2 * 60 * 60 * 1000; // 2小时
+        const isTimeout = new Date().getTime() - new Date(activeSession.lastActivity).getTime() > sessionTimeout;
+
+        if (isTimeout) {
+          // 会话超时，自动结束会话
+          await prisma.workstationSession.update({
+            where: { id: activeSession.id },
+            data: {
+              isActive: false,
+              logoutTime: new Date()
+            }
+          });
+        } else {
+          // 有活跃会话，不允许登录
+          return NextResponse.json({
+            success: false,
+            error: 'WORKSTATION_OCCUPIED',
+            message: 'Workstation is currently occupied by another user',
+            activeSession: {
+              sessionId: activeSession.sessionId,
+              username: activeSession.username,
+              loginTime: activeSession.loginTime,
+              lastActivity: activeSession.lastActivity
+            }
+          }, { status: 409 });
+        }
       }
     }
 

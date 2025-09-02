@@ -302,6 +302,62 @@ export default function WorkstationPage() {
     return () => clearInterval(interval);
   }, [workstationSession, isExecutionMode]);
 
+  // 会话心跳维持 - 每60秒发送一次心跳，检测会话状态
+  useEffect(() => {
+    if (!workstationSession) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        const response = await fetch('/api/workstation/session/heartbeat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: workstationSession.sessionId
+          })
+        });
+
+        const result = await response.json();
+        
+        if (!result.success) {
+          console.error('心跳检测失败:', result.error, result.message);
+          
+          // 检查是否被接管
+          if (result.error === 'SESSION_TAKEN_OVER') {
+            // 显示被接管通知并自动退出
+            alert(`您的会话已被 ${result.takenOverBy} 接管，系统将自动退出到登录界面。`);
+          } else if (result.error === 'SESSION_TERMINATED') {
+            // 会话被终止
+            alert('您的会话已过期或被终止，系统将自动退出到登录界面。');
+          }
+          
+          if (result.shouldLogout) {
+            // 清理本地存储并退出到登录界面
+            localStorage.removeItem("clientAuth");
+            localStorage.removeItem("clientUserInfo"); 
+            localStorage.removeItem("clientInfo");
+            localStorage.removeItem("workstationSession");
+            router.push("/client/login");
+            return;
+          }
+        } else {
+          console.log('会话心跳发送成功');
+        }
+      } catch (error) {
+        console.error('会话心跳发送失败:', error);
+      }
+    };
+
+    // 立即发送一次心跳
+    sendHeartbeat();
+    
+    // 每60秒发送一次心跳
+    const heartbeatInterval = setInterval(sendHeartbeat, 60000);
+    
+    return () => clearInterval(heartbeatInterval);
+  }, [workstationSession, router]);
+
   // 验证会话和加载数据
   useEffect(() => {
     const validateSession = () => {
@@ -321,6 +377,8 @@ export default function WorkstationPage() {
         setWorkstationSession(session);
         // 直接使用session对象来加载订单，而不是依赖状态
         loadOrdersWithSession(session);
+        // 尝试恢复工作状态
+        restoreWorkState(session.workstation.workstationId);
       } catch (error) {
         console.error('Session validation failed:', error);
         router.push("/client/login");
@@ -456,14 +514,35 @@ export default function WorkstationPage() {
   };
 
   const handleStart = async () => {
-    // 找到第一个PENDING状态的订单
-    const firstPendingOrder = orders.find(order => order.status?.toLowerCase() === 'pending');
+    // 非插单模式：严格按序执行订单
+    const sortedOrders = [...orders].sort((a, b) => {
+      // 按订单号从小到大排序（T001, T002, T003...）
+      const getOrderNumber = (orderNumber: string) => {
+        const match = orderNumber.match(/T(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      return getOrderNumber(a.orderNumber) - getOrderNumber(b.orderNumber);
+    });
+
+    // 首先检查是否有正在进行中的订单
+    const inProgressOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'in_progress');
+    
+    if (inProgressOrder) {
+      // 如果有正在进行中的订单，继续执行该订单（无论是哪个订单）
+      console.log('发现进行中的订单，继续执行:', inProgressOrder.orderNumber);
+      await handleContinueOrder(inProgressOrder);
+      return;
+    }
+    
+    // 没有进行中的订单，按顺序查找第一个待开始的订单
+    const firstPendingOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'pending');
     
     if (!firstPendingOrder) {
       alert('暂无待开始的订单');
       return;
     }
     
+    console.log('按顺序开始执行订单:', firstPendingOrder.orderNumber);
     await handleStartOrder(firstPendingOrder);
   };
 
@@ -572,6 +651,8 @@ export default function WorkstationPage() {
             // 刷新订单列表以反映状态变化
             if (workstationSession) {
               loadOrdersWithSession(workstationSession);
+              // 保存工作状态
+              saveWorkState(workstationSession.workstation.workstationId);
             }
           } else if (data.data.process?.steps && data.data.process.steps.length > 0) {
             // 如果没有orderSteps但有process.steps，创建orderSteps
@@ -613,6 +694,8 @@ export default function WorkstationPage() {
             // 刷新订单列表以反映状态变化
             if (workstationSession) {
               loadOrdersWithSession(workstationSession);
+              // 保存工作状态
+              saveWorkState(workstationSession.workstation.workstationId);
             }
           } else {
             console.log('API返回成功但无有效步骤数据');
@@ -846,7 +929,115 @@ export default function WorkstationPage() {
     }
   };
 
-  const handleLogout = () => {
+  // 保存当前工作状态
+  const saveWorkState = async (workstationId: string) => {
+    if (!currentOrder) return; // 没有当前订单时不保存状态
+
+    try {
+      const workState = {
+        currentOrder: currentOrder,
+        isExecutionMode: isExecutionMode,
+        currentStepIndex: currentStepIndex,
+        stepExecutionResults: stepExecutionResults,
+        currentStepResult: currentStepResult,
+        savedAt: new Date().toISOString(),
+        orderProgress: {
+          orderId: currentOrder.id,
+          status: currentOrder.status,
+          currentStep: currentStepIndex,
+          totalSteps: currentOrder.steps?.length || 0
+        }
+      };
+
+      const response = await fetch('/api/workstation/work-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workstationId: workstationId,
+          workState: workState
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('工作状态保存成功:', result);
+      } else {
+        console.error('工作状态保存失败:', result.error);
+      }
+    } catch (error) {
+      console.error('保存工作状态时出错:', error);
+    }
+  };
+
+  // 恢复工作状态
+  const restoreWorkState = async (workstationId: string) => {
+    try {
+      const response = await fetch(`/api/workstation/work-state?workstationId=${workstationId}`);
+      const result = await response.json();
+
+      if (result.success && result.hasWorkState) {
+        const workState = result.workState;
+        console.log('发现保存的工作状态:', workState);
+
+        // 恢复订单状态
+        if (workState.currentOrder) {
+          setCurrentOrder(workState.currentOrder);
+          setIsExecutionMode(workState.isExecutionMode || false);
+          setCurrentStepIndex(workState.currentStepIndex || 0);
+          setStepExecutionResults(workState.stepExecutionResults || []);
+          setCurrentStepResult(workState.currentStepResult || null);
+
+          // 显示恢复通知
+          alert(`检测到之前的工作进度，已自动恢复订单 "${workState.currentOrder.productionNumber}" 的执行状态。`);
+        }
+      } else {
+        console.log('没有发现保存的工作状态');
+      }
+    } catch (error) {
+      console.error('恢复工作状态时出错:', error);
+    }
+  };
+
+  // 清除工作状态
+  const clearWorkState = async (workstationId: string) => {
+    try {
+      const response = await fetch(`/api/workstation/work-state?workstationId=${workstationId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('工作状态清除成功');
+      }
+    } catch (error) {
+      console.error('清除工作状态时出错:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // 调用登出API清理服务端会话
+      if (workstationSession) {
+        await fetch('/api/workstation/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: workstationSession.sessionId,
+            workstationId: workstationSession.workstation.workstationId,
+            username: userInfo?.username
+          })
+        });
+      }
+    } catch (error) {
+      console.error('登出API调用失败:', error);
+      // 即使API调用失败，也继续清理本地存储
+    }
+
+    // 清理本地存储
     localStorage.removeItem("clientAuth");
     localStorage.removeItem("clientUserInfo");
     localStorage.removeItem("clientInfo");
@@ -1113,6 +1304,11 @@ export default function WorkstationPage() {
     if (currentStepIndex < currentOrder.orderSteps!.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
       setCurrentActionIndex(0);
+      
+      // 保存工作状态
+      if (workstationSession) {
+        saveWorkState(workstationSession.workstation.workstationId);
+      }
     } else {
       // 所有步骤完成 - 直接完成订单并退出执行模式
       console.log('所有工艺步骤已完成，订单完成');
@@ -1177,6 +1373,11 @@ export default function WorkstationPage() {
       setCurrentActionIndex(0);
       setShowStepSelectMenu(false);
       setStartTime(null); // 重置计时器
+      
+      // 清除工作状态
+      if (workstationSession) {
+        clearWorkState(workstationSession.workstation.workstationId);
+      }
       
       // 立即刷新订单列表（移除已完成的订单） - 确保在状态更新完成后执行
       setTimeout(async () => {
@@ -2946,7 +3147,7 @@ export default function WorkstationPage() {
             {/* START 按钮 */}
             <button
               onClick={handleStart}
-              disabled={orders.length === 0 || !orders.some(order => order.status?.toLowerCase() === 'pending') || isProcessing}
+              disabled={orders.length === 0 || (!orders.some(order => order.status?.toLowerCase() === 'pending') && !orders.some(order => order.status?.toLowerCase() === 'in_progress')) || isProcessing}
               className="w-full h-20 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xl font-bold rounded-lg transition-colors shadow-lg"
             >
               {isProcessing ? (
@@ -2954,11 +3155,28 @@ export default function WorkstationPage() {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-2"></div>
                   启动中...
                 </div>
-              ) : orders.some(order => order.status?.toLowerCase() === 'pending') ? (
-                "开始"
-              ) : (
-                "暂无待开始订单"
-              )}
+              ) : (() => {
+                // 按顺序排序找到正确的订单
+                const sortedOrders = [...orders].sort((a, b) => {
+                  const getOrderNumber = (orderNumber: string) => {
+                    const match = orderNumber.match(/T(\d+)/);
+                    return match ? parseInt(match[1]) : 0;
+                  };
+                  return getOrderNumber(a.orderNumber) - getOrderNumber(b.orderNumber);
+                });
+                
+                const inProgressOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'in_progress');
+                if (inProgressOrder) {
+                  return `继续执行 ${inProgressOrder.orderNumber}`;
+                }
+                
+                const pendingOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'pending');
+                if (pendingOrder) {
+                  return `开始执行 ${pendingOrder.orderNumber}`;
+                }
+                
+                return "暂无待执行订单";
+              })()}
             </button>
 
             {/* ADJUST SEQUENCE 按钮 */}

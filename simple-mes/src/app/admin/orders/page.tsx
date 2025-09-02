@@ -210,6 +210,7 @@ function BOMItemsForOrder({ order, onEditPart, refreshTrigger }: {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [boms, setBoms] = useState<BOM[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -258,6 +259,14 @@ export default function OrdersPage() {
   const [searchResults, setSearchResults] = useState<BOMItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // 搜索筛选状态
+  const [searchFilters, setSearchFilters] = useState({
+    productionNumber: '',
+    orderNumber: '',
+    productCode: '',
+    processCode: ''
+  });
   
   // 展开订单编辑表单的状态
   const [expandedOrderFormData, setExpandedOrderFormData] = useState<{[key: string]: OrderFormData}>({});
@@ -327,6 +336,37 @@ export default function OrdersPage() {
     }
   }, [formData.productId]);
 
+  // 搜索筛选逻辑
+  useEffect(() => {
+    let filtered = [...orders];
+    
+    if (searchFilters.productionNumber) {
+      filtered = filtered.filter(order =>
+        order.productionNumber.toLowerCase().includes(searchFilters.productionNumber.toLowerCase())
+      );
+    }
+    
+    if (searchFilters.orderNumber) {
+      filtered = filtered.filter(order =>
+        order.orderNumber.toLowerCase().includes(searchFilters.orderNumber.toLowerCase())
+      );
+    }
+    
+    if (searchFilters.productCode) {
+      filtered = filtered.filter(order =>
+        order.product.productCode.toLowerCase().includes(searchFilters.productCode.toLowerCase())
+      );
+    }
+    
+    if (searchFilters.processCode) {
+      filtered = filtered.filter(order =>
+        order.process.processCode.toLowerCase().includes(searchFilters.processCode.toLowerCase())
+      );
+    }
+    
+    setFilteredOrders(filtered);
+  }, [orders, searchFilters]);
+
   // 实时刷新订单列表 - 每15秒刷新一次
   useEffect(() => {
     const orderRefreshInterval = setInterval(() => {
@@ -354,6 +394,7 @@ export default function OrdersPage() {
       if (response.ok) {
         const data = await response.json();
         setOrders(data.data.orders);
+        setFilteredOrders(data.data.orders); // 初始化过滤后的订单
       }
     } catch (error) {
       console.error('Load orders error:', error);
@@ -1385,6 +1426,77 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* 搜索筛选区域 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-4">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">搜索筛选</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              生产序号
+            </label>
+            <input
+              type="text"
+              value={searchFilters.productionNumber}
+              onChange={(e) => setSearchFilters({...searchFilters, productionNumber: e.target.value})}
+              placeholder="输入生产序号..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              生产订单
+            </label>
+            <input
+              type="text"
+              value={searchFilters.orderNumber}
+              onChange={(e) => setSearchFilters({...searchFilters, orderNumber: e.target.value})}
+              placeholder="输入订单号..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              产品号
+            </label>
+            <input
+              type="text"
+              value={searchFilters.productCode}
+              onChange={(e) => setSearchFilters({...searchFilters, productCode: e.target.value})}
+              placeholder="输入产品号..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              工艺号
+            </label>
+            <input
+              type="text"
+              value={searchFilters.processCode}
+              onChange={(e) => setSearchFilters({...searchFilters, processCode: e.target.value})}
+              placeholder="输入工艺号..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            onClick={() => setSearchFilters({
+              productionNumber: '',
+              orderNumber: '',
+              productCode: '',
+              processCode: ''
+            })}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          >
+            清空筛选
+          </button>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            显示 {filteredOrders.length} / {orders.length} 条订单
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
@@ -1396,10 +1508,19 @@ export default function OrdersPage() {
                 生产订单
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                产品信息
+                产品号
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                数量/优先级
+                工艺号
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                工艺版本
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                数量
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                优先级
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 状态
@@ -1407,10 +1528,13 @@ export default function OrdersPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 计划日期
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                完成日期
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const statusConfig = getStatusConfig(order.status);
               const isExpanded = expandedOrders.has(order.id);
               const bomItems = orderBOMData[order.id] || [];
@@ -1434,17 +1558,19 @@ export default function OrdersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      <div>
-                        <div className="font-medium">{order.product.name}</div>
-                        <div className="text-xs text-gray-400">BOM: {order.bom ? order.bom.bomCode : '未配置'}</div>
-                        <div className="text-xs text-gray-400">工艺: {order.process.processCode}</div>
-                      </div>
+                      <div className="font-medium text-gray-900 dark:text-white">{order.product.productCode}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      <div>
-                        <div className="font-medium">数量: {order.quantity}</div>
-                        <div className="text-xs text-gray-400">优先级: {order.priority}</div>
-                      </div>
+                      <div className="font-medium text-gray-900 dark:text-white">{order.process.processCode}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      <div className="font-medium text-gray-900 dark:text-white">{order.process.version}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      <div className="font-medium text-gray-900 dark:text-white">{order.quantity}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      <div className="font-medium text-gray-900 dark:text-white">{order.priority}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusConfig.color}`}>
@@ -1454,12 +1580,15 @@ export default function OrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                       {order.plannedDate ? new Date(order.plannedDate).toLocaleDateString('zh-CN') : '-'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {order.status === 'COMPLETED' && order.completedAt ? new Date(order.completedAt).toLocaleDateString('zh-CN') : '-'}
+                    </td>
                   </tr>
                   
                   {/* 订单详情展开行 */}
                   {isExpanded && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-0">
+                      <td colSpan={10} className="px-6 py-0">
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg">
                           <div className="p-4">
                             {/* 选项卡导航 */}

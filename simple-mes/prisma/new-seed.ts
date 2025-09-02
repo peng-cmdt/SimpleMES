@@ -23,7 +23,28 @@ async function main() {
   })
   console.log('Created admin user')
 
-  // 创建工位
+  // 创建工位M1
+  const workstationM1 = await prisma.workstation.upsert({
+    where: { workstationId: 'M1' },
+    update: {},
+    create: {
+      workstationId: 'M1',
+      name: 'M1',
+      description: '主装配工位M1',
+      location: '生产线A',
+      configuredIp: '192.168.124.5',
+      status: 'offline',
+      type: 'VISUAL_CLIENT',
+      settings: {
+        autoConnect: true,
+        timeout: 30000,
+        retryCount: 3
+      }
+    }
+  })
+  console.log('Created workstation M1')
+
+  // 创建工位WS-001（保留原有的）
   const workstation = await prisma.workstation.upsert({
     where: { workstationId: 'WS-001' },
     update: {},
@@ -41,7 +62,7 @@ async function main() {
       }
     }
   })
-  console.log('Created workstation')
+  console.log('Created workstation WS-001')
 
   // 创建设备模板（抽象设备定义）
   const deviceTemplates = [
@@ -102,6 +123,7 @@ async function main() {
     const plcTemplate = createdTemplates.find(t => t.type === 'PLC_CONTROLLER');
     const scannerTemplate = createdTemplates.find(t => t.type === 'BARCODE_SCANNER');
 
+    // 为工位WS-001创建设备
     const workstationDevices = [];
     
     if (plcTemplate) {
@@ -138,8 +160,48 @@ async function main() {
       });
     }
 
+    // 为工位M1创建设备
+    const m1WorkstationDevices = [];
+    
+    if (plcTemplate) {
+      m1WorkstationDevices.push({
+        workstationId: workstationM1.id,
+        templateId: plcTemplate.id,
+        displayName: 'PLC_TEST_127.0.0.1',
+        ipAddress: '127.0.0.1',
+        port: 102,
+        protocol: 'TCP',
+        config: {
+          plcType: 'Siemens_S7',
+          rack: 0,
+          slot: 1
+        },
+        status: 'OFFLINE',
+        isOnline: false
+      });
+    }
+
+    if (scannerTemplate) {
+      m1WorkstationDevices.push({
+        workstationId: workstationM1.id,
+        templateId: scannerTemplate.id,
+        displayName: '扫码器M1',
+        ipAddress: '192.168.124.6',
+        port: 9100,
+        protocol: 'TCP',
+        config: {
+          timeout: 5000
+        },
+        status: 'OFFLINE',
+        isOnline: false
+      });
+    }
+
+    // 创建所有设备实例
+    const allDevices = [...workstationDevices, ...m1WorkstationDevices];
+    
     console.log('Creating workstation device instances...');
-    for (const deviceData of workstationDevices) {      
+    for (const deviceData of allDevices) {      
       try {
         const existingDevice = await prisma.workstationDevice.findFirst({
           where: {

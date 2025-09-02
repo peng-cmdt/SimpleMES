@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
+import TakeoverModal from "@/components/client/TakeoverModal";
 
 interface Workstation {
   workstationId: string;
@@ -48,59 +49,275 @@ export default function ClientLogin() {
   const [clientIpAddress, setClientIpAddress] = useState<string>("");
   const [matchedWorkstation, setMatchedWorkstation] = useState<Workstation | null>(null);
   const [isIpMatching, setIsIpMatching] = useState(false);
+  
+  // 接管弹框相关状态
+  const [showTakeoverModal, setShowTakeoverModal] = useState(false);
+  const [conflictSession, setConflictSession] = useState<any>(null);
+  const [conflictWorkState, setConflictWorkState] = useState<any>(null);
+  const [pendingWorkstationId, setPendingWorkstationId] = useState<string>("");
+  const [isTakingOver, setIsTakingOver] = useState(false);
   const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
 
-  // 获取客户端IP地址
-  const getClientIpAddress = async (): Promise<string> => {
+  // 检查工位会话状态
+  const checkWorkstationSession = async (workstationId: string): Promise<{hasActiveSession: boolean, activeSession?: any}> => {
     try {
-      // 首先尝试通过公共API获取外网IP
-      const response = await fetch('https://api.ipify.org?format=json');
-      if (response.ok) {
-        const data = await response.json();
-        return data.ip;
+      const response = await fetch('/api/workstation/session/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ workstationId })
+      });
+
+      const result = await response.json();
+      console.log('Session check result:', result);
+
+      if (result.success) {
+        return {
+          hasActiveSession: result.hasActiveSession,
+          activeSession: result.activeSession
+        };
       }
+      
+      return { hasActiveSession: false };
     } catch (error) {
-      console.log('Failed to get public IP, trying local network detection');
+      console.error('Error checking workstation session:', error);
+      return { hasActiveSession: false };
     }
+  };
+
+  // 获取工作状态
+  const getWorkState = async (workstationId: string) => {
+    try {
+      const response = await fetch(`/api/workstation/work-state?workstationId=${workstationId}`);
+      const result = await response.json();
+      
+      if (result.success && result.hasWorkState) {
+        return result.workState;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching work state:', error);
+      return null;
+    }
+  };
+
+  // 接管控制权
+  const takeoverWorkstation = async (workstationId: string, newUsername: string): Promise<boolean> => {
+    try {
+      setIsTakingOver(true);
+      
+      const response = await fetch('/api/workstation/session/takeover', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          workstationId, 
+          newUsername,
+          forceLogout: true,
+          preserveWorkState: true // 保存工作状态以便新用户接管
+        })
+      });
+
+      const result = await response.json();
+      console.log('Takeover result:', result);
+
+      return result.success;
+    } catch (error) {
+      console.error('Error taking over workstation:', error);
+      return false;
+    } finally {
+      setIsTakingOver(false);
+    }
+  };
+
+  // 处理接管确认
+  const handleTakeoverConfirm = async () => {
+    if (!pendingWorkstationId) return;
+
+    setError(''); // 清除之前的错误
+    const success = await takeoverWorkstation(pendingWorkstationId, credentials.username.trim());
+    
+    if (success) {
+      // 接管成功，关闭弹框并继续登录
+      setShowTakeoverModal(false);
+      setConflictSession(null);
+      
+      // 不要立即清除 pendingWorkstationId，在登录成功后再清除
+      
+      // 继续执行工位登录（跳过会话检查）
+      await proceedWithWorkstationLogin(pendingWorkstationId);
+      
+      // 清除待处理的工位ID
+      setPendingWorkstationId("");
+    } else {
+      // 接管失败，显示错误但保持弹框打开
+      setError('接管控制权失败，请重试');
+      // 不关闭弹框，让用户重试或取消
+    }
+  };
+
+  // 处理取消接管
+  const handleTakeoverCancel = () => {
+    setShowTakeoverModal(false);
+    setConflictSession(null);
+    setConflictWorkState(null);
+    setPendingWorkstationId("");
+    setIsLoading(false);
+  };
+
+  // 实际执行工位登录（跳过会话检查）
+  const proceedWithWorkstationLogin = async (workstationId: string) => {
+    setLoginResult(null);
 
     try {
-      // 如果获取外网IP失败，尝试通过WebRTC获取本地网络IP
-      return new Promise((resolve) => {
-        const rtc = new RTCPeerConnection({ iceServers: [] });
-        rtc.createDataChannel('');
-        
-        rtc.onicecandidate = (e) => {
-          if (!e.candidate) return;
-          const candidate = e.candidate.candidate;
-          const match = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-          if (match && !match[1].startsWith('169.254')) {
-            resolve(match[1]);
-            rtc.close();
-          }
-        };
-        
-        rtc.createOffer().then(offer => rtc.setLocalDescription(offer));
-        
-        // 5秒超时
-        setTimeout(() => {
-          resolve('127.0.0.1');
-          rtc.close();
-        }, 5000);
+      const response = await fetch('/api/workstation/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workstationId: workstationId,
+          username: credentials.username.trim(),
+          skipSessionCheck: true // 跳过会话检查，用于接管后登录
+        })
       });
+
+      const result = await response.json();
+      setLoginResult(result);
+
+      if (result.success) {
+        // 保存工位会话信息
+        localStorage.setItem('workstationSession', JSON.stringify({
+          sessionId: result.sessionId,
+          workstation: result.workstation,
+          username: credentials.username.trim(),
+          loginTime: result.loginTime
+        }));
+
+        // 立即跳转到工位操作界面
+        router.push('/client/workstation');
+      }
     } catch (error) {
-      console.error('Failed to get local IP:', error);
-      return '127.0.0.1';
+      console.error('Workstation login error:', error);
+      setLoginResult({
+        success: false,
+        error: t('error.networkError')
+      });
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // 获取客户端本地IP地址（优化版本 - 更快速）
+  const getClientIpAddress = async (): Promise<string> => {
+    console.log('🔍 开始快速获取本地IP地址...');
+    
+    // 并行执行WebRTC和服务器API获取IP
+    const promises = [];
+    
+    // Promise 1: WebRTC方法（缩短超时时间）
+    const webrtcPromise = new Promise<string>((resolve) => {
+      const pc = new RTCPeerConnection({iceServers: []});
+      pc.createDataChannel('');
+      
+      let resolved = false;
+      pc.onicecandidate = (e) => {
+        if (resolved || !e.candidate) return;
+        
+        const ipMatch = e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+        if (ipMatch && ipMatch[1]) {
+          const ip = ipMatch[1];
+          if (ip !== '127.0.0.1' && !ip.startsWith('169.254')) {
+            console.log(`✅ WebRTC快速获取IP: ${ip}`);
+            resolved = true;
+            pc.close();
+            resolve(ip);
+          }
+        }
+      };
+      
+      pc.createOffer().then(offer => pc.setLocalDescription(offer));
+      
+      // 缩短超时到800ms，快速失败
+      setTimeout(() => {
+        if (!resolved) {
+          pc.close();
+          resolve('webrtc-failed');
+        }
+      }, 800);
+    });
+    
+    // Promise 2: 服务器API方法
+    const serverPromise = fetch('/api/client-ip', { 
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache' }
+    })
+    .then(async response => {
+      if (response.ok) {
+        const data = await response.json();
+        if (data.ip && data.ip !== '::1' && data.ip !== '127.0.0.1') {
+          console.log(`✅ 服务器快速获取IP: ${data.ip}`);
+          return data.ip;
+        }
+      }
+      return 'server-failed';
+    })
+    .catch(() => 'server-failed');
+    
+    try {
+      // 并行执行，取第一个成功的结果
+      const results = await Promise.allSettled([webrtcPromise, serverPromise]);
+      
+      // 优先选择成功的IP（非失败状态）
+      for (const result of results) {
+        if (result.status === 'fulfilled' && 
+            result.value !== 'webrtc-failed' && 
+            result.value !== 'server-failed') {
+          return result.value;
+        }
+      }
+    } catch (error) {
+      console.log('并行IP获取失败:', error);
+    }
+
+    console.log('❌ 快速IP检测失败，直接进入工位选择');
+    return 'auto-detect-failed';
   };
 
   // 查找匹配的工位
   const findMatchingWorkstation = (workstations: Workstation[], clientIp: string): Workstation | null => {
-    return workstations.find(ws => 
-      ws.configuredIp && 
-      (ws.configuredIp === clientIp || 
-       ws.configuredIp.split(',').map(ip => ip.trim()).includes(clientIp))
-    ) || null;
+    console.log(`🔍 开始IP匹配，客户端IP: ${clientIp}`);
+    console.log(`📋 工位列表 (${workstations.length}个):`);
+    
+    for (const ws of workstations) {
+      console.log(`  - ${ws.name} (${ws.workstationId}): 配置IP = "${ws.configuredIp}"`);
+      
+      if (!ws.configuredIp) {
+        console.log(`    ❌ 工位 ${ws.name} 未配置IP，跳过`);
+        continue;
+      }
+      
+      // 支持单个IP或逗号分隔的多个IP
+      const configuredIps = ws.configuredIp.split(',').map(ip => ip.trim()).filter(ip => ip.length > 0);
+      console.log(`    🎯 配置的IP列表: [${configuredIps.join(', ')}]`);
+      
+      for (const configuredIp of configuredIps) {
+        console.log(`    🔗 比较 "${clientIp}" === "${configuredIp}"`);
+        if (clientIp === configuredIp) {
+          console.log(`    ✅ 找到匹配！工位: ${ws.name}, 客户端IP: ${clientIp}, 配置IP: ${configuredIp}`);
+          return ws;
+        }
+      }
+      
+      console.log(`    ❌ 工位 ${ws.name} 不匹配`);
+    }
+    
+    console.log(`❌ 未找到匹配的工位，客户端IP: ${clientIp}`);
+    return null;
   };
 
   // 自动登录匹配的工位
@@ -109,6 +326,23 @@ export default function ClientLogin() {
     setMatchedWorkstation(workstation);
     
     try {
+      // 首先检查工位会话状态
+      const sessionCheck = await checkWorkstationSession(workstation.workstationId);
+      
+      if (sessionCheck.hasActiveSession && sessionCheck.activeSession) {
+        // 有活跃会话，获取工作状态并显示接管弹框
+        const workState = await getWorkState(workstation.workstationId);
+        
+        setConflictSession(sessionCheck.activeSession);
+        setConflictWorkState(workState);
+        setPendingWorkstationId(workstation.workstationId);
+        setShowTakeoverModal(true);
+        setIsIpMatching(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // 没有会话冲突，继续自动登录
       const response = await fetch('/api/workstation/login', {
         method: 'POST',
         headers: {
@@ -136,25 +370,31 @@ export default function ClientLogin() {
           autoMatched: true
         }));
 
-        // 跳转到工位操作界面
-        setTimeout(() => {
-          router.push('/client/workstation');
-        }, 1500);
+        // 立即跳转到工位操作界面（无延迟）
+        router.push('/client/workstation');
       } else {
         // 自动登录失败，显示工位选择界面
         setShowWorkstationSelector(true);
+        setIsLoading(false); // 重置loading状态
       }
     } catch (error) {
       console.error('Auto workstation login error:', error);
       // 自动登录失败，显示工位选择界面
       setShowWorkstationSelector(true);
+      setIsLoading(false); // 重置loading状态
     } finally {
       setIsIpMatching(false);
     }
   };
 
-  // 加载工位列表
+  // 加载工位列表（优化版本 - 避免重复加载）
   const loadWorkstations = async () => {
+    // 如果已经有工位数据，直接返回
+    if (availableWorkstations.length > 0) {
+      console.log('工位列表已存在，跳过加载');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/workstations');
       if (response.ok) {
@@ -179,6 +419,52 @@ export default function ClientLogin() {
       setAvailableWorkstations([]);
     }
   };
+
+  // 继续进行工位匹配流程（优化版本）
+  const proceedWithWorkstationMatching = async (clientIp: string, user: any) => {
+    try {
+      // 一次性获取工位列表
+      const workstationsResponse = await fetch('/api/workstations');
+      if (!workstationsResponse.ok) {
+        console.log('获取工位列表失败，直接进入工位选择界面');
+        await loadWorkstations();
+        setShowWorkstationSelector(true);
+        setIsLoading(false);
+        return;
+      }
+
+      const workstationsData = await workstationsResponse.json();
+      const workstations = workstationsData.workstations || [];
+      console.log(`加载到 ${workstations.length} 个工位，开始匹配IP`);
+      
+      // 设置工位列表（避免后面重复加载）
+      setAvailableWorkstations(workstations);
+      
+      // 查找匹配的工位
+      const matchedWorkstation = findMatchingWorkstation(workstations, clientIp);
+      
+      if (matchedWorkstation) {
+        // 找到匹配的工位，自动登录
+        console.log(`✅ 找到匹配的工位: ${matchedWorkstation.name} (配置IP: ${matchedWorkstation.configuredIp})`);
+        await autoLoginWorkstation(matchedWorkstation, user);
+      } else {
+        // 没有找到匹配的工位，显示工位选择界面
+        console.log(`❌ 未找到匹配的工位 (检测IP: ${clientIp})`);
+        workstations.forEach(ws => {
+          console.log(`工位 ${ws.name}: ${ws.configuredIp}`);
+        });
+        setShowWorkstationSelector(true);
+        setIsLoading(false); // 重置loading状态
+      }
+    } catch (error) {
+      console.error('工位匹配过程出错:', error);
+      // 出错时显示工位选择界面
+      await loadWorkstations();
+      setShowWorkstationSelector(true);
+      setIsLoading(false);
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,35 +494,20 @@ export default function ClientLogin() {
         localStorage.setItem("clientUserInfo", JSON.stringify(data.user));
         
         // 第二步：获取客户端IP地址
-        const clientIp = await getClientIpAddress();
+        let clientIp = await getClientIpAddress();
         setClientIpAddress(clientIp);
+        console.log(`检测到客户端IP地址: ${clientIp}`);
         
-        // 第三步：加载工位列表
-        await loadWorkstations();
-        
-        // 第四步：尝试匹配工位IP
-        const workstationsResponse = await fetch('/api/workstations');
-        if (workstationsResponse.ok) {
-          const workstationsData = await workstationsResponse.json();
-          const workstations = workstationsData.workstations || [];
-          
-          // 查找匹配的工位
-          const matchedWorkstation = findMatchingWorkstation(workstations, clientIp);
-          
-          if (matchedWorkstation) {
-            // 找到匹配的工位，自动登录
-            console.log(`Found matching workstation: ${matchedWorkstation.name} (IP: ${matchedWorkstation.configuredIp})`);
-            await autoLoginWorkstation(matchedWorkstation, data.user);
-          } else {
-            // 没有找到匹配的工位，显示工位选择界面
-            console.log(`No matching workstation found for IP: ${clientIp}`);
-            setAvailableWorkstations(workstations);
-            setShowWorkstationSelector(true);
-          }
-        } else {
-          // 获取工位列表失败，显示选择界面
+        // 如果IP检测失败，直接进入工位选择
+        if (clientIp === 'auto-detect-failed') {
+          console.log('⚠️ IP检测失败，直接进入工位选择');
+          await loadWorkstations();
           setShowWorkstationSelector(true);
+          setIsLoading(false); // 重置loading状态
+          return;
         }
+        
+        await proceedWithWorkstationMatching(clientIp, data.user);
       } else {
         setError(data.error || t('error.loginFailed'));
       }
@@ -258,41 +529,30 @@ export default function ClientLogin() {
     setLoginResult(null);
 
     try {
-      const response = await fetch('/api/workstation/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workstationId: selectedWorkstationId,
-          username: credentials.username.trim()
-        })
-      });
-
-      const result = await response.json();
-      setLoginResult(result);
-
-      if (result.success) {
-        // 保存工位会话信息
-        localStorage.setItem('workstationSession', JSON.stringify({
-          sessionId: result.sessionId,
-          workstation: result.workstation,
-          username: credentials.username.trim(),
-          loginTime: result.loginTime
-        }));
-
-        // 跳转到工位操作界面
-        setTimeout(() => {
-          router.push('/client/workstation');
-        }, 2000);
+      // 首先检查工位会话状态
+      const sessionCheck = await checkWorkstationSession(selectedWorkstationId);
+      
+      if (sessionCheck.hasActiveSession && sessionCheck.activeSession) {
+        // 有活跃会话，获取工作状态并显示接管弹框
+        const workState = await getWorkState(selectedWorkstationId);
+        
+        setConflictSession(sessionCheck.activeSession);
+        setConflictWorkState(workState);
+        setPendingWorkstationId(selectedWorkstationId);
+        setShowTakeoverModal(true);
+        setIsLoading(false);
+        return;
       }
+
+      // 没有会话冲突，直接进行登录
+      await proceedWithWorkstationLogin(selectedWorkstationId);
+
     } catch (error) {
       console.error('Workstation login error:', error);
       setLoginResult({
         success: false,
         error: t('error.networkError')
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -352,7 +612,8 @@ export default function ClientLogin() {
       default:
         return '📱';
     }
-  };
+  }
+
 
   // 全屏超大尺寸工位选择界面
   if (showWorkstationSelector) {
@@ -513,12 +774,33 @@ export default function ClientLogin() {
             {/* IP匹配信息显示（如果需要的话） */}
             {clientIpAddress && !selectedWorkstationId && (
               <div className="mt-16 text-center">
-                <p className="text-gray-600 text-2xl sm:text-3xl xl:text-4xl">
+                <p className="text-gray-600 text-2xl sm:text-3xl xl:text-4xl mb-4">
                   {t('workstationSelect.detectedIp')}: <span className="font-mono bg-gray-100 px-4 py-3 rounded-xl">{clientIpAddress}</span>
                 </p>
-                <p className="text-gray-500 text-xl sm:text-2xl xl:text-3xl mt-4">
+                <p className="text-gray-500 text-xl sm:text-2xl xl:text-3xl mb-6">
                   {t('workstationSelect.noMatchingStation')}
                 </p>
+                
+                {/* 显示所有工位的配置IP */}
+                {availableWorkstations.length > 0 && (
+                  <div className="mt-8 p-6 bg-blue-50 rounded-2xl border-2 border-blue-200">
+                    <h4 className="text-2xl font-semibold text-blue-900 mb-4">工位IP配置详情：</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {availableWorkstations.map((ws) => (
+                        <div key={ws.workstationId} className="bg-white p-4 rounded-lg border">
+                          <div className="text-lg font-medium text-gray-900">{ws.name}</div>
+                          <div className="text-sm text-gray-600">工位ID: {ws.workstationId}</div>
+                          <div className="text-sm text-blue-600 font-mono">
+                            配置IP: {ws.configuredIp || '❌ 未配置'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-blue-600 text-lg mt-4">
+                      💡 如果看到匹配的IP但仍需要手动选择，请检查浏览器控制台的详细日志
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -673,12 +955,15 @@ export default function ClientLogin() {
               </div>
             )}
 
-            {/* 显示当前检测到的IP地址 */}
+            {/* 显示当前检测到的IP地址和调试信息 */}
             {clientIpAddress && !isIpMatching && !showWorkstationSelector && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <p className="text-xs text-gray-600 text-center">
                   <span className="text-gray-500">{t('workstationSelect.detectedIp')}:</span> 
                   <span className="font-mono text-gray-700 ml-1">{clientIpAddress}</span>
+                </p>
+                <p className="text-xs text-gray-500 text-center mt-1">
+                  💡 提示：如果IP自动匹配失败，请检查浏览器控制台查看详细的匹配日志
                 </p>
               </div>
             )}
@@ -705,6 +990,21 @@ export default function ClientLogin() {
           </div>
         </div>
       </div>
+      
+      {/* 接管控制权弹框 */}
+      <TakeoverModal
+        isOpen={showTakeoverModal}
+        currentUser={conflictSession ? {
+          username: conflictSession.username,
+          loginTime: conflictSession.loginTime,
+          lastActivity: conflictSession.lastActivity
+        } : undefined}
+        workstationName={availableWorkstations.find(ws => ws.workstationId === pendingWorkstationId)?.name}
+        workState={conflictWorkState}
+        onTakeOver={handleTakeoverConfirm}
+        onCancel={handleTakeoverCancel}
+        isLoading={isTakingOver}
+      />
     </div>
   );
 }

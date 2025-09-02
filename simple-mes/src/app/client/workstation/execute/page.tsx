@@ -289,7 +289,7 @@ export default function WorkstationExecutePage() {
     } else {
       // 所有步骤完成
       alert('所有工艺步骤已完成！');
-      router.push('/client/orders');
+      router.push('/client/workstation');
     }
   };
 
@@ -314,7 +314,7 @@ export default function WorkstationExecutePage() {
 
   const handleCancel = () => {
     if (confirm('确定要取消当前操作吗？')) {
-      router.push('/client/orders');
+      router.push('/client/workstation');
     }
   };
 

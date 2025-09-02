@@ -778,11 +778,12 @@ export default function StepTemplatesPage() {
       actionCode: `A${tempActionTemplates.length + 1}`,
       name: '',
       nameLocal: '',
-      type: '',
+      type: 'DEVICE_READ',
       sensorType: '',
       sensor: '',
       category: '',
       deviceType: '',
+      deviceId: '',
       deviceAddress: '',
       expectedValue: '',
       validationRule: '',
@@ -815,6 +816,7 @@ export default function StepTemplatesPage() {
 
   const editAction = async (index: number) => {
     const action = tempActionTemplates[index];
+    console.log('Editing action:', action); // 调试日志
     setEditingAction(action);
     setCurrentActionIndex(index);
     
@@ -841,8 +843,10 @@ export default function StepTemplatesPage() {
             }
           }
           
+          console.log('Setting action form data:', formData); // 调试日志
           setActionFormData(formData);
         } else {
+          console.log('Setting action form data (fallback):', action); // 调试日志
           setActionFormData({ ...action });
         }
       } catch (error) {
@@ -911,6 +915,10 @@ export default function StepTemplatesPage() {
         newActions.push(updatedActionData);
       }
       
+      // 调试：打印要保存的动作数据
+      console.log('Saving action data:', updatedActionData);
+      console.log('All actions to save:', newActions);
+      
       // 直接保存到数据库
       const response = await fetch(`/api/step-templates/${editingTemplate.id}`, {
         method: 'PUT',
@@ -937,7 +945,40 @@ export default function StepTemplatesPage() {
         if (data.success && data.data.stepTemplate) {
           console.log('Updating editingTemplate with saved data:', data.data.stepTemplate);
           setEditingTemplate(data.data.stepTemplate);
-          setTempActionTemplates(data.data.stepTemplate.actionTemplates || []);
+          
+          // 映射API返回的动作模板数据，保持与加载时一致的处理
+          const mappedActions = (data.data.stepTemplate.actionTemplates || []).map((action: any) => {
+            const params = action.parameters as any || {};
+            
+            return {
+              ...action,
+              type: mapActionTypeFromDB(action.type), // 转换动作类型
+              // 从parameters中恢复前端特有字段
+              deviceId: params.deviceId || '',
+              sensorType: params.sensorType || '',
+              sensor: params.sensor || '',
+              sensorValue: params.sensorValue || '',
+              nameLocal: params.nameLocal || '',
+              componentType: params.componentType || '',
+              sensorInit: params.sensorInit || '',
+              maxExecutionTime: params.maxExecutionTime || 0,
+              expectedExecutionTime: params.expectedExecutionTime || 0,
+              idleTime: params.idleTime || 0,
+              okPin: params.okPin || '0',
+              errorPin: params.errorPin || '0',
+              dSign: params.dSign || false,
+              sSign: params.sSign || false,
+              actionAfterError: params.actionAfterError || 'Repeat action',
+              image: params.image || '',
+              imageWidth: params.imageWidth || 0,
+              imageHeight: params.imageHeight || 0,
+              fullSizeImage: params.fullSizeImage || false,
+              imagePosition: params.imagePosition || 'Top-left',
+              soundFile: params.soundFile || ''
+            };
+          });
+          
+          setTempActionTemplates(mappedActions);
           
           // 更新步骤模板列表中的对应项
           setStepTemplates(prevTemplates => 
@@ -1004,7 +1045,40 @@ export default function StepTemplatesPage() {
         if (data.success && data.data.stepTemplate) {
           console.log('Updating editingTemplate after action removal:', data.data.stepTemplate);
           setEditingTemplate(data.data.stepTemplate);
-          setTempActionTemplates(data.data.stepTemplate.actionTemplates || []);
+          
+          // 映射API返回的动作模板数据，保持与加载时一致的处理
+          const mappedActions = (data.data.stepTemplate.actionTemplates || []).map((action: any) => {
+            const params = action.parameters as any || {};
+            
+            return {
+              ...action,
+              type: mapActionTypeFromDB(action.type), // 转换动作类型
+              // 从parameters中恢复前端特有字段
+              deviceId: params.deviceId || '',
+              sensorType: params.sensorType || '',
+              sensor: params.sensor || '',
+              sensorValue: params.sensorValue || '',
+              nameLocal: params.nameLocal || '',
+              componentType: params.componentType || '',
+              sensorInit: params.sensorInit || '',
+              maxExecutionTime: params.maxExecutionTime || 0,
+              expectedExecutionTime: params.expectedExecutionTime || 0,
+              idleTime: params.idleTime || 0,
+              okPin: params.okPin || '0',
+              errorPin: params.errorPin || '0',
+              dSign: params.dSign || false,
+              sSign: params.sSign || false,
+              actionAfterError: params.actionAfterError || 'Repeat action',
+              image: params.image || '',
+              imageWidth: params.imageWidth || 0,
+              imageHeight: params.imageHeight || 0,
+              fullSizeImage: params.fullSizeImage || false,
+              imagePosition: params.imagePosition || 'Top-left',
+              soundFile: params.soundFile || ''
+            };
+          });
+          
+          setTempActionTemplates(mappedActions);
           
           // 更新步骤模板列表中的对应项
           setStepTemplates(prevTemplates => 
@@ -1887,13 +1961,19 @@ export default function StepTemplatesPage() {
                                         顺序
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        动作信息
+                                        名称
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                        动作
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         设备配置
                                       </th>
+                                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                        图片
+                                      </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        传感器值
+                                        设备值
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         是否必需
@@ -1953,50 +2033,27 @@ export default function StepTemplatesPage() {
                                             </div>
                                           </div>
                                         </td>
-                                        <td className="px-4 py-4">
-                                          <div className="flex items-start space-x-3">
-                                            {/* 动作图片 */}
-                                            <div className="flex-shrink-0">
-                                              {action.image ? (
-                                                <img
-                                                  src={action.image}
-                                                  alt={action.name}
-                                                  className="w-12 h-12 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                                                  onClick={() => handleImageClick(action.image || '')}
-                                                />
-                                              ) : (
-                                                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                                                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                  </svg>
-                                                </div>
-                                              )}
-                                            </div>
-                                            {/* 动作基本信息 */}
-                                            <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                {action.name}
-                                              </div>
-                                              <div className="text-xs text-gray-500 mb-1">
-                                                {action.actionCode}
-                                              </div>
-                                              <div className="flex items-center space-x-2">
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                                  {getActionTypeLabel(action.type)}
-                                                </span>
-                                                {action.soundFile && (
-                                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                                    🔊 音频
-                                                  </span>
-                                                )}
-                                              </div>
-                                              {action.description && (
-                                                <div className="text-xs text-gray-500 mt-1 max-w-xs truncate">
-                                                  {action.description}
-                                                </div>
-                                              )}
-                                            </div>
+                                        <td className="px-4 py-4 text-sm">
+                                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                            {action.name}
                                           </div>
+                                          <div className="flex items-center space-x-2 mt-1">
+                                            {action.soundFile && (
+                                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                🔊 音频
+                                              </span>
+                                            )}
+                                          </div>
+                                          {action.description && (
+                                            <div className="text-xs text-gray-500 mt-1 max-w-xs truncate">
+                                              {action.description}
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-4 text-sm">
+                                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                            {getActionTypeLabel(action.type)}
+                                          </span>
                                         </td>
                                         <td className="px-4 py-4 text-sm">
                                           <div className="space-y-1">
@@ -2023,15 +2080,49 @@ export default function StepTemplatesPage() {
                                             )}
                                           </div>
                                         </td>
+                                        <td className="px-4 py-4 text-center">
+                                          {action.image ? (
+                                            <img
+                                              src={action.image}
+                                              alt={action.name}
+                                              className="w-12 h-12 mx-auto rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                              onClick={() => handleImageClick(action.image || '')}
+                                            />
+                                          ) : (
+                                            <div className="w-12 h-12 mx-auto bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </td>
                                         <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-300">
                                           {action.sensorValue ? (
                                             <div className="space-y-1">
-                                              <div className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                              <div className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-medium text-gray-900 dark:text-white">
                                                 {action.sensorValue}
                                               </div>
-                                              {action.sensorType && (
-                                                <div className="text-xs">
-                                                  类型: {action.sensorType}
+                                              {action.deviceAddress && (
+                                                <div className="text-xs text-gray-500">
+                                                  地址: {action.deviceAddress}
+                                                </div>
+                                              )}
+                                              {action.expectedValue && (
+                                                <div className="text-xs text-gray-500">
+                                                  期望: {action.expectedValue}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : (action.deviceAddress || action.expectedValue) ? (
+                                            <div className="space-y-1">
+                                              {action.deviceAddress && (
+                                                <div className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                                  {action.deviceAddress}
+                                                </div>
+                                              )}
+                                              {action.expectedValue && (
+                                                <div className="text-xs text-gray-500">
+                                                  期望: {action.expectedValue}
                                                 </div>
                                               )}
                                             </div>

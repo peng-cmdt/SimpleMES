@@ -28,7 +28,7 @@ interface MenuFormData {
 const availableRoles = ['ADMIN', 'SUPERVISOR', 'ENGINEER', 'OPERATOR'];
 
 const defaultMenuIcons = [
-  '📊', '📋', '📦', '📝', '⚙️', '🏭', '🔧', '📡', '📤', '👥', '💻', '🔐', '📁', '📈', '🔍', '📋'
+  '📊', '📋', '📦', '📝', '⚙️', '🏭', '🔧', '📡', '📤', '👥', '💻', '🔐', '📁', '📈', '🔍', '🎯'
 ];
 
 export default function MenuManagementPage() {
@@ -624,8 +624,8 @@ export default function MenuManagementPage() {
                       onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                       className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
-                      {defaultMenuIcons.map((icon) => (
-                        <option key={icon} value={icon}>
+                      {defaultMenuIcons.map((icon, index) => (
+                        <option key={index} value={icon}>
                           {icon}
                         </option>
                       ))}

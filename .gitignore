@@ -48,6 +48,7 @@ log/
 # IDE and editor files
 .vscode/
 .idea/
+**/.vs/
 *.swp
 *.swo
 *~

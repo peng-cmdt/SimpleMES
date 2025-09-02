@@ -9,8 +9,10 @@ interface MenuItem {
   id: string;
   name: string;
   icon: string;
-  path: string;
+  path?: string;
   order: number;
+  adminOnly?: boolean;
+  children?: MenuItem[];
 }
 
 interface UserInfo {
@@ -35,6 +37,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [profileFormData, setProfileFormData] = useState({
     username: '',
     email: '',
@@ -64,30 +67,82 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     }
   }, [router]);
 
-  // 单独的useEffect监听语言变化
+  // 单独的useEffect监听语言变化和路径变化
   useEffect(() => {
     if (isAuthenticated && userInfo) {
+      console.log('Path changed to:', pathname);
       setDefaultMenus();
+      
+      // 使用setTimeout确保菜单项设置完成后再处理展开逻辑
+      setTimeout(() => {
+        const activeMenuId = getActiveMenuId();
+        const parentMenuToExpand = getCurrentParentMenu(activeMenuId);
+        
+        console.log('Active menu ID:', activeMenuId, 'Parent to expand:', parentMenuToExpand);
+        
+        if (parentMenuToExpand) {
+          // 确保当前页面的父菜单展开
+          setExpandedMenus(prev => {
+            console.log('Before navigation expand - current expanded:', prev);
+            // 如果父菜单已经展开，保持不变
+            if (prev.includes(parentMenuToExpand)) {
+              console.log('Parent menu already expanded, keeping current state');
+              return prev;
+            }
+            // 否则展开对应的父菜单（手风琴效果）
+            const newState = [parentMenuToExpand];
+            console.log('After navigation expand - new expanded:', newState);
+            return newState;
+          });
+        }
+      }, 0);
     }
-  }, [t]); // 当语言改变时重新加载菜单
+  }, [t, pathname]); // 当语言改变或路径改变时重新加载菜单并检查展开状态
 
   // 设置默认菜单的函数
   const setDefaultMenus = () => {
     const defaultMenus = [
       { id: "dashboard", name: t('menu.dashboard'), icon: "📊", path: "/admin/dashboard", order: 1 },
-      { id: "orders", name: "生产订单", icon: "📋", path: "/admin/orders", order: 2 },
-      { id: "products", name: "产品管理", icon: "📦", path: "/admin/products", order: 3 },
-      { id: "parts", name: "零部件管理", icon: "📝", path: "/admin/parts", order: 4 },
-      { id: "processes", name: "工艺管理", icon: "⚙️", path: "/admin/processes", order: 5 },
-      { id: "step-templates", name: "工艺步骤管理", icon: "📋", path: "/admin/step-templates", order: 6 },
-      { id: "workstations", name: t('menu.workstations'), icon: "🏭", path: "/admin/workstations", order: 7 },
-      { id: "devices", name: t('menu.devices'), icon: "🔧", path: "/admin/devices", order: 8 },
-      { id: "device-communication", name: "设备通信管理", icon: "📡", path: "/admin/device-communication", order: 9 },
-      { id: "export", name: "数据导出", icon: "📤", path: "/admin/export", order: 10 },
-      { id: "menus", name: "菜单管理", icon: "📋", path: "/admin/menus", order: 11 },
-      { id: "users", name: t('menu.users'), icon: "👥", path: "/admin/users", order: 12 },
-      { id: "clients", name: t('menu.clients'), icon: "💻", path: "/admin/clients", order: 13 },
-      { id: "roles", name: t('menu.roles'), icon: "🔐", path: "/admin/roles", order: 14 },
+      // 生产管理二级菜单
+      { 
+        id: "production-management", 
+        name: "生产管理", 
+        icon: "🏭", 
+        order: 2,
+        children: [
+          { id: "orders", name: "生产订单", icon: "📋", path: "/admin/orders", order: 1 },
+          { id: "products", name: "产品管理", icon: "📦", path: "/admin/products", order: 2 },
+          { id: "parts", name: "零部件管理", icon: "📝", path: "/admin/parts", order: 3 },
+        ]
+      },
+      // 工艺过程二级菜单
+      { 
+        id: "process-management", 
+        name: "工艺过程", 
+        icon: "🔧", 
+        order: 3,
+        children: [
+          { id: "processes", name: "工艺管理", icon: "⚙️", path: "/admin/processes", order: 1 },
+          { id: "step-templates", name: "工艺步骤管理", icon: "📋", path: "/admin/step-templates", order: 2 },
+        ]
+      },
+      { id: "workstations", name: t('menu.workstations'), icon: "🏭", path: "/admin/workstations", order: 4 },
+      { id: "devices", name: t('menu.devices'), icon: "⚡", path: "/admin/devices", order: 5 },
+      { id: "device-communication", name: "设备通信管理", icon: "📡", path: "/admin/device-communication", order: 6 },
+      { id: "export", name: "数据导出", icon: "📤", path: "/admin/export", order: 7 },
+      { id: "users", name: t('menu.users'), icon: "👥", path: "/admin/users", order: 8 },
+      // 系统管理二级菜单
+      { 
+        id: "system-management", 
+        name: "系统管理", 
+        icon: "⚙️", 
+        order: 9,
+        children: [
+          { id: "menus", name: "菜单管理", icon: "📋", path: "/admin/menus", order: 1 },
+          { id: "clients", name: t('menu.clients'), icon: "💻", path: "/admin/clients", order: 2 },
+          { id: "roles", name: t('menu.roles'), icon: "🔐", path: "/admin/roles", order: 3 },
+        ]
+      },
     ];
     setMenuItems(defaultMenus);
   };
@@ -289,11 +344,115 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     if (path === '/admin/devices') return 'devices';
     if (path === '/admin/device-communication') return 'device-communication';
     if (path === '/admin/export') return 'export';
-    if (path === '/admin/menus') return 'menus';
     if (path === '/admin/users') return 'users';
+    if (path === '/admin/menus') return 'menus';
     if (path === '/admin/clients') return 'clients';
     if (path === '/admin/roles') return 'roles';
     return 'dashboard';
+  };
+
+  const getCurrentParentMenu = (activeMenuId: string): string | null => {
+    // 检查是否是生产管理的子菜单
+    if (['orders', 'products', 'parts'].includes(activeMenuId)) {
+      return 'production-management';
+    }
+    // 检查是否是工艺过程的子菜单
+    else if (['processes', 'step-templates'].includes(activeMenuId)) {
+      return 'process-management';
+    }
+    // 检查是否是系统管理的子菜单
+    else if (['menus', 'clients', 'roles'].includes(activeMenuId)) {
+      return 'system-management';
+    }
+    return null;
+  };
+
+  const toggleMenu = (menuId: string) => {
+    console.log('toggleMenu called with:', menuId);
+    setExpandedMenus(prev => {
+      console.log('Current expanded menus:', prev);
+      const isCurrentlyExpanded = prev.includes(menuId);
+      const topLevelMenuIds = ['production-management', 'process-management', 'system-management'];
+      
+      if (isCurrentlyExpanded) {
+        // 如果当前菜单已展开，则折叠它
+        const newState = prev.filter(id => id !== menuId);
+        console.log('Collapsing menu, new state:', newState);
+        return newState;
+      } else {
+        // 展开菜单时的手风琴效果
+        if (topLevelMenuIds.includes(menuId)) {
+          // 如果是顶级菜单，关闭其他顶级菜单
+          const newState = [menuId];
+          console.log('Expanding top-level menu with accordion effect, new state:', newState);
+          return newState;
+        } else {
+          // 如果不是顶级菜单，直接添加到展开列表
+          const newState = [...prev, menuId];
+          console.log('Expanding non-top-level menu, new state:', newState);
+          return newState;
+        }
+      }
+    });
+  };
+
+  const renderMenuItem = (item: MenuItem, level: number = 0) => {
+    const activeMenuId = getActiveMenuId();
+    const isActive = activeMenuId === item.id;
+    const isExpanded = expandedMenus.includes(item.id);
+    const hasChildren = item.children && item.children.length > 0;
+    
+    if (hasChildren) {
+      // 父菜单 - 可展开/折叠
+      return (
+        <div key={item.id}>
+          <button
+            onClick={() => toggleMenu(item.id)}
+            className="flex items-center justify-between w-full px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div className="flex items-center">
+              <span className="text-xl mr-3">{item.icon}</span>
+              {item.name}
+            </div>
+            <svg 
+              className={`w-4 h-4 transform transition-transform ${
+                isExpanded ? 'rotate-90' : ''
+              }`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          {isExpanded && (
+            <div className="bg-gray-50 dark:bg-gray-900">
+              {item.children
+                .filter(child => !child.adminOnly || userInfo?.role === 'ADMIN')
+                .map((child) => renderMenuItem(child, level + 1))}
+            </div>
+          )}
+        </div>
+      );
+    } else {
+      // 叶子菜单 - 可点击导航
+      return (
+        <Link
+          key={item.id}
+          href={item.path || '#'}
+          className={`flex items-center ${
+            level > 0 ? 'pl-12 pr-6' : 'px-6'
+          } py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+            isActive
+              ? "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500"
+              : ""
+          }`}
+        >
+          <span className="text-xl mr-3">{item.icon}</span>
+          {item.name}
+        </Link>
+      );
+    }
   };
 
   if (!isAuthenticated) {
@@ -318,20 +477,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
 
           <nav className="mt-6">
-            {menuItems.map((item) => (
-              <Link
-                key={item.id}
-                href={item.path}
-                className={`flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                  getActiveMenuId() === item.id
-                    ? "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500"
-                    : ""
-                }`}
-              >
-                <span className="text-xl mr-3">{item.icon}</span>
-                {item.name}
-              </Link>
-            ))}
+            {menuItems
+              .filter(item => !item.adminOnly || userInfo?.role === 'ADMIN')
+              .map((item) => renderMenuItem(item))}
           </nav>
 
           <div className="absolute bottom-0 w-64 p-6 border-t dark:border-gray-700">

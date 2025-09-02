@@ -307,6 +307,19 @@ const translations = {
     'workstation.manualInsertFunction': '手动插入功能 - 开发中',
     'workstation.serviceModeFunction': '服务模式功能 - 开发中',
     
+    // 手动插入订单
+    'manualInsert.title': '手动插入订单',
+    'manualInsert.inputLabel': '请输入生产号（车号）',
+    'manualInsert.placeholder': '例如：T001',
+    'manualInsert.description': '输入订单的生产号，系统将查找并打开对应的订单',
+    'manualInsert.cancel': '取消',
+    'manualInsert.submit': '确定',
+    'manualInsert.searching': '查询中...',
+    'manualInsert.pleaseEnter': '请输入生产号',
+    'manualInsert.orderNotFound': '未找到对应的订单，请检查生产号是否正确',
+    'manualInsert.invalidStatus': '订单状态为 {status}，无法执行。只能执行待开始或进行中的订单。',
+    'manualInsert.searchFailed': '查询订单失败',
+    
     // 服务模式界面
     'serviceMode.title': '工位配置的设备:',
     'serviceMode.deviceName': '设备名称',
@@ -613,6 +626,19 @@ const translations = {
     'workstation.adjustSequenceFunction': 'Adjust sequence function - In development',
     'workstation.manualInsertFunction': 'Manual insert function - In development',
     'workstation.serviceModeFunction': 'Service mode function - In development',
+    
+    // Manual Insert Order
+    'manualInsert.title': 'Manual Insert Order',
+    'manualInsert.inputLabel': 'Please enter production number',
+    'manualInsert.placeholder': 'e.g., T001',
+    'manualInsert.description': 'Enter the production number to search and open the corresponding order',
+    'manualInsert.cancel': 'Cancel',
+    'manualInsert.submit': 'Submit',
+    'manualInsert.searching': 'Searching...',
+    'manualInsert.pleaseEnter': 'Please enter production number',
+    'manualInsert.orderNotFound': 'Order not found, please check if production number is correct',
+    'manualInsert.invalidStatus': 'Order status is {status}, cannot execute. Only pending or in-progress orders can be executed.',
+    'manualInsert.searchFailed': 'Failed to search order',
     
     // Service Mode Interface
     'serviceMode.title': 'Devices configured for the station:',
