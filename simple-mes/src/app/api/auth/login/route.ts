@@ -40,18 +40,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Login attempt:', { username, userType });
+    console.log('Login attempt:', { username, userType, passwordLength: password?.length });
     console.log('User found:', { 
       id: user.id, 
       username: user.username, 
       role: user.role,
-      userRolesCount: user.userRoles.length 
+      userRolesCount: user.userRoles.length,
+      passwordHashLength: user.password?.length 
     });
 
     // 验证密码
+    console.log('Starting password comparison...');
     const isPasswordValid = await bcrypt.compare(password, user.password)
+    console.log('Password comparison result:', isPasswordValid);
     if (!isPasswordValid) {
-      console.log('Password validation failed for user:', username);
+      console.log('Password validation failed for user:', username, 'Password:', password);
       return NextResponse.json(
         { error: '用户名或密码错误' },
         { status: 401 }

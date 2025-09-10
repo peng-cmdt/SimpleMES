@@ -92,6 +92,60 @@ namespace DeviceCommunicationService.Drivers
         {
             try
             {
+                // Check if simulation mode is enabled for this device
+                bool isSimulationMode = config.Connection?.Address == "127.0.0.1" || 
+                                      config.Connection?.Address == "localhost" ||
+                                      (config.Connection?.Parameters?.ContainsKey("simulation") == true && 
+                                       config.Connection.Parameters["simulation"].ToString() == "true");
+
+                if (isSimulationMode)
+                {
+                    _logger.LogInformation("Connecting to PLC device {DeviceId} in SIMULATION MODE at {Address}:{Port}", 
+                        config.DeviceId, config.Connection?.Address, config.Connection?.Port);
+                    
+                    // Simulate successful connection for testing
+                    await Task.Delay(500, cancellationToken); // Simulate connection delay
+                    
+                    // Create simulated connection context
+                    var simulatedConnectionInfo = new DeviceConnectionInfo
+                    {
+                        DeviceId = config.DeviceId,
+                        ConnectionType = ConnectionType.TCP,
+                        Endpoint = $"{config.Connection?.Address}:{config.Connection?.Port} (SIMULATED)",
+                        Parameters = new Dictionary<string,object> 
+                        { 
+                            { "mode", "simulation" },
+                            { "plcType", "Simulated_PLC" }
+                        },
+                        KeepAlive = true,
+                        HeartbeatInterval = 1000
+                    };
+
+                    _contexts[config.DeviceId] = new PlcDriverContext
+                    {
+                        DeviceId = config.DeviceId,
+                        ConnectionInfo = simulatedConnectionInfo,
+                        PlcClient = null, // No real client in simulation
+                        PlcType = "Simulated_PLC",
+                        IsConnected = true,
+                        ConnectedTime = DateTime.UtcNow,
+                        LastHeartbeat = DateTime.UtcNow,
+                        TotalOperations = 0,
+                        SuccessfulOperations = 0,
+                        ErrorCount = 0
+                    };
+
+                    _logger.LogInformation("Successfully connected to SIMULATED PLC device {DeviceId}", config.DeviceId);
+                    
+                    return new DeviceResponse
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Success = true,
+                        Data = "Connected to simulated device successfully",
+                        Timestamp = DateTime.UtcNow
+                    };
+                }
+
                 _logger.LogInformation("Connecting to PLC device {DeviceId} at {Address}:{Port}", 
                     config.DeviceId, config.Connection?.Address, config.Connection?.Port);
 
@@ -154,7 +208,7 @@ namespace DeviceCommunicationService.Drivers
                     case "MITSUBISHI":
                         var mitsubishiMc = new MelsecMcNet(ipAddress, port)
                         {
-                            ConnectTimeOut = 500
+                            ConnectTimeOut = 3000 // Increased timeout for better network reliability
                         };
                         _logger.LogInformation("Attempting to connect to Mitsubishi PLC at {IpAddress}:{Port}", 
                             ipAddress, port);
@@ -166,7 +220,7 @@ namespace DeviceCommunicationService.Drivers
                     case "MODBUS":
                         var modbusTcp = new ModbusTcpNet(ipAddress, port)
                         {
-                            ConnectTimeOut = 500
+                            ConnectTimeOut = 3000 // Increased timeout for better network reliability
                         };
                         _logger.LogInformation("Attempting to connect to Modbus TCP device at {IpAddress}:{Port}", 
                             ipAddress, port);
@@ -183,7 +237,7 @@ namespace DeviceCommunicationService.Drivers
                             Port = port,
                             Rack = (byte)rack,
                             Slot = (byte)slot,
-                            ConnectTimeOut = 500
+                            ConnectTimeOut = 3000 // Increased timeout for better network reliability
                         };
                         _logger.LogInformation("Attempting to connect to Siemens PLC at {IpAddress}:{Port}, Rack={Rack}, Slot={Slot}", 
                             ipAddress, port, rack, slot);
@@ -287,22 +341,51 @@ namespace DeviceCommunicationService.Drivers
                     return CreateErrorResponse(deviceId, ErrorCodes.DEVICE_NOT_FOUND.ToString(), "Device not connected");
                 }
 
+                // Check if device is in simulation mode
+                bool isSimulationMode = context.PlcType == "Simulated_PLC" || 
+                                      (context.ConnectionInfo?.Parameters?.ContainsKey("mode") == true &&
+                                       context.ConnectionInfo.Parameters["mode"].ToString() == "simulation");
+
                 // 更新操作统计
                 context.TotalOperations++;
                 context.LastCommunication = DateTime.UtcNow;
 
                 object? result = null;
 
-                switch (command.Operation)
+                if (isSimulationMode)
                 {
-                    case OperationType.READ:
-                        result = await ExecuteReadCommand(command, context);
-                        break;
-                    case OperationType.WRITE:
-                        result = await ExecuteWriteCommand(command, context);
-                        break;
-                    default:
-                        return CreateErrorResponse(deviceId, ErrorCodes.UNSUPPORTED_OPERATION.ToString(), "Unsupported operation");
+                    _logger.LogInformation("Executing {Operation} command on SIMULATED device {DeviceId}", command.Operation, deviceId);
+                    
+                    // Simulate operation delay
+                    await Task.Delay(100, cancellationToken);
+                    
+                    switch (command.Operation)
+                    {
+                        case OperationType.READ:
+                            // Simulate reading data
+                            result = SimulateReadData(command);
+                            break;
+                        case OperationType.WRITE:
+                            // Simulate writing data (always successful)
+                            result = $"Simulated write to {command.Address} with value {command.Value}";
+                            break;
+                        default:
+                            return CreateErrorResponse(deviceId, ErrorCodes.UNSUPPORTED_OPERATION.ToString(), "Unsupported operation in simulation mode");
+                    }
+                }
+                else
+                {
+                    switch (command.Operation)
+                    {
+                        case OperationType.READ:
+                            result = await ExecuteReadCommand(command, context);
+                            break;
+                        case OperationType.WRITE:
+                            result = await ExecuteWriteCommand(command, context);
+                            break;
+                        default:
+                            return CreateErrorResponse(deviceId, ErrorCodes.UNSUPPORTED_OPERATION.ToString(), "Unsupported operation");
+                    }
                 }
 
                 context.SuccessfulOperations++;
@@ -331,6 +414,50 @@ namespace DeviceCommunicationService.Drivers
             }
         }
 
+        /// <summary>
+        /// Simulate reading data from a PLC device for testing
+        /// </summary>
+        private object SimulateReadData(DeviceCommand command)
+        {
+            // Simulate different data types
+            var address = command.Address?.ToUpper() ?? "";
+            var dataType = command.DataType;
+            
+            // Simulate different PLC memory areas
+            if (address.StartsWith("DB") || address.StartsWith("M"))
+            {
+                // Data block or memory area - return simulated values
+                switch (dataType)
+                {
+                    case DataType.BOOL:
+                        return true; // Simulate boolean value
+                    case DataType.INT:
+                        return new Random().Next(0, 100); // Simulate integer 0-99
+                    case DataType.DINT:
+                        return new Random().Next(0, 1000); // Simulate double integer
+                    case DataType.REAL:
+                        return Math.Round(new Random().NextDouble() * 100, 2); // Simulate float
+                    case DataType.STRING:
+                        return $"Simulated_{address}"; // Simulate string
+                    default:
+                        return $"Simulated_{dataType}_data";
+                }
+            }
+            else if (address.StartsWith("I"))
+            {
+                // Input area - simulate input signals
+                return address.EndsWith("0") ? false : true; // Alternate true/false
+            }
+            else if (address.StartsWith("Q"))
+            {
+                // Output area - simulate output status
+                return true;
+            }
+            
+            // Default simulation
+            return $"Simulated_{dataType}_value_for_{address}";
+        }
+
         public async Task<DeviceStatusInfo> GetStatusAsync(string deviceId, CancellationToken cancellationToken = default)
         {
             if (!_contexts.TryGetValue(deviceId, out var context))
@@ -346,6 +473,28 @@ namespace DeviceCommunicationService.Drivers
                 ? (double)context.SuccessfulOperations / context.TotalOperations * 100 
                 : 0;
 
+            // Check if device is in simulation mode
+            bool isSimulationMode = context.PlcType == "Simulated_PLC" || 
+                                  (context.ConnectionInfo?.Parameters?.ContainsKey("mode") == true &&
+                                   context.ConnectionInfo.Parameters["mode"].ToString() == "simulation");
+
+            var metadata = new Dictionary<string, object>
+            {
+                { "totalOperations", context.TotalOperations },
+                { "successfulOperations", context.SuccessfulOperations },
+                { "errorCount", context.ErrorCount },
+                { "successRate", successRate },
+                { "avgResponseTime", context.AvgResponseTime },
+                { "maxResponseTime", context.MaxResponseTime },
+                { "minResponseTime", context.MinResponseTime }
+            };
+
+            if (isSimulationMode)
+            {
+                metadata["mode"] = "simulation";
+                metadata["plcType"] = "Simulated_PLC";
+            }
+
             return await Task.FromResult(new DeviceStatusInfo
             {
                 DeviceId = deviceId,
@@ -354,16 +503,7 @@ namespace DeviceCommunicationService.Drivers
                 LastConnected = context.ConnectedTime,
                 ConnectionTime = context.ConnectedTime,
                 LastUpdated = context.LastCommunication,
-                Metadata = new Dictionary<string, object>
-                {
-                    { "totalOperations", context.TotalOperations },
-                    { "successfulOperations", context.SuccessfulOperations },
-                    { "errorCount", context.ErrorCount },
-                    { "successRate", successRate },
-                    { "avgResponseTime", context.AvgResponseTime },
-                    { "maxResponseTime", context.MaxResponseTime },
-                    { "minResponseTime", context.MinResponseTime }
-                }
+                Metadata = metadata
             });
         }
 

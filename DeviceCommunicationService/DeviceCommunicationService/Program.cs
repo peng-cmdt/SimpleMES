@@ -1,6 +1,7 @@
 using DeviceCommunicationService.Interfaces;
 using DeviceCommunicationService.Services;
 using DeviceCommunicationService.Drivers;
+using DeviceCommunicationService.Models;
 using Serilog;
 using System.Net.WebSockets;
 using DeviceWebSocketManager = DeviceCommunicationService.Services.WebSocketManager;
@@ -49,11 +50,19 @@ builder.Services.AddHttpClient<IDeviceConfigSyncService, DeviceConfigSyncService
 
 // 注册自定义服务
 builder.Services.AddHttpClient<WorkstationDeviceManager>();
-builder.Services.AddSingleton<IDeviceManager, DeviceManager>();
-builder.Services.AddSingleton<DeviceManager>(); // 额外注册具体类型以便在ConfigSyncController中使用
+// 只注册一次DeviceManager，确保所有组件使用同一个实例
+builder.Services.AddSingleton<DeviceManager>();
+builder.Services.AddSingleton<IDeviceManager>(provider => provider.GetRequiredService<DeviceManager>());
 builder.Services.AddSingleton<IWorkstationDeviceManager, WorkstationDeviceManager>();
 builder.Services.AddSingleton<DeviceWebSocketManager>();
 builder.Services.AddSingleton<IWebSocketManager>(provider => provider.GetService<DeviceWebSocketManager>()!);
+
+// 注册PLC模拟器（开发环境用）
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<PlcSimulator>();
+    builder.Services.Configure<PlcSimulatorOptions>(builder.Configuration.GetSection("PlcSimulator"));
+}
 
 // 配置 CORS
 builder.Services.AddCors(options =>
@@ -76,10 +85,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 var app = builder.Build();
 
 // 在应用启动时注册驱动到DeviceManager
-var deviceManager = app.Services.GetRequiredService<IDeviceManager>();
 var plcDriver = app.Services.GetRequiredService<PlcDriver>();
 var scannerDriver = app.Services.GetRequiredService<ScannerDriver>();
 
+var deviceManager = app.Services.GetRequiredService<DeviceManager>();
 deviceManager.RegisterDriver(plcDriver);
 deviceManager.RegisterDriver(scannerDriver);
 
@@ -386,7 +395,8 @@ app.MapGet("/", () => Results.Content(@"
         setInterval(loadMessages, 30000);
     </script>
 </body>
-</html>", "text/html; charset=utf-8"));
+</html>
+", "text/html; charset=utf-8"));
 
 // 配置监听端口
 app.Urls.Add("http://localhost:5000");

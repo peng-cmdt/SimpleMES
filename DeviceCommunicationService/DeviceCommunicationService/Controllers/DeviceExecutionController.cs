@@ -109,7 +109,7 @@ namespace DeviceCommunicationService.Controllers
                     return Ok(new DeviceExecutionResponse
                     {
                         Success = connectResponse.Success,
-                        Message = connectResponse.Success ? "Device connected successfully" : "Failed to connect device",
+                        Message = connectResponse.Success ? "Device connected successfully" : $"Failed to connect device: {connectResponse.Error?.Message ?? "Unknown error"}",
                         Timestamp = DateTime.UtcNow,
                         Error = connectResponse.Error?.Message
                     });
@@ -164,6 +164,11 @@ namespace DeviceCommunicationService.Controllers
 
         private DeviceType ParseDeviceType(string deviceType)
         {
+            // 处理前端发送的PLC_CONTROLLER类型，映射到PLC
+            if (deviceType == "PLC_CONTROLLER")
+            {
+                return DeviceType.PLC;
+            }
             return Enum.TryParse<DeviceType>(deviceType, true, out var result) ? result : DeviceType.PLC;
         }
 

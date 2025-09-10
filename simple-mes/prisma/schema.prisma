@@ -86,22 +86,22 @@ model Client {
 }
 
 model Workstation {
-  id                  String               @id @default(cuid())
-  workstationId       String               @unique
+  id                  String                @id @default(cuid())
+  workstationId       String                @unique
   name                String
   description         String?
   location            String?
-  type                WorkstationType      @default(VISUAL_CLIENT)
+  type                WorkstationType       @default(VISUAL_CLIENT)
   configuredIp        String
   currentIp           String?
-  status              String               @default("offline")
+  status              String                @default("offline")
   lastConnected       DateTime?
   settings            Json?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   devices             Device[]
   orderSteps          OrderStep[]
-  currentOrders       Order[]              @relation("OrderCurrentStation")
+  currentOrders       Order[]               @relation("OrderCurrentStation")
   productWorkstations ProductWorkstation[]
   stepTemplates       StepTemplate[]
   steps               Step[]
@@ -223,7 +223,7 @@ model WorkstationSession {
 model WorkstationWorkState {
   id            String      @id @default(cuid())
   workstationId String      @unique
-  workState     Json        // 存储工作状态的JSON数据
+  workState     Json
   isActive      Boolean     @default(true)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt

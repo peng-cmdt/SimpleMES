@@ -160,16 +160,25 @@ namespace DeviceCommunicationService.Services
         {
             try
             {
+                _logger.LogInformation("ConnectDeviceAsync - Starting connection for device: {DeviceId}", deviceId);
+                
                 if (!_devices.TryGetValue(deviceId, out var config))
                 {
+                    _logger.LogError("ConnectDeviceAsync - Device not found: {DeviceId}", deviceId);
                     return CreateErrorResponse(deviceId, ErrorCodes.DEVICE_NOT_FOUND.ToString(), $"Device {deviceId} not found");
                 }
 
+                _logger.LogInformation("ConnectDeviceAsync - Found device config: DeviceType={DeviceType}, Name={Name}", config.DeviceType, config.Name);
+                
                 var driver = GetDriverForDeviceType(config.DeviceType);
                 if (driver == null)
                 {
+                    _logger.LogError("ConnectDeviceAsync - No driver found for device type: {DeviceType}. Available drivers: {Drivers}", 
+                        config.DeviceType, string.Join(", ", _drivers.Keys));
                     return CreateErrorResponse(deviceId, ErrorCodes.SYSTEM_ERROR.ToString(), $"No driver found for device type {config.DeviceType}");
                 }
+                
+                _logger.LogInformation("ConnectDeviceAsync - Found driver: {DriverName} for device type: {DeviceType}", driver.DriverName, config.DeviceType);
 
                 var startTime = DateTime.UtcNow;
                 var response = await driver.ConnectAsync(config);
@@ -299,7 +308,33 @@ namespace DeviceCommunicationService.Services
 
         private IDeviceDriver? GetDriverForDeviceType(DeviceType deviceType)
         {
+            _logger.LogDebug("GetDriverForDeviceType - Looking for driver for device type: {DeviceType}. Available drivers count: {Count}", 
+                deviceType, _drivers.Count);
+            
+            if (_drivers.Count == 0)
+            {
+                _logger.LogWarning("GetDriverForDeviceType - No drivers registered!");
+                return null;
+            }
+            
+            foreach (var kvp in _drivers)
+            {
+                _logger.LogDebug("GetDriverForDeviceType - Available driver: {DeviceType} => {DriverName}", 
+                    kvp.Key, kvp.Value.DriverName);
+            }
+            
             _drivers.TryGetValue(deviceType, out var driver);
+            
+            if (driver != null)
+            {
+                _logger.LogDebug("GetDriverForDeviceType - Found driver: {DriverName} for device type: {DeviceType}", 
+                    driver.DriverName, deviceType);
+            }
+            else
+            {
+                _logger.LogWarning("GetDriverForDeviceType - No driver found for device type: {DeviceType}", deviceType);
+            }
+            
             return driver;
         }
 
