@@ -143,12 +143,21 @@ namespace DeviceCommunicationService.Services
                     }
 
                     var jsonContent = await response.Content.ReadAsStringAsync();
-                    var apiResponse = JsonSerializer.Deserialize<WorkstationsApiResponse>(jsonContent, new JsonSerializerOptions
+                    
+                    // 解析响应，支持 { success: true, workstations: [...] } 格式
+                    using var document = JsonDocument.Parse(jsonContent);
+                    var root = document.RootElement;
+                    
+                    if (root.TryGetProperty("workstations", out var workstationsElement))
                     {
-                        PropertyNameCaseInsensitive = true
-                    });
-
-                    return apiResponse?.Workstations ?? new List<WorkstationInfo>();
+                        var workstations = JsonSerializer.Deserialize<List<WorkstationInfo>>(workstationsElement.GetRawText(), new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+                        return workstations ?? new List<WorkstationInfo>();
+                    }
+                    
+                    return new List<WorkstationInfo>();
                 }
             }
             catch (Exception ex)

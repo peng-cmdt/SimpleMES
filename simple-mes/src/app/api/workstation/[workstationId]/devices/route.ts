@@ -12,15 +12,10 @@ export async function GET(
       return NextResponse.json({ error: 'Workstation ID is required' }, { status: 400 });
     }
 
-    // 查找工位（支持两种查找方式），同时获取新旧两种设备架构
+    // 查找工位（支持两种查找方式），使用新的设备架构
     let workstation = await prisma.workstation.findUnique({
       where: { workstationId },
       include: {
-        devices: {
-          orderBy: {
-            name: 'asc'
-          }
-        },
         workstationDevices: {
           include: {
             template: true
@@ -37,11 +32,6 @@ export async function GET(
       workstation = await prisma.workstation.findUnique({
         where: { id: workstationId },
         include: {
-          devices: {
-            orderBy: {
-              name: 'asc'
-            }
-          },
           workstationDevices: {
             include: {
               template: true
@@ -61,28 +51,8 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // 转换旧设备架构数据格式
-    const legacyDevices = workstation.devices.map(device => ({
-      id: device.id,
-      deviceId: device.deviceId,
-      name: device.name,
-      type: device.type,
-      brand: device.brand,
-      model: device.model,
-      description: device.description,
-      ipAddress: device.ipAddress,
-      port: device.port,
-      protocol: device.protocol,
-      status: device.status,
-      isOnline: device.isOnline,
-      lastConnected: device.lastConnected?.toISOString(),
-      lastHeartbeat: device.lastHeartbeat?.toISOString(),
-      settings: device.settings,
-      capabilities: device.capabilities,
-      createdAt: device.createdAt.toISOString(),
-      updatedAt: device.updatedAt.toISOString(),
-      source: 'legacy' // 标记数据源
-    }));
+    // 现在只使用新的设备架构，不再有旧设备架构
+    const legacyDevices: any[] = [];
 
     // 转换新设备架构数据格式
     const newDevices = workstation.workstationDevices.map(workstationDevice => ({

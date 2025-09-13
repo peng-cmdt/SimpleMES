@@ -5,61 +5,47 @@ interface RouteParams {
   params: { id: string }
 }
 
-// 获取设备状态（新架构）
+// 获取设备状态 - 仅使用新架构（WorkstationDevice + DeviceTemplate）
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     
     console.log('Status API - Received device ID:', id);
     
-    // 尝试从两种架构中获取设备信息
-    // 1. 首先尝试从旧架构（devices表）获取
-    let device = await prisma.device.findUnique({
-      where: { id }
+    // 获取设备信息（支持通过instanceId或数据库ID查找）
+    let workstationDevice = await prisma.workstationDevice.findUnique({
+      where: { instanceId: id },
+      include: { template: true }
     });
     
-    let deviceInfo: any = null;
-    
-    if (device) {
-      console.log('Status API - Found device in legacy architecture:', device.name);
-      deviceInfo = {
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type,
-        ipAddress: device.ipAddress,
-        port: device.port,
-        brand: device.brand,
-        protocol: device.protocol
-      };
-    } else {
-      // 2. 如果旧架构没找到，尝试从新架构（workstationDevices表）获取
-      const workstationDevice = await prisma.workstationDevice.findUnique({
-        where: { id },
+    // 如果通过instanceId没找到，尝试通过数据库ID查找
+    if (!workstationDevice) {
+      console.log('Status API - Device not found by instanceId, trying database ID...');
+      workstationDevice = await prisma.workstationDevice.findUnique({
+        where: { id: id },
         include: { template: true }
       });
-      
-      if (workstationDevice) {
-        console.log('Status API - Found device in new architecture:', workstationDevice.displayName);
-        deviceInfo = {
-          deviceId: workstationDevice.instanceId,
-          name: workstationDevice.displayName,
-          type: workstationDevice.template.type,
-          ipAddress: workstationDevice.ipAddress,
-          port: workstationDevice.port,
-          brand: workstationDevice.template.brand,
-          protocol: workstationDevice.protocol
-        };
-      }
     }
     
-    if (!deviceInfo) {
-      console.log('Status API - Device not found in either architecture');
+    if (!workstationDevice) {
+      console.log('Status API - Workstation device not found by either instanceId or database ID');
       return NextResponse.json({
         success: false,
         isConnected: false,
-        error: 'Device not found'
+        error: 'Workstation device not found'
       }, { status: 404 });
     }
+
+    console.log('Status API - Found workstation device:', workstationDevice.displayName);
+    const deviceInfo = {
+      deviceId: workstationDevice.instanceId,
+      name: workstationDevice.displayName,
+      type: workstationDevice.template.type,
+      ipAddress: workstationDevice.ipAddress,
+      port: workstationDevice.port,
+      brand: workstationDevice.template.brand,
+      protocol: workstationDevice.protocol
+    };
     
     // 尝试向.NET服务查询设备状态
     try {

@@ -156,6 +156,8 @@ export default function WorkstationPage() {
   const [showStepSelectMenu, setShowStepSelectMenu] = useState(false);
   const [assemblyLineTimer, setAssemblyLineTimer] = useState("00:00:00");
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [stepExecutionResults, setStepExecutionResults] = useState<any[]>([]);
+  const [currentStepResult, setCurrentStepResult] = useState<any>(null);
   
   // 设备连接状态监控
   const [deviceConnectionStatus, setDeviceConnectionStatus] = useState<{[deviceId: string]: boolean}>({});
@@ -284,7 +286,7 @@ export default function WorkstationPage() {
           if (data.success && data.devices) {
             // 检测每个设备的连接状态
             for (const device of data.devices) {
-              await checkDeviceConnectionStatus(device.id, device.deviceId);
+              await checkDeviceConnectionStatus(device.deviceId, device.id);
             }
           }
         }
@@ -637,7 +639,8 @@ export default function WorkstationPage() {
             };
             
             setCurrentOrder(processedOrder);
-            setCurrentStepIndex(0);
+            const firstActionStepIndex = findFirstStepWithActions(processedOrderSteps);
+            setCurrentStepIndex(firstActionStepIndex);
             setCurrentActionIndex(0);
             setIsExecutionMode(true);
             setStartTime(new Date()); // 启动计时器
@@ -680,7 +683,8 @@ export default function WorkstationPage() {
             
             console.log('创建的OrderSteps:', orderStepsFromProcess);
             setCurrentOrder(orderWithSteps);
-            setCurrentStepIndex(0);
+            const firstActionStepIndex = findFirstStepWithActions(orderStepsFromProcess);
+            setCurrentStepIndex(firstActionStepIndex);
             setCurrentActionIndex(0);
             setIsExecutionMode(true);
             setStartTime(new Date()); // 启动计时器
@@ -1090,7 +1094,7 @@ export default function WorkstationPage() {
       
       // 首先检查设备是否已经连接
       console.log(`Checking connection status for device: ${device.name}`);
-      const statusResponse = await fetch(`/api/device-communication/devices/${device.id}/status`, {
+      const statusResponse = await fetch(`/api/device-communication/devices/${device.deviceId}/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -1123,7 +1127,7 @@ export default function WorkstationPage() {
       
       // 设备未连接，尝试建立连接
       console.log(`Device ${device.name} not connected, attempting to connect...`);
-      const connectResponse = await fetch(`/api/device-communication/devices/${device.id}/connect`, {
+      const connectResponse = await fetch(`/api/device-communication/devices/${device.deviceId}/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1205,7 +1209,9 @@ export default function WorkstationPage() {
   // 检测设备连接状态
   const checkDeviceConnectionStatus = async (deviceDatabaseId: string, deviceInstanceId?: string) => {
     try {
-      const response = await fetch(`/api/device-communication/devices/${deviceDatabaseId}/status`, {
+      // 优先使用instanceId进行通讯
+      const deviceIdForApi = deviceInstanceId || deviceDatabaseId;
+      const response = await fetch(`/api/device-communication/devices/${deviceIdForApi}/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -1213,8 +1219,8 @@ export default function WorkstationPage() {
       const result = await response.json();
       const isConnected = response.ok && result.success && result.isConnected;
       
-      // Use deviceInstanceId as key if provided, otherwise use deviceDatabaseId
-      const stateKey = deviceInstanceId || deviceDatabaseId;
+      // 使用数据库ID作为状态key，便于前端查找
+      const stateKey = deviceDatabaseId;
       
       setDeviceConnectionStatus(prev => ({
         ...prev,
@@ -1224,7 +1230,7 @@ export default function WorkstationPage() {
       return isConnected;
     } catch (error) {
       console.error('设备状态检测失败:', error);
-      const stateKey = deviceInstanceId || deviceDatabaseId;
+      const stateKey = deviceDatabaseId;
       setDeviceConnectionStatus(prev => ({
         ...prev,
         [stateKey]: false
@@ -1237,16 +1243,17 @@ export default function WorkstationPage() {
   const checkCurrentActionDeviceStatus = async (action: Action) => {
     if (!action.device) return true;
     
+    // action.device.id 是数据库ID， action.device.deviceId 是instanceId
     const isConnected = await checkDeviceConnectionStatus(action.device.id, action.device.deviceId);
     
     if (!isConnected) {
       // 设备未连接，触发报警
       let deviceIP = 'Unknown IP';
       try {
-        const deviceResponse = await fetch(`/api/devices/${action.device.id}`);
+        const deviceResponse = await fetch(`/api/workstation-devices/${action.device.id}`);
         if (deviceResponse.ok) {
           const deviceData = await deviceResponse.json();
-          deviceIP = deviceData.device?.ipAddress || '127.0.0.1';
+          deviceIP = deviceData.data?.ipAddress || '127.0.0.1';
         }
       } catch (e) {
         console.error('获取设备IP失败:', e);
@@ -1271,6 +1278,15 @@ export default function WorkstationPage() {
   };
 
   // 工艺执行相关函数
+  const findFirstStepWithActions = (orderSteps: any[]) => {
+    for (let i = 0; i < orderSteps.length; i++) {
+      if (orderSteps[i]?.step?.actions && orderSteps[i].step.actions.length > 0) {
+        return i;
+      }
+    }
+    return 0; // 如果没有找到有actions的步骤，返回第一个步骤
+  };
+
   const getCurrentStep = () => {
     if (!currentOrder || !currentOrder.orderSteps || currentStepIndex >= currentOrder.orderSteps.length) {
       return null;
@@ -1417,20 +1433,36 @@ export default function WorkstationPage() {
     };
 
     try {
-      // 获取设备的真实IP信息
-      const deviceResponse = await fetch(`/api/devices/${action.device.id}`);
-      if (!deviceResponse.ok) {
-        throw new Error('获取设备信息失败');
+      // 使用设备的instanceId进行通讯
+      const deviceInstanceId = action.device.deviceId; // 这是instanceId
+      console.log(`准备连接设备: ${action.device.name} (Instance: ${deviceInstanceId})`);
+      
+      // 首先检查设备连接状态
+      const statusResponse = await fetch(`/api/device-communication/devices/${deviceInstanceId}/status`);
+      const statusData = await statusResponse.json();
+      
+      if (!statusData.isConnected) {
+        console.log(`设备未连接，尝试连接: ${action.device.name}`);
+        // 尝试连接设备
+        const connectResponse = await fetch(`/api/device-communication/devices/${deviceInstanceId}/connect`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const connectResult = await connectResponse.json();
+        if (!connectResult.success) {
+          throw new Error(`设备连接失败: ${connectResult.error || connectResult.message}`);
+        }
+        console.log(`设备连接成功: ${action.device.name}`);
+      } else {
+        console.log(`设备已连接: ${action.device.name}`);
       }
       
-      const deviceData = await deviceResponse.json();
-      const device = deviceData.device; // API返回的是device字段，不是data字段
+      // 获取设备信息
+      const deviceIP = action.device.ipAddress || '127.0.0.1';
+      const devicePort = action.device.port || 102;
       
-      // 构建设备连接参数
-      const deviceIP = device.ipAddress || '127.0.0.1';
-      const devicePort = device.port || 102; // PLC默认端口
-      
-      console.log(`自动开始监控PLC: ${action.name}, 设备: ${device.name} (${deviceIP}:${devicePort})`);
+      console.log(`自动开始监控PLC: ${action.name}, 设备: ${action.device.name} (${deviceIP}:${devicePort})`);
       
       // 从动作配置中读取传感器值地址和期望值
       const sensorValue = action.parameters?.sensorValue || action.parameters?.completionCondition || action.deviceAddress || '';
@@ -1504,7 +1536,7 @@ export default function WorkstationPage() {
           try {
             console.log(`读取PLC地址: ${addressInfo.address}`);
             
-            const response = await fetch(`/api/device-communication/devices/${action.device.id}/read`, {
+            const response = await fetch(`/api/device-communication/devices/${deviceInstanceId}/read`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1573,10 +1605,10 @@ export default function WorkstationPage() {
       // 获取设备IP用于错误显示
       let deviceIP = 'Unknown IP';
       try {
-        const deviceResponse = await fetch(`/api/devices/${action.device.id}`);
+        const deviceResponse = await fetch(`/api/workstation-devices/${action.device.id}`);
         if (deviceResponse.ok) {
           const deviceData = await deviceResponse.json();
-          deviceIP = deviceData.device?.ipAddress || '127.0.0.1';
+          deviceIP = deviceData.data?.ipAddress || '127.0.0.1';
         }
       } catch (e) {
         console.error('获取设备IP失败:', e);
@@ -1696,37 +1728,42 @@ export default function WorkstationPage() {
       console.log(`Current PLC Device:`, currentPLCDevice);
       console.log(`Using device ID for API call:`, currentPLCDevice.id);
       
-      const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.id}/read`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: address,
-          type: plcTestParams.type,
-          dbNumber: plcTestParams.dbNumber,
-          byte: plcTestParams.byte,
-          bit: plcTestParams.bit
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        setPlcTestResult({
-          success: true,
-          value: result.value,
-          message: `读取成功: ${address} = ${result.value}`,
-          operation: 'read',
-          rawData: result.rawFrame || `TX: ${result.request || 'N/A'}\nRX: ${result.response || 'N/A'}`
+      // 直接使用真实设备读取，不使用模拟模式
+      // 后端服务已经支持PLC模拟器（端口5020）
+      {
+        // 使用真实设备读取
+        const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.deviceId}/read`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            address: address,
+            type: plcTestParams.type,
+            dbNumber: plcTestParams.dbNumber,
+            byte: plcTestParams.byte,
+            bit: plcTestParams.bit
+          })
         });
-      } else {
-        setPlcTestResult({
-          success: false,
-          message: result.message || result.error || '读取失败',
-          operation: 'read',
-          rawData: result.rawFrame || result.debugInfo || 'No frame data available'
-        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          setPlcTestResult({
+            success: true,
+            value: result.value,
+            message: `读取成功: ${address} = ${result.value}`,
+            operation: 'read',
+            rawData: result.rawFrame || `TX: ${result.request || 'N/A'}\nRX: ${result.response || 'N/A'}`
+          });
+        } else {
+          setPlcTestResult({
+            success: false,
+            message: result.message || result.error || '读取失败',
+            operation: 'read',
+            rawData: result.rawFrame || result.debugInfo || 'No frame data available'
+          });
+        }
       }
     } catch (error) {
       console.error('PLC read error:', error);
@@ -1749,39 +1786,49 @@ export default function WorkstationPage() {
     try {
       const address = `${plcTestParams.type}${plcTestParams.dbNumber}.${plcTestParams.byte}.${plcTestParams.bit}`;
       console.log(`Writing PLC address: ${address} = ${plcTestParams.writeValue}`);
+      console.log(`Current PLC Device:`, currentPLCDevice);
+      console.log(`Using device ID for write API:`, currentPLCDevice.deviceId);
+      console.log(`Device has ID fields - id: ${currentPLCDevice.id}, deviceId: ${currentPLCDevice.deviceId}`);
       
-      const response = await fetch(`/api/device-communication/devices/${currentPLCDevice.id}/write`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: address,
-          type: plcTestParams.type,
-          dbNumber: plcTestParams.dbNumber,
-          byte: plcTestParams.byte,
-          bit: plcTestParams.bit,
-          value: plcTestParams.writeValue
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        setPlcTestResult({
-          success: true,
-          value: plcTestParams.writeValue,
-          message: `写入成功: ${address} = ${plcTestParams.writeValue}`,
-          operation: 'write',
-          rawData: result.rawFrame || `TX: ${result.request || 'N/A'}\nRX: ${result.response || 'N/A'}`
+      // 直接使用真实设备写入，不使用模拟模式
+      // 后端服务已经支持PLC模拟器（端口5020）
+      {
+        // 使用真实设备写入
+        const writeUrl = `/api/device-communication/devices/${currentPLCDevice.deviceId}/write`;
+        console.log(`Write API URL:`, writeUrl);
+        const response = await fetch(writeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            address: address,
+            type: plcTestParams.type,
+            dbNumber: plcTestParams.dbNumber,
+            byte: plcTestParams.byte,
+            bit: plcTestParams.bit,
+            value: plcTestParams.writeValue
+          })
         });
-      } else {
-        setPlcTestResult({
-          success: false,
-          message: result.message || result.error || '写入失败',
-          operation: 'write',
-          rawData: result.rawFrame || result.debugInfo || 'No frame data available'
-        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          setPlcTestResult({
+            success: true,
+            value: plcTestParams.writeValue,
+            message: `写入成功: ${address} = ${plcTestParams.writeValue}`,
+            operation: 'write',
+            rawData: result.rawFrame || `TX: ${result.request || 'N/A'}\nRX: ${result.response || 'N/A'}`
+          });
+        } else {
+          setPlcTestResult({
+            success: false,
+            message: result.message || result.error || '写入失败',
+            operation: 'write',
+            rawData: result.rawFrame || result.debugInfo || 'No frame data available'
+          });
+        }
       }
     } catch (error) {
       console.error('PLC write error:', error);
@@ -1825,7 +1872,7 @@ export default function WorkstationPage() {
       switch (testType) {
         case 'ping':
           // 使用状态检查API作为ping测试
-          apiUrl = `/api/device-communication/devices/${currentGenericDevice.id}/status`;
+          apiUrl = `/api/device-communication/devices/${currentGenericDevice.deviceId}/status`;
           method = 'GET';
           body = null;
           break;
@@ -2421,7 +2468,8 @@ export default function WorkstationPage() {
                       <div 
                         key={orderStep.id}
                         ref={index === currentStepIndex ? activeStepRef : null}
-                        className={`p-2 text-lg border rounded ${
+                        onClick={(e) => { e.stopPropagation(); setCurrentStepIndex(index); setCurrentActionIndex(0); }}
+                        className={`p-2 text-lg border rounded cursor-pointer hover:bg-yellow-100 transition-colors ${
                           index === currentStepIndex 
                             ? 'bg-yellow-400 text-black font-bold' 
                             : orderStep.status === 'completed'
@@ -2432,6 +2480,7 @@ export default function WorkstationPage() {
                         <div className="font-bold text-xl">
                           {orderStep.step.name}
                         </div>
+                        <div className="text-xs text-gray-600 mt-1">动作: {orderStep.step.actions?.length || 0}</div>
                       </div>
                     ))
                   )}
@@ -2461,17 +2510,34 @@ export default function WorkstationPage() {
                       <div 
                         key={action.id}
                         ref={index === currentActionIndex ? activeActionRef : null}
-                        className={`p-2 text-base rounded ${
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentActionIndex(index);
+                          // 如果动作有设备配置，自动开始监控
+                          if (action.device && isExecutionMode) {
+                            console.log('手动切换到动作:', action.name);
+                            // 触发设备监控会在useEffect中自动开始
+                          }
+                        }}
+                        className={`p-2 text-base rounded cursor-pointer transition-colors ${
                           index === currentActionIndex 
                             ? 'bg-yellow-400 text-black font-bold' 
                             : action.status === 'completed'
                             ? 'bg-green-200 text-green-800'
-                            : 'bg-gray-50 text-gray-700'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
-                        <div className="font-bold text-xl">{action.name}</div>
+                        <div className="flex items-center justify-between">
+                          <div className="font-bold text-lg">{action.name || `Action ${index + 1}`}</div>
+                          {index === currentActionIndex && isMonitoringPLC && (
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                          )}
+                        </div>
                         {action.description && (
                           <div className="text-xs text-gray-600 mt-1">{action.description}</div>
+                        )}
+                        {action.type && (
+                          <div className="text-xs text-gray-500 mt-1">类型: {action.type}</div>
                         )}
                       </div>
                     ))
@@ -2493,60 +2559,114 @@ export default function WorkstationPage() {
                 </div>
                 <div className="flex-1 p-2 text-sm overflow-hidden overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                   {(() => {
-                    // 直接显示当前动作的设备信息
-                    if (!currentAction) {
-                      return <div className="text-gray-500">无当前动作</div>;
+                    // 显示当前步骤涉及的所有设备，并高亮当前动作的设备
+                    const step = currentStep;
+                    if (!step || !step.step) {
+                      return <div className="text-gray-500">当前步骤为空</div>;
                     }
 
-                    if (!currentAction.device) {
-                      return <div className="text-gray-500">当前动作无设备配置</div>;
-                    }
-
-                    // 显示实际的设备信息
-                    const device = currentAction.device;
-                    console.log('当前动作设备信息:', {
-                      actionName: currentAction.name,
-                      deviceName: device.name,
-                      deviceType: device.type,
-                      deviceId: device.deviceId
+                    const actions = step.step.actions || [];
+                    // 收集该步骤中涉及到的设备（去重），按 device.deviceId 聚合
+                    const devicesMap = new Map<string, { device: any; actionIndexes: number[] }>();
+                    actions.forEach((action, idx) => {
+                      const dev = action.device;
+                      const devInstanceId = dev?.deviceId || action.deviceId;
+                      if (!devInstanceId) return;
+                      if (!devicesMap.has(devInstanceId)) {
+                        devicesMap.set(devInstanceId, {
+                          device: dev || { 
+                            deviceId: action.deviceId, 
+                            name: action.deviceName || '设备', 
+                            type: action.deviceType || action.type,
+                            ipAddress: action.deviceIP,
+                            port: action.devicePort
+                          },
+                          actionIndexes: []
+                        });
+                      }
+                      devicesMap.get(devInstanceId)!.actionIndexes.push(idx);
                     });
 
-                    return (
-                      <div className="mb-2 p-1 rounded bg-yellow-100">
-                        <div className="font-bold text-lg text-blue-600">
-                          {device.name}
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <div className="text-xs text-gray-600">{device.type}</div>
-                          <div className={`w-2 h-2 rounded-full ${
-                            deviceConnectionStatus[device.deviceId] === false
-                              ? 'bg-red-500'
-                              : deviceConnectionStatus[device.deviceId] === true
-                              ? 'bg-green-500'  
-                              : 'bg-yellow-500'
-                          }`} title={
-                            deviceConnectionStatus[device.deviceId] === false
-                              ? '设备离线'
-                              : deviceConnectionStatus[device.deviceId] === true
-                              ? '设备在线'
-                              : '检测中...'
-                          }></div>
-                        </div>
-                        {isMonitoringPLC && currentAction && (
-                          <div className="text-red-600 text-xs mt-1 font-medium">
-                            监控: {(() => {
-                              const sensorValue = currentAction.parameters?.sensorValue || currentAction.parameters?.completionCondition || currentAction.deviceAddress || '';
-                              if (sensorValue.includes('=')) {
-                                return sensorValue; // 显示完整的条件，如 DB10.DBX0.0=1
-                              } else {
-                                const expectedValue = currentAction.expectedValue || '1';
-                                return `${sensorValue}=${expectedValue}`;
-                              }
-                            })()}
+                    if (devicesMap.size === 0) {
+                      return <div className="text-gray-500">当前步骤无设备配置</div>;
+                    }
+
+                    return Array.from(devicesMap.values()).map(({ device, actionIndexes }, i) => {
+                      const isCurrent = currentAction && (device?.deviceId === currentAction.device?.deviceId || device?.deviceId === currentAction.deviceId);
+                      // 使用数据库ID查找连接状态
+                      const currentDeviceAction = actions[actionIndexes[0]];
+                      const dbId = currentDeviceAction?.device?.id;
+                      const conn = dbId ? deviceConnectionStatus[dbId] : undefined;
+                      const statusColor = conn === true ? 'bg-green-500' : (conn === false ? 'bg-red-500' : 'bg-yellow-500');
+                      const statusText = conn === true ? '设备在线' : (conn === false ? '设备离线' : '检测中...');
+                      
+                      return (
+                        <div 
+                          key={device?.deviceId || device?.id || i} 
+                          className={`mb-2 p-2 rounded border transition-all ${
+                            isCurrent 
+                              ? 'border-blue-500 bg-blue-50 shadow-md' 
+                              : 'bg-white border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="font-bold text-base text-gray-900">
+                                {device?.name || '未命名设备'}
+                              </div>
+                              <div className="text-xs text-gray-600 mt-0.5">
+                                {device?.type || '未知类型'}
+                              </div>
+                              {device?.ipAddress && (
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {device.ipAddress}:{device.port || '102'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <div className={`w-2 h-2 rounded-full ${statusColor}`} title={statusText} />
+                              {isCurrent && isMonitoringPLC && (
+                                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="正在监控" />
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
+
+                          {/* 该设备关联的动作 */}
+                          {actionIndexes.length > 0 && (
+                            <div className="mt-2">
+                              <div className="text-xs text-gray-500 mb-1">
+                                相关动作 ({actionIndexes.length}):
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {actionIndexes.map(ai => {
+                                  const action = actions[ai];
+                                  const isCurrentAction = ai === currentActionIndex;
+                                  return (
+                                    <button
+                                      key={ai}
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setCurrentActionIndex(ai); 
+                                      }}
+                                      className={`px-2 py-0.5 rounded border text-xs transition-colors ${
+                                        isCurrentAction 
+                                          ? 'bg-yellow-300 border-yellow-500 font-bold' 
+                                          : action?.status === 'completed'
+                                          ? 'bg-green-100 border-green-300 text-green-700'
+                                          : 'bg-gray-100 border-gray-300 hover:bg-gray-200'
+                                      }`}
+                                      title={action?.description || `执行: ${action?.name || ''}`}
+                                    >
+                                      {action?.name || `动作 ${ai + 1}`}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
                   })()}
                 </div>
               </div>
@@ -3167,7 +3287,7 @@ export default function WorkstationPage() {
                 
                 const inProgressOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'in_progress');
                 if (inProgressOrder) {
-                  return `继续执行 ${inProgressOrder.orderNumber}`;
+                  return `开始`;
                 }
                 
                 const pendingOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'pending');

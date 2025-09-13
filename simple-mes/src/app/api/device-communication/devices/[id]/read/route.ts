@@ -5,7 +5,7 @@ interface RouteParams {
   params: { id: string }
 }
 
-// PLC读取操作 - 使用新架构
+// PLC读取操作 - 仅使用新架构（WorkstationDevice + DeviceTemplate）
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -20,48 +20,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       bit
     });
 
-    // 尝试从两种架构中获取设备信息
-    let device = await prisma.device.findUnique({
-      where: { id }
+    // 获取设备信息（仅使用新架构）
+    const workstationDevice = await prisma.workstationDevice.findUnique({
+      where: { instanceId: id },
+      include: { template: true }
     });
     
-    let deviceInfo: any = null;
-    
-    if (device) {
-      deviceInfo = {
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type,
-        ipAddress: device.ipAddress,
-        port: device.port,
-        brand: device.brand,
-        protocol: device.protocol
-      };
-    } else {
-      const workstationDevice = await prisma.workstationDevice.findUnique({
-        where: { id },
-        include: { template: true }
-      });
-      
-      if (workstationDevice) {
-        deviceInfo = {
-          deviceId: workstationDevice.instanceId,
-          name: workstationDevice.displayName,
-          type: workstationDevice.template.type,
-          ipAddress: workstationDevice.ipAddress,
-          port: workstationDevice.port,
-          brand: workstationDevice.template.brand,
-          protocol: workstationDevice.protocol
-        };
-      }
-    }
-    
-    if (!deviceInfo) {
+    if (!workstationDevice) {
       return NextResponse.json({
         success: false,
-        error: 'Device not found in database'
+        error: 'Workstation device not found'
       }, { status: 404 });
     }
+
+    const deviceInfo = {
+      deviceId: workstationDevice.instanceId,
+      name: workstationDevice.displayName,
+      type: workstationDevice.template.type,
+      ipAddress: workstationDevice.ipAddress,
+      port: workstationDevice.port,
+      brand: workstationDevice.template.brand,
+      protocol: workstationDevice.protocol
+    };
 
     // 根据PLC类型构造正确的地址格式
     let fullAddress = '';
@@ -108,7 +88,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         protocol: deviceInfo.protocol || 'TCP/IP'
       },
       operation: {
-        type: 'DEVICE_READ',
+        type: 'READ',  // 修正为后端支持的操作类型
         address: fullAddress,
         dataType: 'BOOL'
       },

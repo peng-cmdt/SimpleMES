@@ -61,15 +61,21 @@ export async function GET(
                     }
                   },
                   actions: {
-                    include: {
-                      device: {
-                        select: {
-                          id: true,
-                          deviceId: true,
-                          name: true,
-                          type: true
-                        }
-                      }
+                    select: {
+                      id: true,
+                      actionCode: true,
+                      name: true,
+                      type: true,
+                      sequence: true,
+                      deviceId: true,
+                      deviceAddress: true,
+                      expectedValue: true,
+                      validationRule: true,
+                      parameters: true,
+                      description: true,
+                      isRequired: true,
+                      timeout: true,
+                      retryCount: true
                     },
                     orderBy: { sequence: 'asc' }
                   }
@@ -110,15 +116,21 @@ export async function GET(
                     }
                   },
                   actions: {
-                    include: {
-                      device: {
-                        select: {
-                          id: true,
-                          deviceId: true,
-                          name: true,
-                          type: true
-                        }
-                      }
+                    select: {
+                      id: true,
+                      actionCode: true,
+                      name: true,
+                      type: true,
+                      sequence: true,
+                      deviceId: true,
+                      deviceAddress: true,
+                      expectedValue: true,
+                      validationRule: true,
+                      parameters: true,
+                      description: true,
+                      isRequired: true,
+                      timeout: true,
+                      retryCount: true
                     },
                     orderBy: { sequence: 'asc' }
                   }
@@ -144,6 +156,86 @@ export async function GET(
         { success: false, error: '订单不存在' },
         { status: 404 }
       );
+    }
+
+    // 为actions添加设备信息
+    if (order && !includeExecutionStatus) {
+      // 收集所有action的deviceId
+      const deviceIds = new Set<string>();
+      if (order.process?.steps) {
+        order.process.steps.forEach((step: any) => {
+          if (step.actions) {
+            step.actions.forEach((action: any) => {
+              if (action.deviceId) {
+                deviceIds.add(action.deviceId);
+              }
+            });
+          }
+        });
+      }
+      if (order.orderSteps) {
+        order.orderSteps.forEach((orderStep: any) => {
+          if (orderStep.step?.actions) {
+            orderStep.step.actions.forEach((action: any) => {
+              if (action.deviceId) {
+                deviceIds.add(action.deviceId);
+              }
+            });
+          }
+        });
+      }
+
+      // 查询设备信息
+      const devices = await prisma.workstationDevice.findMany({
+        where: {
+          id: { in: Array.from(deviceIds) }
+        },
+        include: {
+          template: true
+        }
+      });
+
+      // 创建deviceId到设备信息的映射
+      const deviceMap = new Map();
+      devices.forEach(device => {
+        deviceMap.set(device.id, {
+          id: device.id,
+          deviceId: device.instanceId,
+          name: device.displayName,
+          type: device.template.type,
+          ipAddress: device.ipAddress,
+          port: device.port,
+          brand: device.template.brand,
+          model: device.template.model,
+          protocol: device.protocol,
+          status: device.status,
+          isOnline: device.isOnline
+        });
+      });
+
+      // 为actions添加设备信息
+      if (order.process?.steps) {
+        order.process.steps.forEach((step: any) => {
+          if (step.actions) {
+            step.actions.forEach((action: any) => {
+              if (action.deviceId && deviceMap.has(action.deviceId)) {
+                action.device = deviceMap.get(action.deviceId);
+              }
+            });
+          }
+        });
+      }
+      if (order.orderSteps) {
+        order.orderSteps.forEach((orderStep: any) => {
+          if (orderStep.step?.actions) {
+            orderStep.step.actions.forEach((action: any) => {
+              if (action.deviceId && deviceMap.has(action.deviceId)) {
+                action.device = deviceMap.get(action.deviceId);
+              }
+            });
+          }
+        });
+      }
     }
 
     return NextResponse.json({

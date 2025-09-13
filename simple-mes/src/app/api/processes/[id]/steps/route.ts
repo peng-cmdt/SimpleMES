@@ -44,11 +44,16 @@ export async function POST(
     const createdSteps = await prisma.$transaction(async (tx) => {
       const newSteps = [];
 
-      // First, let's check what devices exist
-      const existingDevices = await tx.device.findMany({
-        select: { id: true, deviceId: true, name: true }
+      // First, let's check what workstation devices exist
+      const existingDevices = await tx.workstationDevice.findMany({
+        select: { 
+          id: true, 
+          instanceId: true, 
+          displayName: true,
+          workstationId: true
+        }
       });
-      console.log('Existing devices in database:', existingDevices);
+      console.log('Existing workstation devices in database:', existingDevices);
 
       for (let i = 0; i < steps.length; i++) {
         const stepData = steps[i];
@@ -81,15 +86,15 @@ export async function POST(
             
             let resolvedDeviceId = null;
             if (actionData.deviceId && actionData.deviceId.trim() !== '') {
-              // Check if deviceId exists in our device list
+              // Check if deviceId exists in our workstation device list
               const foundDevice = existingDevices.find(d => 
-                d.id === actionData.deviceId || d.deviceId === actionData.deviceId
+                d.id === actionData.deviceId || d.instanceId === actionData.deviceId
               );
               if (foundDevice) {
                 resolvedDeviceId = foundDevice.id;
                 console.log(`Resolved deviceId "${actionData.deviceId}" to "${foundDevice.id}"`);
               } else {
-                console.warn(`Device not found: "${actionData.deviceId}". Available devices:`, existingDevices.map(d => ({id: d.id, deviceId: d.deviceId})));
+                console.warn(`Workstation device not found: "${actionData.deviceId}". Available devices:`, existingDevices.map(d => ({id: d.id, instanceId: d.instanceId, displayName: d.displayName})));
                 resolvedDeviceId = null; // Don't create invalid foreign key
               }
             }
@@ -155,16 +160,6 @@ export async function POST(
               }
             },
             actions: {
-              include: {
-                device: {
-                  select: {
-                    id: true,
-                    deviceId: true,
-                    name: true,
-                    type: true
-                  }
-                }
-              },
               orderBy: { sequence: 'asc' }
             }
           },
@@ -360,16 +355,6 @@ export async function DELETE(
               }
             },
             actions: {
-              include: {
-                device: {
-                  select: {
-                    id: true,
-                    deviceId: true,
-                    name: true,
-                    type: true
-                  }
-                }
-              },
               orderBy: { sequence: 'asc' }
             }
           },

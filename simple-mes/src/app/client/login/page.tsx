@@ -330,19 +330,25 @@ export default function ClientLogin() {
       const sessionCheck = await checkWorkstationSession(workstation.workstationId);
       
       if (sessionCheck.hasActiveSession && sessionCheck.activeSession) {
-        // 有活跃会话，获取工作状态并显示接管弹框
-        const workState = await getWorkState(workstation.workstationId);
+        // 有活跃会话，直接接管控制权
+        console.log(`工位 ${workstation.name} 被用户 ${sessionCheck.activeSession.username} 占用，直接接管...`);
         
-        setConflictSession(sessionCheck.activeSession);
-        setConflictWorkState(workState);
-        setPendingWorkstationId(workstation.workstationId);
-        setShowTakeoverModal(true);
-        setIsIpMatching(false);
-        setIsLoading(false);
-        return;
+        const takeoverSuccess = await takeoverWorkstation(workstation.workstationId, credentials.username.trim());
+        
+        if (!takeoverSuccess) {
+          // 接管失败，显示错误并回退到工位选择
+          setError('接管工位控制权失败，请重试');
+          setShowWorkstationSelector(true);
+          setIsIpMatching(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        // 接管成功，继续登录流程（跳过会话检查）
+        console.log(`成功接管工位 ${workstation.name}，继续自动登录...`);
       }
 
-      // 没有会话冲突，继续自动登录
+      // 继续自动登录（如果刚才进行了接管，则跳过会话检查）
       const response = await fetch('/api/workstation/login', {
         method: 'POST',
         headers: {
@@ -352,7 +358,8 @@ export default function ClientLogin() {
           workstationId: workstation.workstationId,
           username: credentials.username.trim(),
           clientIp: clientIpAddress,
-          autoLogin: true
+          autoLogin: true,
+          skipSessionCheck: sessionCheck.hasActiveSession // 如果刚才有会话冲突并接管，则跳过检查
         })
       });
 
@@ -533,15 +540,21 @@ export default function ClientLogin() {
       const sessionCheck = await checkWorkstationSession(selectedWorkstationId);
       
       if (sessionCheck.hasActiveSession && sessionCheck.activeSession) {
-        // 有活跃会话，获取工作状态并显示接管弹框
-        const workState = await getWorkState(selectedWorkstationId);
+        // 有活跃会话，直接接管控制权
+        const selectedWorkstation = availableWorkstations.find(ws => ws.workstationId === selectedWorkstationId);
+        console.log(`工位 ${selectedWorkstation?.name} 被用户 ${sessionCheck.activeSession.username} 占用，直接接管...`);
         
-        setConflictSession(sessionCheck.activeSession);
-        setConflictWorkState(workState);
-        setPendingWorkstationId(selectedWorkstationId);
-        setShowTakeoverModal(true);
-        setIsLoading(false);
-        return;
+        const takeoverSuccess = await takeoverWorkstation(selectedWorkstationId, credentials.username.trim());
+        
+        if (!takeoverSuccess) {
+          // 接管失败，显示错误
+          setError('接管工位控制权失败，请重试');
+          setIsLoading(false);
+          return;
+        }
+        
+        // 接管成功，继续登录流程
+        console.log(`成功接管工位 ${selectedWorkstation?.name}，继续登录...`);
       }
 
       // 没有会话冲突，直接进行登录

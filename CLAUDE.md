@@ -102,7 +102,7 @@ dotnet build
 
 ## Critical Development Notes
 
-- **Port Configuration**: Frontend dev server uses port 3009 (not default 3000)
+- **Port Configuration**: Frontend dev server uses port 3000
 - **Database Reset**: After schema changes, run `npx prisma migrate reset --force` then `npx prisma generate`
 - **Turbopack**: Next.js uses Turbopack for faster development builds
 - **Device Service**: Must be running on port 5000 for device communication features
@@ -121,4 +121,4 @@ dotnet build
 - **Login Issues**: Ensure database is seeded with default users
 - **Device Connection**: Verify DeviceCommunicationService is running and accessible
 - **Prisma Errors**: Clear `.prisma/client` cache and regenerate client
-- **Port Conflicts**: Frontend uses 3009, backend uses 5000
+- **Port Conflicts**: Frontend uses 3000, backend uses 5000

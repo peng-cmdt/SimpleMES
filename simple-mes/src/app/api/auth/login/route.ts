@@ -63,6 +63,11 @@ export async function POST(request: NextRequest) {
 
     console.log('Password validated successfully for user:', username);
 
+    // 获取用户权限
+    const permissions = user.userRoles.flatMap(userRole =>
+      userRole.role.rolePermissions.map(rp => rp.permission.name)
+    )
+
     // 验证用户类型 - 支持新旧角色系统
     const userRoles = user.userRoles.map(ur => ur.role.name);
     const hasClientRole = userRoles.includes('CLIENT') || user.role === 'CLIENT';
@@ -79,7 +84,8 @@ export async function POST(request: NextRequest) {
       hasSupervisorRole,
       hasEngineerRole,
       hasOperatorRole,
-      requestedType: userType
+      requestedType: userType,
+      permissions
     });
     
     if (userType === 'admin' && !hasAdminRole) {
@@ -90,19 +96,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 客户端可以被CLIENT或ADMIN角色访问
-    if (userType === 'client' && !hasClientRole && !hasAdminRole) {
-      console.log('Client access denied for user:', username, 'Only CLIENT or ADMIN role allowed');
-      return NextResponse.json(
-        { error: '权限不足，无法访问客户端系统' },
-        { status: 403 }
-      )
+    // 客户端访问权限验证 - 基于权限系统检查是否有工位控制权限
+    if (userType === 'client') {
+      const hasWorkstationControlPermission = permissions.includes('workstations:control')
+      if (!hasWorkstationControlPermission) {
+        console.log('Client access denied for user:', username, 'Missing workstations:control permission');
+        return NextResponse.json(
+          { error: '权限不足，无法访问客户端系统。请联系管理员为您分配工位操作权限。' },
+          { status: 403 }
+        )
+      }
     }
-
-    // 获取用户权限
-    const permissions = user.userRoles.flatMap(userRole =>
-      userRole.role.rolePermissions.map(rp => rp.permission.name)
-    )
 
     // 如果是客户端登录，使用简化的认证流程（IP匹配由前端处理）
     if (userType === 'client') {

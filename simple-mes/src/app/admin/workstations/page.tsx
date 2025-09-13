@@ -251,10 +251,13 @@ export default function WorkstationsPage() {
   };
 
   const handleDeleteDevice = async (deviceId: string) => {
+    // 找到要删除的设备
+    const deviceToDelete = editingWorkstation?.devices?.find(d => d.id === deviceId);
+    
     if (!confirm('确定要删除这个设备吗？此操作将清理所有相关数据且不可恢复。')) return;
     
     try {
-      console.log('正在删除设备:', deviceId); // Debug log
+      console.log('正在删除设备:', deviceId, '设备名称:', deviceToDelete?.name); // Debug log
       
       const response = await fetch(`/api/workstation-devices/${deviceId}`, { 
         method: 'DELETE',
@@ -291,7 +294,8 @@ export default function WorkstationsPage() {
         // 只需要重新加载工位数据，loadWorkstations会自动更新editingWorkstation
         await loadWorkstations();
         
-        alert('设备删除成功！');
+        const archType = result.deviceType === 'device' ? '旧架构' : '新架构';
+        alert(`${archType}设备删除成功！`);
       } else {
         alert(`删除失败：${result.error || result.message || '未知错误'}`);
       }
@@ -627,13 +631,15 @@ export default function WorkstationsPage() {
                                             </div>
                                           </div>
                                         </div>
-                                        <div className="flex-shrink-0 text-right">
-                                          <p className="text-sm text-gray-900 dark:text-white">
-                                            {device.ipAddress || 'N/A'}
-                                          </p>
-                                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {t('admin.devices.port') || 'Port'}: {device.port || 'N/A'}
-                                          </p>
+                                        <div className="flex-1 min-w-0 ml-4">
+                                          <div className="flex items-center space-x-2">
+                                            <div className="text-sm text-gray-900 dark:text-white">
+                                              <span className="font-medium">IP:</span> {device.ipAddress || 'N/A'}
+                                            </div>
+                                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                              <span className="font-medium">端口:</span> {device.port || 'N/A'}
+                                            </div>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>

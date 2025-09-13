@@ -21,6 +21,13 @@ export default function AdminLogin() {
     setIsLoading(true);
     setError("");
 
+    // 调试信息
+    console.log('Login attempt with credentials:', {
+      username: credentials.username,
+      passwordLength: credentials.password?.length,
+      userType: 'admin'
+    });
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',

@@ -157,6 +157,7 @@ export async function PUT(
       success: true,
       data: device
     })
+
   } catch (error) {
     console.error('Update workstation device error:', error)
     return NextResponse.json(
@@ -186,9 +187,6 @@ export async function DELETE(
       )
     }
 
-    // TODO: 检查是否有动作日志或其他关联数据
-    // 如果需要保护性删除，可以在这里添加检查
-
     // 删除工位设备
     await prisma.workstationDevice.delete({
       where: { id }
@@ -198,6 +196,7 @@ export async function DELETE(
       success: true,
       message: '工位设备删除成功'
     })
+
   } catch (error) {
     console.error('Delete workstation device error:', error)
     return NextResponse.json(

@@ -37,7 +37,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [profileFormData, setProfileFormData] = useState({
     username: '',
     email: '',
@@ -60,354 +60,81 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       const user = JSON.parse(userInfoStr);
       setUserInfo(user);
       setIsAuthenticated(true);
-      // 立即设置默认菜单
-      setDefaultMenus();
     } else {
       router.push("/admin/login");
     }
   }, [router]);
 
-  // 单独的useEffect监听语言变化和路径变化
   useEffect(() => {
-    if (isAuthenticated && userInfo) {
-      console.log('Path changed to:', pathname);
-      setDefaultMenus();
+    if (isAuthenticated) {
+      // 每次语言变化时，重新生成菜单项以更新翻译
+      const defaultMenus = [
+        { id: "dashboard", name: t('menu.dashboard'), icon: "📊", path: "/admin/dashboard", order: 1 },
+        { 
+          id: "production-management", 
+          name: "生产管理", 
+          icon: "🏭", 
+          order: 2,
+          children: [
+            { id: "orders", name: "生产订单", icon: "📋", path: "/admin/orders", order: 1 },
+            { id: "products", name: "产品管理", icon: "📦", path: "/admin/products", order: 2 },
+            { id: "parts", name: "零部件管理", icon: "📝", path: "/admin/parts", order: 3 },
+          ]
+        },
+        { 
+          id: "process-management", 
+          name: "工艺过程", 
+          icon: "🔧", 
+          order: 3,
+          children: [
+            { id: "processes", name: "工艺管理", icon: "⚙️", path: "/admin/processes", order: 1 },
+            { id: "step-templates", name: "工艺步骤管理", icon: "📋", path: "/admin/step-templates", order: 2 },
+          ]
+        },
+        { id: "workstations", name: t('menu.workstations'), icon: "🏭", path: "/admin/workstations", order: 4 },
+        { id: "devices", name: t('menu.devices'), icon: "⚡", path: "/admin/devices", order: 5 },
+        { id: "device-communication", name: "设备通信管理", icon: "📡", path: "/admin/device-communication", order: 6 },
+        { id: "export", name: "数据导出", icon: "📤", path: "/admin/export", order: 7 },
+        { id: "users", name: t('menu.users'), icon: "👥", path: "/admin/users", order: 8 },
+        { 
+          id: "system-management", 
+          name: "系统管理", 
+          icon: "⚙️", 
+          order: 9,
+          children: [
+            { id: "menus", name: "菜单管理", icon: "📋", path: "/admin/menus", order: 1 },
+            { id: "clients", name: t('menu.clients'), icon: "💻", path: "/admin/clients", order: 2 },
+            { id: "roles", name: t('menu.roles'), icon: "🔐", path: "/admin/roles", order: 3 },
+          ]
+        },
+      ];
+      setMenuItems(defaultMenus);
       
-      // 使用setTimeout确保菜单项设置完成后再处理展开逻辑
-      setTimeout(() => {
-        const activeMenuId = getActiveMenuId();
-        const parentMenuToExpand = getCurrentParentMenu(activeMenuId);
-        
-        console.log('Active menu ID:', activeMenuId, 'Parent to expand:', parentMenuToExpand);
-        
-        if (parentMenuToExpand) {
-          // 确保当前页面的父菜单展开
-          setExpandedMenus(prev => {
-            console.log('Before navigation expand - current expanded:', prev);
-            // 如果父菜单已经展开，保持不变
-            if (prev.includes(parentMenuToExpand)) {
-              console.log('Parent menu already expanded, keeping current state');
-              return prev;
-            }
-            // 否则展开对应的父菜单（手风琴效果）
-            const newState = [parentMenuToExpand];
-            console.log('After navigation expand - new expanded:', newState);
-            return newState;
-          });
-        }
-      }, 0);
-    }
-  }, [t, pathname]); // 当语言改变或路径改变时重新加载菜单并检查展开状态
-
-  // 设置默认菜单的函数
-  const setDefaultMenus = () => {
-    const defaultMenus = [
-      { id: "dashboard", name: t('menu.dashboard'), icon: "📊", path: "/admin/dashboard", order: 1 },
-      // 生产管理二级菜单
-      { 
-        id: "production-management", 
-        name: "生产管理", 
-        icon: "🏭", 
-        order: 2,
-        children: [
-          { id: "orders", name: "生产订单", icon: "📋", path: "/admin/orders", order: 1 },
-          { id: "products", name: "产品管理", icon: "📦", path: "/admin/products", order: 2 },
-          { id: "parts", name: "零部件管理", icon: "📝", path: "/admin/parts", order: 3 },
-        ]
-      },
-      // 工艺过程二级菜单
-      { 
-        id: "process-management", 
-        name: "工艺过程", 
-        icon: "🔧", 
-        order: 3,
-        children: [
-          { id: "processes", name: "工艺管理", icon: "⚙️", path: "/admin/processes", order: 1 },
-          { id: "step-templates", name: "工艺步骤管理", icon: "📋", path: "/admin/step-templates", order: 2 },
-        ]
-      },
-      { id: "workstations", name: t('menu.workstations'), icon: "🏭", path: "/admin/workstations", order: 4 },
-      { id: "devices", name: t('menu.devices'), icon: "⚡", path: "/admin/devices", order: 5 },
-      { id: "device-communication", name: "设备通信管理", icon: "📡", path: "/admin/device-communication", order: 6 },
-      { id: "export", name: "数据导出", icon: "📤", path: "/admin/export", order: 7 },
-      { id: "users", name: t('menu.users'), icon: "👥", path: "/admin/users", order: 8 },
-      // 系统管理二级菜单
-      { 
-        id: "system-management", 
-        name: "系统管理", 
-        icon: "⚙️", 
-        order: 9,
-        children: [
-          { id: "menus", name: "菜单管理", icon: "📋", path: "/admin/menus", order: 1 },
-          { id: "clients", name: t('menu.clients'), icon: "💻", path: "/admin/clients", order: 2 },
-          { id: "roles", name: t('menu.roles'), icon: "🔐", path: "/admin/roles", order: 3 },
-        ]
-      },
-    ];
-    setMenuItems(defaultMenus);
-  };
-
-  const loadMenus = async (userRole: string) => {
-    // 暂时禁用API调用，直接使用默认菜单确保稳定性
-    console.log('Keeping existing default menus - API calls disabled for stability');
-    return;
-    
-    /* 
-    // API调用暂时注释掉，等菜单系统稳定后再启用
-    try {
-      const response = await fetch(`/api/menus?role=${userRole}`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('API response data:', data);
-        // 只有当API返回了菜单数据且数组不为空时，才使用API数据
-        if (data.menus && Array.isArray(data.menus) && data.menus.length > 0) {
-          console.log('Using API menus:', data.menus);
-          const formattedMenus = data.menus.map((menu: any) => ({
-            id: menu.name.toLowerCase().replace(/\s+/g, ''),
-            name: translateMenuName(menu.name),
-            icon: menu.icon || '📄',
-            path: menu.path || `/admin/${menu.name.toLowerCase().replace(/\s+/g, '')}`,
-            order: menu.order
-          }));
-          setMenuItems(formattedMenus);
-          return;
-        } else {
-          console.log('API returned empty or invalid menus, keeping default menus');
-        }
-      }
-    } catch (error) {
-      console.error('Load menus error:', error);
-    }
-    
-    // API没有返回有效数据，保持当前的默认菜单不变
-    console.log('Keeping existing default menus');
-    */
-  };
-
-  // 菜单名称翻译映射函数
-  const translateMenuName = (chineseName: string): string => {
-    const menuTranslations: { [key: string]: string } = {
-      '仪表盘': t('menu.dashboard'),
-      '用户管理': t('menu.users'),
-      '客户端配置': t('menu.clients'),
-      '设备管理': t('menu.devices'),
-      '工位管理': t('menu.workstations'),
-      '角色权限': t('menu.roles'),
-      '系统设置': t('menu.settings'),
-    };
-    
-    return menuTranslations[chineseName] || chineseName;
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("adminAuth");
-    localStorage.removeItem("adminUserInfo");
-    router.push("/");
-  };
-
-  const handleShowProfile = () => {
-    setShowUserMenu(false);
-    if (userInfo) {
-      setProfileFormData({
-        username: userInfo.username,
-        email: userInfo.email,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-    }
-    setShowProfileModal(true);
-  };
-
-  const handleShowAvatar = () => {
-    setShowUserMenu(false);
-    setShowAvatarModal(true);
-  };
-
-  const handleShowAccount = () => {
-    setShowUserMenu(false);
-    if (userInfo) {
-      setProfileFormData({
-        username: userInfo.username,
-        email: userInfo.email,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-    }
-    setShowAccountModal(true);
-  };
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`/api/users/${userInfo?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: profileFormData.username,
-          email: profileFormData.email
-        })
-      });
-
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUserInfo(prev => prev ? { ...prev, ...updatedUser.user } : null);
-        localStorage.setItem("adminUserInfo", JSON.stringify({ ...userInfo, ...updatedUser.user }));
-        setShowProfileModal(false);
-        alert(t('common.saveSuccess') || '保存成功');
+      // 根据当前路径确定需要展开的父菜单
+      const parentMenu = defaultMenus.find(m => m.children?.some(c => c.path === pathname));
+      if (parentMenu) {
+        setOpenMenu(parentMenu.id);
       } else {
-        alert(t('common.saveFailed') || '保存失败');
+        // 如果当前路径没有匹配的子菜单，则不展开任何菜单
+        setOpenMenu(null);
       }
-    } catch (error) {
-      alert(t('common.saveFailed') || '保存失败');
     }
-  };
+  }, [isAuthenticated, t, pathname]);
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (profileFormData.newPassword !== profileFormData.confirmPassword) {
-      alert(t('profile.passwordMismatch') || '密码确认不匹配');
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/users/${userInfo?.id}/password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: profileFormData.currentPassword,
-          newPassword: profileFormData.newPassword
-        })
-      });
-
-      if (response.ok) {
-        setShowAccountModal(false);
-        setProfileFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
-        alert(t('profile.passwordChanged') || '密码修改成功');
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || t('profile.passwordChangeFailed') || '密码修改失败');
-      }
-    } catch (error) {
-      alert(t('profile.passwordChangeFailed') || '密码修改失败');
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('avatar', file);
-
-    try {
-      const response = await fetch(`/api/users/${userInfo?.id}/avatar`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setUserInfo(prev => prev ? { ...prev, avatar: result.avatarUrl } : null);
-        localStorage.setItem("adminUserInfo", JSON.stringify({ ...userInfo, avatar: result.avatarUrl }));
-        setShowAvatarModal(false);
-        alert(t('profile.avatarUpdated') || '头像更新成功');
-      } else {
-        alert(t('profile.avatarUpdateFailed') || '头像更新失败');
-      }
-    } catch (error) {
-      alert(t('profile.avatarUpdateFailed') || '头像更新失败');
-    }
-  };
-
-  const getRoleName = (role: string) => {
-    switch (role) {
-      case 'ADMIN': return t('menu.systemAdmin');
-      case 'SUPERVISOR': return t('menu.supervisor');
-      case 'ENGINEER': return t('menu.engineer');
-      case 'OPERATOR': return t('menu.operator');
-      default: return role;
-    }
-  };
-
-  const getActiveMenuId = () => {
-    const path = pathname;
-    if (path === '/admin/dashboard') return 'dashboard';
-    if (path === '/admin/orders') return 'orders';
-    if (path === '/admin/products') return 'products';
-    if (path === '/admin/parts') return 'parts';
-    if (path === '/admin/processes') return 'processes';
-    if (path === '/admin/step-templates') return 'step-templates';
-    if (path === '/admin/workstations') return 'workstations';
-    if (path === '/admin/devices') return 'devices';
-    if (path === '/admin/device-communication') return 'device-communication';
-    if (path === '/admin/export') return 'export';
-    if (path === '/admin/users') return 'users';
-    if (path === '/admin/menus') return 'menus';
-    if (path === '/admin/clients') return 'clients';
-    if (path === '/admin/roles') return 'roles';
-    return 'dashboard';
-  };
-
-  const getCurrentParentMenu = (activeMenuId: string): string | null => {
-    // 检查是否是生产管理的子菜单
-    if (['orders', 'products', 'parts'].includes(activeMenuId)) {
-      return 'production-management';
-    }
-    // 检查是否是工艺过程的子菜单
-    else if (['processes', 'step-templates'].includes(activeMenuId)) {
-      return 'process-management';
-    }
-    // 检查是否是系统管理的子菜单
-    else if (['menus', 'clients', 'roles'].includes(activeMenuId)) {
-      return 'system-management';
-    }
-    return null;
-  };
-
-  const toggleMenu = (menuId: string) => {
-    console.log('toggleMenu called with:', menuId);
-    setExpandedMenus(prev => {
-      console.log('Current expanded menus:', prev);
-      const isCurrentlyExpanded = prev.includes(menuId);
-      const topLevelMenuIds = ['production-management', 'process-management', 'system-management'];
-      
-      if (isCurrentlyExpanded) {
-        // 如果当前菜单已展开，则折叠它
-        const newState = prev.filter(id => id !== menuId);
-        console.log('Collapsing menu, new state:', newState);
-        return newState;
-      } else {
-        // 展开菜单时的手风琴效果
-        if (topLevelMenuIds.includes(menuId)) {
-          // 如果是顶级菜单，关闭其他顶级菜单
-          const newState = [menuId];
-          console.log('Expanding top-level menu with accordion effect, new state:', newState);
-          return newState;
-        } else {
-          // 如果不是顶级菜单，直接添加到展开列表
-          const newState = [...prev, menuId];
-          console.log('Expanding non-top-level menu, new state:', newState);
-          return newState;
-        }
-      }
-    });
+  const handleParentClick = (menuId: string) => {
+    setOpenMenu(prevOpenMenu => (prevOpenMenu === menuId ? null : menuId));
   };
 
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
-    const activeMenuId = getActiveMenuId();
-    const isActive = activeMenuId === item.id;
-    const isExpanded = expandedMenus.includes(item.id);
+    const isActive = item.path === pathname;
     const hasChildren = item.children && item.children.length > 0;
-    
+
     if (hasChildren) {
-      // 父菜单 - 可展开/折叠
+      const isExpanded = openMenu === item.id;
       return (
         <div key={item.id}>
           <button
-            onClick={() => toggleMenu(item.id)}
+            onClick={() => handleParentClick(item.id)}
             className="flex items-center justify-between w-full px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <div className="flex items-center">
@@ -435,7 +162,10 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         </div>
       );
     } else {
-      // 叶子菜单 - 可点击导航
+      // Find parent menu for active child styling
+      const parentMenu = menuItems.find(m => m.children?.some(c => c.id === item.id));
+      const isChildActive = parentMenu ? parentMenu.children?.some(c => c.path === pathname) && item.path === pathname : false;
+
       return (
         <Link
           key={item.id}
@@ -443,7 +173,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           className={`flex items-center ${
             level > 0 ? 'pl-12 pr-6' : 'px-6'
           } py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-            isActive
+            isActive || isChildActive
               ? "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500"
               : ""
           }`}

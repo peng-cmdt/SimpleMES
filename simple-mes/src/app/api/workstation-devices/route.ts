@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       };
 
       // 尝试通知.NET服务
-      const notificationResponse = await fetch('http://localhost:5000/api/ConfigSync/notify-change', {
+      const notificationResponse = await fetch('http://localhost:5001/api/ConfigSync/notify-change', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -99,7 +99,6 @@ model Workstation {
   settings            Json?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
-  devices             Device[]
   orderSteps          OrderStep[]
   currentOrders       Order[]               @relation("OrderCurrentStation")
   productWorkstations ProductWorkstation[]
@@ -110,35 +109,6 @@ model Workstation {
   workState           WorkstationWorkState? @relation("WorkstationWorkState")
 
   @@map("workstations")
-}
-
-model Device {
-  id               String       @id @default(cuid())
-  deviceId         String       @unique @default(cuid())
-  name             String
-  type             DeviceType
-  brand            String?
-  model            String?
-  driver           String?
-  description      String?
-  workstationId    String?
-  ipAddress        String?
-  port             Int?
-  protocol         String?
-  connectionString String?
-  status           DeviceStatus @default(OFFLINE)
-  isOnline         Boolean      @default(false)
-  lastConnected    DateTime?
-  lastHeartbeat    DateTime?
-  settings         Json?
-  capabilities     Json?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  actionLogs       ActionLog[]
-  actions          Action[]
-  workstation      Workstation? @relation(fields: [workstationId], references: [id])
-
-  @@map("devices")
 }
 
 model DeviceTemplate {
@@ -417,7 +387,6 @@ model Action {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   actionLogs     ActionLog[]
-  device         Device?     @relation(fields: [deviceId], references: [id])
   step           Step        @relation(fields: [stepId], references: [id], onDelete: Cascade)
 
   @@unique([stepId, sequence])
@@ -538,7 +507,6 @@ model ActionLog {
   parameters       Json?
   result           Json?
   action           Action    @relation(fields: [actionId], references: [id])
-  device           Device?   @relation(fields: [deviceId], references: [id])
   orderStep        OrderStep @relation(fields: [orderStepId], references: [id], onDelete: Cascade)
 
   @@map("action_logs")

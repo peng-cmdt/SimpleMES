@@ -37,16 +37,6 @@ export async function GET(
               }
             },
             actions: {
-              include: {
-                device: {
-                  select: {
-                    id: true,
-                    deviceId: true,
-                    name: true,
-                    type: true
-                  }
-                }
-              },
               orderBy: { sequence: 'asc' }
             }
           },

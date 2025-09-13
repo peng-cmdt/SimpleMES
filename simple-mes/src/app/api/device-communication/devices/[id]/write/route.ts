@@ -5,7 +5,7 @@ interface RouteParams {
   params: { id: string }
 }
 
-// PLC写入操作 - 使用新架构
+// PLC写入操作 - 仅使用新架构（WorkstationDevice + DeviceTemplate）
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -21,48 +21,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       value
     });
 
-    // 尝试从两种架构中获取设备信息
-    let device = await prisma.device.findUnique({
-      where: { id }
+    // 获取设备信息（仅使用新架构）
+    const workstationDevice = await prisma.workstationDevice.findUnique({
+      where: { instanceId: id },
+      include: { template: true }
     });
     
-    let deviceInfo: any = null;
-    
-    if (device) {
-      deviceInfo = {
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type,
-        ipAddress: device.ipAddress,
-        port: device.port,
-        brand: device.brand,
-        protocol: device.protocol
-      };
-    } else {
-      const workstationDevice = await prisma.workstationDevice.findUnique({
-        where: { id },
-        include: { template: true }
-      });
-      
-      if (workstationDevice) {
-        deviceInfo = {
-          deviceId: workstationDevice.instanceId,
-          name: workstationDevice.displayName,
-          type: workstationDevice.template.type,
-          ipAddress: workstationDevice.ipAddress,
-          port: workstationDevice.port,
-          brand: workstationDevice.template.brand,
-          protocol: workstationDevice.protocol
-        };
-      }
-    }
-    
-    if (!deviceInfo) {
+    if (!workstationDevice) {
       return NextResponse.json({
         success: false,
-        error: 'Device not found in database'
+        error: 'Workstation device not found'
       }, { status: 404 });
     }
+
+    const deviceInfo = {
+      deviceId: workstationDevice.instanceId,
+      name: workstationDevice.displayName,
+      type: workstationDevice.template.type,
+      ipAddress: workstationDevice.ipAddress,
+      port: workstationDevice.port,
+      brand: workstationDevice.template.brand,
+      protocol: workstationDevice.protocol
+    };
 
     // 根据PLC类型构造正确的地址格式
     let fullAddress = '';
@@ -109,7 +89,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         protocol: deviceInfo.protocol || 'TCP/IP'
       },
       operation: {
-        type: 'DEVICE_WRITE',
+        type: 'WRITE',  // 修正为后端支持的操作类型
         address: fullAddress,
         value: value,
         dataType: 'BOOL'
@@ -163,17 +143,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } catch (serviceError) {
       console.error('Device communication service error:', serviceError);
       
-      // 快速模拟写入结果（优化性能 - 在真实设备通信失败时立即返回）
+      // 设备通信服务不可用，返回错误而不是假成功
       return NextResponse.json({
-        success: true,
-        value: value,
-        address: fullAddress,
-        message: `模拟写入: ${fullAddress} = ${value}`,
+        success: false,
+        error: serviceError instanceof Error ? serviceError.message : '设备通信服务不可用',
+        message: `写入失败: 无法连接到设备通信服务 (${fullAddress})`,
         timestamp: new Date().toISOString(),
-        simulated: true,
-        responseTime: '< 100ms',
-        note: '设备通信服务不可用，使用模拟数据'
-      });
+        address: fullAddress,
+        value: value,
+        serviceError: true
+      }, { status: 503 });
     }
 
   } catch (error) {

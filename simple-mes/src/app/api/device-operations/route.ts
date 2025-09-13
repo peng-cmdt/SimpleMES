@@ -1,66 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// 执行设备操作
+// 执行设备操作 - 仅使用新架构（WorkstationDevice + DeviceTemplate）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { actionId, actionType, deviceId, actionData } = body;
 
-    // 尝试从两种架构中获取设备配置信息
-    let device = await prisma.device.findUnique({
+    // 获取设备配置信息（仅使用新架构）
+    const workstationDevice = await prisma.workstationDevice.findUnique({
       where: { id: deviceId },
-      include: {
-        workstationDevices: {
-          include: {
-            workstation: true
-          }
-        }
+      include: { 
+        template: true,
+        workstation: true
       }
     });
     
-    let deviceInfo: any = null;
-
-    if (device) {
-      // 旧架构设备
-      deviceInfo = {
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type,
-        ipAddress: device.ipAddress,
-        port: device.port,
-        brand: device.brand,
-        protocol: device.protocol
-      };
-    } else {
-      // 新架构设备
-      const workstationDevice = await prisma.workstationDevice.findUnique({
-        where: { id: deviceId },
-        include: { 
-          template: true,
-          workstation: true
-        }
-      });
-      
-      if (workstationDevice) {
-        deviceInfo = {
-          deviceId: workstationDevice.instanceId,
-          name: workstationDevice.displayName,
-          type: workstationDevice.template.type,
-          ipAddress: workstationDevice.ipAddress,
-          port: workstationDevice.port,
-          brand: workstationDevice.template.brand,
-          protocol: workstationDevice.protocol
-        };
-      }
-    }
-
-    if (!deviceInfo) {
+    if (!workstationDevice) {
       return NextResponse.json({
         success: false,
-        error: 'Device not found'
+        error: 'Workstation device not found'
       }, { status: 404 });
     }
+
+    const deviceInfo = {
+      deviceId: workstationDevice.instanceId,
+      name: workstationDevice.displayName,
+      type: workstationDevice.template.type,
+      ipAddress: workstationDevice.ipAddress,
+      port: workstationDevice.port,
+      brand: workstationDevice.template.brand,
+      protocol: workstationDevice.protocol
+    };
 
     // 构建设备操作请求的JSON格式
     const deviceRequest = {
@@ -85,7 +56,7 @@ export async function POST(request: NextRequest) {
     console.log('Sending device operation request:', JSON.stringify(deviceRequest, null, 2));
 
     // 发送请求到.NET后端服务
-    const response = await fetch('http://localhost:5000/api/devices/execute', {
+    const response = await fetch('http://localhost:5001/api/devices/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

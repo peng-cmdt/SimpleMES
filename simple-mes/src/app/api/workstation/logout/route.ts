@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // 如果有C#设备服务，通知服务结束会话
     try {
-      await fetch('http://localhost:5000/api/workstation/logout', {
+      await fetch('http://localhost:5001/api/workstation/logout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

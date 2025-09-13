@@ -28,13 +28,13 @@ builder.Services.AddHttpClient<IDeviceConfigSyncService, DeviceConfigSyncService
     client.DefaultRequestHeaders.Add("User-Agent", "SimpleMES-DeviceCommunicationService/1.0");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
 })
-.ConfigurePrimaryHttpMessageHandler(() => 
+.ConfigurePrimaryHttpMessageHandler(() =>
 {
     // 创建自定义代理配置，明确绕过localhost
     var proxy = new System.Net.WebProxy();
     proxy.BypassProxyOnLocal = true;
     proxy.BypassList = new string[] { "localhost", "127.0.0.1", "::1" };
-    
+
     return new HttpClientHandler
     {
         Proxy = proxy,  // 使用自定义代理配置
@@ -56,13 +56,6 @@ builder.Services.AddSingleton<IDeviceManager>(provider => provider.GetRequiredSe
 builder.Services.AddSingleton<IWorkstationDeviceManager, WorkstationDeviceManager>();
 builder.Services.AddSingleton<DeviceWebSocketManager>();
 builder.Services.AddSingleton<IWebSocketManager>(provider => provider.GetService<DeviceWebSocketManager>()!);
-
-// 注册PLC模拟器（开发环境用）
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddHostedService<PlcSimulator>();
-    builder.Services.Configure<PlcSimulatorOptions>(builder.Configuration.GetSection("PlcSimulator"));
-}
 
 // 配置 CORS
 builder.Services.AddCors(options =>
@@ -118,7 +111,7 @@ app.Map("/ws", async (HttpContext context) =>
         var webSocket = await context.WebSockets.AcceptWebSocketAsync();
         var connectionId = Guid.NewGuid().ToString();
         var webSocketManager = context.RequestServices.GetRequiredService<DeviceWebSocketManager>();
-        
+
         await webSocketManager.HandleWebSocketAsync(webSocket, connectionId);
     }
     else

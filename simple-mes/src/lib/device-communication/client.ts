@@ -10,7 +10,7 @@ import {
 // 默认配置
 const DEFAULT_CONFIG: DeviceCommunicationServiceConfig = {
   baseUrl: 'http://localhost:5000',
-  websocketUrl: 'ws://localhost:5001',
+  websocketUrl: 'ws://localhost:5000',
   timeout: 800, // 减少到800ms总体超时，快速失败
   retryAttempts: 3,
   retryDelay: 100 // 减少重试延迟到100ms

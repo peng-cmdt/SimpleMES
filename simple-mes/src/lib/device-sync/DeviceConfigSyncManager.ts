@@ -31,7 +31,7 @@ class DeviceConfigSyncManager {
 
   constructor(config?: Partial<DeviceSyncConfig>) {
     this.config = {
-      dotnetServiceUrl: process.env.NEXT_PUBLIC_DOTNET_SERVICE_URL || 'http://localhost:5000',
+      dotnetServiceUrl: process.env.NEXT_PUBLIC_DOTNET_SERVICE_URL || 'http://localhost:5001',
       syncTimeoutMs: 10000, // 10秒超时
       enableAutoSync: true,
       retryAttempts: 3,

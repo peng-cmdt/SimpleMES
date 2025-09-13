@@ -825,12 +825,12 @@ export default function StepTemplatesPage() {
       await loadDevices(editingTemplate.workstationId);
       
       // 直接重新获取设备信息来确保数据正确
-      const url = `/api/devices?workstationId=${editingTemplate.workstationId}`;
+      const url = `/api/workstation-devices?workstationId=${editingTemplate.workstationId}`;
       try {
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          const currentDevices = data.devices || [];
+          const currentDevices = data.data?.devices || [];
           
           const formData = { ...action };
           

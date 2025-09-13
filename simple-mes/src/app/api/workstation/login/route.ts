@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
     const workstation = await prisma.workstation.findUnique({
       where: { workstationId },
       include: {
-        devices: true, // 旧架构设备
         workstationDevices: { // 新架构设备
           include: {
             template: true
@@ -33,7 +32,6 @@ export async function POST(request: NextRequest) {
       id: workstation.id,
       workstationId: workstation.workstationId,
       name: workstation.name,
-      devicesCount: workstation.devices?.length || 0,
       workstationDevicesCount: workstation.workstationDevices?.length || 0
     });
 
@@ -61,23 +59,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 获取工位配置的设备，支持新旧架构
+    // 获取工位配置的设备
     let allDevices = [];
-    
-    // 处理旧架构设备
-    if (workstation.devices && workstation.devices.length > 0) {
-      allDevices.push(...workstation.devices.map(device => ({
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type,
-        model: device.model || '',
-        ipAddress: device.ipAddress || '',
-        port: device.port || 502,
-        settings: device.settings || {},
-        workstationId: device.workstationId || workstationId,
-        isNewArchitecture: false
-      })));
-    }
     
     // 处理新架构设备
     if (workstation.workstationDevices && workstation.workstationDevices.length > 0) {
@@ -108,8 +91,7 @@ export async function POST(request: NextRequest) {
     
     if (allDevices.length === 0) {
       console.log('No devices found for workstation', workstationId);
-      console.log('Workstation devices data:', JSON.stringify(workstation.devices, null, 2));
-      console.log('Workstation new devices data:', JSON.stringify(workstation.workstationDevices, null, 2));
+      console.log('Workstation devices data:', JSON.stringify(workstation.workstationDevices, null, 2));
       
       return NextResponse.json({ 
         success: false,
@@ -118,10 +100,8 @@ export async function POST(request: NextRequest) {
         debug: {
           workstationFound: true,
           workstationId: workstation.workstationId,
-          oldDevicesCount: workstation.devices?.length || 0,
-          newDevicesCount: workstation.workstationDevices?.length || 0,
-          oldDevices: workstation.devices || [],
-          newDevices: workstation.workstationDevices || []
+          workstationDevicesCount: workstation.workstationDevices?.length || 0,
+          workstationDevices: workstation.workstationDevices || []
         }
       }, { status: 400 });
     }
@@ -177,7 +157,7 @@ export async function POST(request: NextRequest) {
     // 如果有设备配置，先初始化设备到C#服务
     if (workstationDevices.length > 0) {
       try {
-        const initResponse = await fetch(`http://localhost:5000/api/workstation/${workstationId}/devices/initialize`, {
+        const initResponse = await fetch(`http://localhost:5001/api/workstation/${workstationId}/devices/initialize`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -239,7 +219,7 @@ export async function POST(request: NextRequest) {
 
     // 调用C#设备通信服务进行工位登录
     try {
-      const loginResponse = await fetch('http://localhost:5000/api/workstation/login', {
+      const loginResponse = await fetch('http://localhost:5001/api/workstation/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

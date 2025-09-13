@@ -260,6 +260,74 @@ export async function PUT(
         }
       });
 
+      // 同步更新所有使用该模板的Steps中的Actions
+      const relatedSteps = await tx.step.findMany({
+        where: { stepTemplateId: id },
+        include: { actions: true }
+      });
+
+      console.log(`Found ${relatedSteps.length} steps using template ${stepCode}`);
+
+      for (const step of relatedSteps) {
+        // 删除旧的Actions
+        await tx.action.deleteMany({
+          where: { stepId: step.id }
+        });
+        
+        console.log(`Deleted ${step.actions.length} old actions for step ${step.stepCode}`);
+
+        // 从新的ActionTemplates创建Actions
+        for (let actionIndex = 0; actionIndex < processedActionTemplates.length; actionIndex++) {
+          const actionTemplate = processedActionTemplates[actionIndex];
+          const parameters = actionTemplate.parameters as any || {};
+          
+          // 解析设备ID
+          let resolvedDeviceId = null;
+          if (parameters.deviceId && parameters.deviceId.trim() !== '') {
+            // 查找设备ID
+            const existingDevices = await tx.workstationDevice.findMany({
+              select: { 
+                id: true, 
+                instanceId: true, 
+                displayName: true
+              }
+            });
+            
+            const foundDevice = existingDevices.find(d => 
+              d.id === parameters.deviceId || d.instanceId === parameters.deviceId
+            );
+            
+            if (foundDevice) {
+              resolvedDeviceId = foundDevice.id;
+              console.log(`Resolved deviceId "${parameters.deviceId}" to "${foundDevice.id}" for action ${actionTemplate.actionCode}`);
+            } else {
+              console.warn(`Device not found: "${parameters.deviceId}" for action ${actionTemplate.actionCode}`);
+            }
+          }
+
+          await tx.action.create({
+            data: {
+              stepId: step.id,
+              actionCode: actionTemplate.actionCode,
+              name: actionTemplate.name,
+              type: actionTemplate.type,
+              sequence: actionIndex + 1, // 按顺序设置序号
+              deviceId: resolvedDeviceId,
+              deviceAddress: actionTemplate.deviceAddress || '',
+              expectedValue: actionTemplate.expectedValue || '',
+              validationRule: actionTemplate.validationRule || '',
+              parameters: actionTemplate.parameters || {},
+              description: actionTemplate.description || '',
+              isRequired: actionTemplate.isRequired ?? true,
+              timeout: actionTemplate.timeout || null,
+              retryCount: actionTemplate.retryCount ?? 0
+            }
+          });
+        }
+        
+        console.log(`Created ${processedActionTemplates.length} new actions for step ${step.stepCode}`);
+      }
+
       return updatedTemplate;
     });
 

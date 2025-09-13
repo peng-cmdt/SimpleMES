@@ -5,55 +5,21 @@ interface RouteParams {
   params: { id: string }
 }
 
-// 连接设备 - 使用新架构
+// 连接设备
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     
     console.log('Connect API - Received device ID:', id);
     
-    // 尝试从两种架构中获取设备信息
-    // 1. 首先尝试从旧架构（devices表）获取
-    let device = await prisma.device.findUnique({
-      where: { id }
+    // 获取工位设备信息
+    const workstationDevice = await prisma.workstationDevice.findUnique({
+      where: { instanceId: id },
+      include: { template: true }
     });
     
-    let deviceInfo: any = null;
-    
-    if (device) {
-      console.log('Connect API - Found device in legacy architecture:', device.name);
-      deviceInfo = {
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type,
-        ipAddress: device.ipAddress,
-        port: device.port,
-        brand: device.brand,
-        protocol: device.protocol
-      };
-    } else {
-      // 2. 如果旧架构没找到，尝试从新架构（workstationDevices表）获取
-      const workstationDevice = await prisma.workstationDevice.findUnique({
-        where: { id },
-        include: { template: true }
-      });
-      
-      if (workstationDevice) {
-        console.log('Connect API - Found device in new architecture:', workstationDevice.displayName);
-        deviceInfo = {
-          deviceId: workstationDevice.instanceId,
-          name: workstationDevice.displayName,
-          type: workstationDevice.template.type,
-          ipAddress: workstationDevice.ipAddress,
-          port: workstationDevice.port,
-          brand: workstationDevice.template.brand,
-          protocol: workstationDevice.protocol
-        };
-      }
-    }
-    
-    if (!deviceInfo) {
-      console.log('Connect API - Device not found in either architecture');
+    if (!workstationDevice) {
+      console.log('Connect API - Device not found');
       return NextResponse.json({
         success: false,
         error: 'Device not found in database',
@@ -61,10 +27,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }, { status: 404 });
     }
     
-    // 构建设备执行请求
+    console.log('Connect API - Found device:', workstationDevice.displayName);
+    const deviceInfo = {
+      deviceId: workstationDevice.instanceId,
+      name: workstationDevice.displayName,
+      type: workstationDevice.template.type,
+      ipAddress: workstationDevice.ipAddress,
+      port: workstationDevice.port,
+      brand: workstationDevice.template.brand,
+      protocol: workstationDevice.protocol
+    };
+    
+    // 构建设备执行请求 - 转换设备类型以匹配.NET后端期望的格式
+    const deviceType = deviceInfo.type === 'PLC_CONTROLLER' ? 'PLC' : (deviceInfo.type || 'PLC');
     const deviceExecutionRequest = {
       deviceId: deviceInfo.deviceId,
-      deviceType: deviceInfo.type || 'PLC',
+      deviceType: deviceType,
       deviceInfo: {
         ipAddress: deviceInfo.ipAddress,
         port: deviceInfo.port,
@@ -100,38 +78,42 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Device service error:', errorText);
-      throw new Error(`Device service returned ${response.status}: ${response.statusText}`);
+      
+      // Try to parse the error response from .NET service
+      let detailedError = `Device service returned ${response.status}: ${response.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error || errorJson.message) {
+          detailedError = errorJson.error || errorJson.message;
+        }
+      } catch (parseError) {
+        // If we can't parse JSON, use the raw error text
+        if (errorText) {
+          detailedError = errorText;
+        }
+      }
+      
+      throw new Error(detailedError);
     }
 
     const result = await response.json();
     
     // 更新数据库中的连接状态
     if (result.success) {
-      // 根据设备架构更新不同的表
-      if (device) {
-        // 旧架构 - 更新devices表
-        await prisma.device.update({
-          where: { id },
-          data: {
-            status: 'ONLINE',
-            lastHeartbeat: new Date()
-          }
-        });
-      } else {
-        // 新架构 - 更新workstationDevices表
-        await prisma.workstationDevice.update({
-          where: { id },
-          data: {
-            status: 'ONLINE',
-            lastHeartbeat: new Date()
-          }
-        });
-      }
+      await prisma.workstationDevice.update({
+        where: { instanceId: id },
+        data: {
+          status: 'ONLINE',
+          lastHeartbeat: new Date()
+        }
+      });
     }
     
+    // 返回包含详细错误信息的结果
     return NextResponse.json({
       success: result.success,
-      message: result.message || `Device ${deviceInfo.name} connected successfully`,
+      message: result.message || (result.success ? `Device ${deviceInfo.name} connected successfully` : `Failed to connect to ${deviceInfo.name}`),
+      error: result.error || result.message, // 包含详细的错误信息
       data: {
         deviceId: deviceInfo.deviceId,
         deviceName: deviceInfo.name,
@@ -157,7 +139,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(
       { 
         success: false,
-        error: 'Failed to connect device',
+        error: error instanceof Error ? error.message : 'Failed to connect device',
         message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }

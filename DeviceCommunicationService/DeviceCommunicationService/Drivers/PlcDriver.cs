@@ -92,10 +92,9 @@ namespace DeviceCommunicationService.Drivers
         {
             try
             {
-                // Check if simulation mode is enabled for this device
-                bool isSimulationMode = config.Connection?.Address == "127.0.0.1" || 
-                                      config.Connection?.Address == "localhost" ||
-                                      (config.Connection?.Parameters?.ContainsKey("simulation") == true && 
+                // Check if simulation mode is explicitly enabled for this device
+                // 不再自动将127.0.0.1视为模拟设备，因为可能是真实的本地PLC
+                bool isSimulationMode = (config.Connection?.Parameters?.ContainsKey("simulation") == true && 
                                        config.Connection.Parameters["simulation"].ToString() == "true");
 
                 if (isSimulationMode)
