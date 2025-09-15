@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(deviceRequest),
-      signal: AbortSignal.timeout(5000) // 5秒超时
+      signal: AbortSignal.timeout(400) // 400ms超时，工业优化
     });
 
     if (!response.ok) {

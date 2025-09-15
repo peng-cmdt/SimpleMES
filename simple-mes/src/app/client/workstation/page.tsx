@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { DevicePreloadManager } from "@/lib/device-preload/DevicePreloadManager";
 
 interface Order {
   id: string;
@@ -161,6 +162,12 @@ export default function WorkstationPage() {
   
   // 设备连接状态监控
   const [deviceConnectionStatus, setDeviceConnectionStatus] = useState<{[deviceId: string]: boolean}>({});
+  
+  // 设备预加载相关状态
+  const [isPreloading, setIsPreloading] = useState(false);
+  const [preloadStatus, setPreloadStatus] = useState<string>('');
+  const [preloadedDevices, setPreloadedDevices] = useState<string[]>([]);
+  const preloadManagerRef = useRef<DevicePreloadManager | null>(null);
   const [lastDeviceCheck, setLastDeviceCheck] = useState<Date>(new Date());
   
   // 设备连接错误弹框状态
@@ -228,6 +235,47 @@ export default function WorkstationPage() {
   
   const router = useRouter();
   const { t } = useLanguage();
+  
+  // 初始化设备预加载管理器
+  useEffect(() => {
+    preloadManagerRef.current = DevicePreloadManager.getInstance();
+    
+    // 设置预加载事件监听
+    const manager = preloadManagerRef.current;
+    
+    const handlePreloadStarted = (data: any) => {
+      setIsPreloading(true);
+      setPreloadStatus(`正在预加载 ${data.deviceCount} 个设备...`);
+    };
+    
+    const handleDevicePreloaded = (data: any) => {
+      setPreloadedDevices(prev => [...prev, data.deviceId]);
+    };
+    
+    const handlePreloadCompleted = (data: any) => {
+      setIsPreloading(false);
+      setPreloadStatus(`预加载完成: ${data.successCount}/${data.totalCount} 设备, 耗时 ${data.totalTime}ms`);
+      console.log('设备预加载完成:', data);
+    };
+    
+    const handlePreloadFailed = (data: any) => {
+      setIsPreloading(false);
+      setPreloadStatus(`预加载失败: ${data.error}`);
+    };
+    
+    manager.on('preload_started', handlePreloadStarted);
+    manager.on('device_preloaded', handleDevicePreloaded);
+    manager.on('preload_completed', handlePreloadCompleted);
+    manager.on('preload_failed', handlePreloadFailed);
+    
+    // 清理函数
+    return () => {
+      manager.off('preload_started', handlePreloadStarted);
+      manager.off('device_preloaded', handleDevicePreloaded);
+      manager.off('preload_completed', handlePreloadCompleted);
+      manager.off('preload_failed', handlePreloadFailed);
+    };
+  }, []);
 
   // 加载系统设置
   useEffect(() => {
@@ -394,6 +442,9 @@ export default function WorkstationPage() {
   useEffect(() => {
     if (workstationSession) {
       loadOrders();
+      
+      // 启动设备预加载
+      startDevicePreload(workstationSession.workstation.workstationId);
     }
   }, [workstationSession, orderDisplayLimit]);
 
@@ -512,6 +563,47 @@ export default function WorkstationPage() {
   const loadOrders = () => {
     if (workstationSession) {
       loadOrdersWithSession(workstationSession);
+    }
+  };
+  
+  // 启动设备预加载
+  const startDevicePreload = async (workstationId: string) => {
+    if (!preloadManagerRef.current) {
+      console.warn('预加载管理器未初始化');
+      return;
+    }
+    
+    try {
+      console.log(`开始为工位 ${workstationId} 预加载设备...`);
+      
+      // 获取工位设备列表
+      const response = await fetch('/api/workstation/preload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workstationId })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.data.devices.length > 0) {
+        const deviceIds = result.data.devices.map((d: any) => d.instanceId);
+        
+        // 启动预加载（异步执行，不阻塞界面）
+        preloadManagerRef.current.preloadWorkstationDevices(workstationId, deviceIds)
+          .then(task => {
+            console.log('设备预加载任务完成:', task);
+          })
+          .catch(error => {
+            console.error('设备预加载失败:', error);
+          });
+      } else {
+        console.log(`工位 ${workstationId} 没有需要预加载的设备`);
+        setPreloadStatus('没有设备需要预加载');
+      }
+      
+    } catch (error) {
+      console.error('设备预加载初始化失败:', error);
+      setPreloadStatus('预加载初始化失败');
     }
   };
 
@@ -1412,7 +1504,17 @@ export default function WorkstationPage() {
   };
 
   const handleRepeatStep = () => {
-    setCurrentActionIndex(0);
+    // 重新执行当前步骤的所有Action
+    const currentStep = getCurrentStep();
+    if (currentStep && currentStep.step.actions) {
+      // 重置当前步骤所有动作的状态
+      currentStep.step.actions.forEach((action: any) => {
+        action.status = 'pending';
+      });
+      // 从第一个动作开始
+      setCurrentActionIndex(0);
+      console.log(`重新执行步骤: ${currentStep.step.name}`);
+    }
   };
 
   // 开始PLC监控 - 当动作变为当前动作时自动开始
@@ -1526,13 +1628,11 @@ export default function WorkstationPage() {
       const addressInfo = parseAddressAndExpectedValue(sensorValue);
       console.log('解析的PLC地址和期望值:', addressInfo);
       
-      // 设置超时时间（默认30秒）
-      const timeoutMs = (action.timeout || action.parameters?.timeout || 30) * 1000;
-      const startTime = Date.now();
+      // 一旦设备连接后，持续监控不设置超时
       
       // 持续监控PLC值
       const monitorPLCValue = async (): Promise<boolean> => {
-        while (Date.now() - startTime < timeoutMs && monitoringControlRef.current.isActive && !monitoringControlRef.current.shouldStop) {
+        while (monitoringControlRef.current.isActive && !monitoringControlRef.current.shouldStop) {
           try {
             console.log(`读取PLC地址: ${addressInfo.address}`);
             
@@ -1569,20 +1669,17 @@ export default function WorkstationPage() {
               console.warn('PLC通信失败:', response.status);
             }
             
-            // 等待1秒后继续读取
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 优化轮询间隔：200ms，提高响应速度
+            await new Promise(resolve => setTimeout(resolve, 200));
             
           } catch (readError) {
             console.error('PLC读取异常:', readError);
-            // 继续尝试读取
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 快速重试：300ms后继续
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
         }
         
-        // 超时或被停止
-        if (Date.now() - startTime >= timeoutMs) {
-          throw new Error('TIMEOUT');
-        }
+        // 监控被停止
         return false;
       };
 
@@ -1594,7 +1691,7 @@ export default function WorkstationPage() {
         console.log(`动作自动完成: ${action.name}, PLC条件 ${addressInfo.fullCondition} 已满足`);
         setIsMonitoringPLC(false);
         monitoringControlRef.current.isActive = false;
-        setTimeout(() => handleNextAction(), 500); // 短暂延迟后自动下一步
+        setTimeout(() => handleNextAction(), 100); // 快速进入下一步
       }
       
     } catch (error) {
@@ -1647,10 +1744,80 @@ export default function WorkstationPage() {
     setShowStepSelectMenu(!showStepSelectMenu);
   };
 
-  const handleRestart = () => {
-    if (confirm('确定要重新开始吗？')) {
-      setCurrentStepIndex(0);
+  const handleRestart = async () => {
+    if (confirm('确定要重新开始吗？这将重新启动整个订单。')) {
+      console.log('重新启动订单...');
+      
+      // 停止当前PLC监控
+      if (isMonitoringPLC) {
+        setIsMonitoringPLC(false);
+        monitoringControlRef.current.isActive = false;
+        monitoringControlRef.current.shouldStop = true;
+      }
+      
+      // 重置所有步骤和动作的状态
+      if (currentOrder && currentOrder.orderSteps) {
+        currentOrder.orderSteps.forEach((orderStep: any) => {
+          orderStep.status = 'pending';
+          if (orderStep.step && orderStep.step.actions) {
+            orderStep.step.actions.forEach((action: any) => {
+              action.status = 'pending';
+            });
+          }
+        });
+      }
+      
+      // 重置索引
+      const firstActionStepIndex = findFirstStepWithActions(currentOrder?.orderSteps || []);
+      setCurrentStepIndex(firstActionStepIndex);
       setCurrentActionIndex(0);
+      
+      // 重新连接所有设备
+      console.log('重新连接设备...');
+      const connectedDevices = new Set<string>();
+      
+      if (currentOrder && currentOrder.orderSteps) {
+        for (const orderStep of currentOrder.orderSteps) {
+          if (orderStep.step && orderStep.step.actions) {
+            for (const action of orderStep.step.actions) {
+              if (action.device && !connectedDevices.has(action.device.deviceId)) {
+                const deviceInstanceId = action.device.deviceId;
+                connectedDevices.add(deviceInstanceId);
+                
+                try {
+                  // 检查设备状态
+                  const statusResponse = await fetch(`/api/device-communication/devices/${deviceInstanceId}/status`);
+                  const statusData = await statusResponse.json();
+                  
+                  if (statusData.isConnected) {
+                    console.log(`设备 ${action.device.name} 已连接，跳过重连`);
+                  } else {
+                    console.log(`重新连接设备: ${action.device.name}`);
+                    const connectResponse = await fetch(`/api/device-communication/devices/${deviceInstanceId}/connect`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    const connectResult = await connectResponse.json();
+                    if (connectResult.success) {
+                      console.log(`设备 ${action.device.name} 重连成功`);
+                    } else {
+                      console.warn(`设备 ${action.device.name} 重连失败:`, connectResult.error);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`设备 ${action.device.name} 重连异常:`, error);
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // 重置计时器
+      setStartTime(new Date());
+      
+      console.log('订单已重新启动');
     }
   };
 
@@ -2439,6 +2606,17 @@ export default function WorkstationPage() {
             <span>1. station: {workstationSession.workstation.workstationId}</span>
             <span>2. name: {userInfo.username}</span>
             <span>3. login date: {new Date(workstationSession.loginTime).toLocaleDateString('zh-CN')} {new Date(workstationSession.loginTime).toLocaleTimeString('zh-CN')}</span>
+            {/* 设备预加载状态显示 */}
+            {(isPreloading || preloadStatus) && (
+              <span className={`px-2 py-1 rounded text-xs ${
+                isPreloading ? 'bg-yellow-500 text-black' : 
+                preloadStatus.includes('完成') ? 'bg-green-500 text-white' : 
+                preloadStatus.includes('失败') ? 'bg-red-500 text-white' : 
+                'bg-gray-500 text-white'
+              }`}>
+                {isPreloading ? '🔄' : preloadStatus.includes('完成') ? '✓' : preloadStatus.includes('失败') ? '✗' : ''} {preloadStatus}
+              </span>
+            )}
           </div>
           <div className="text-lg font-mono">{formatDateTime(currentTime)}</div>
         </div>
@@ -2468,10 +2646,9 @@ export default function WorkstationPage() {
                       <div 
                         key={orderStep.id}
                         ref={index === currentStepIndex ? activeStepRef : null}
-                        onClick={(e) => { e.stopPropagation(); setCurrentStepIndex(index); setCurrentActionIndex(0); }}
-                        className={`p-2 text-lg border rounded cursor-pointer hover:bg-yellow-100 transition-colors ${
+                        className={`p-2 text-lg border rounded ${
                           index === currentStepIndex 
-                            ? 'bg-yellow-400 text-black font-bold' 
+                            ? 'bg-green-400 text-white font-bold' 
                             : orderStep.status === 'completed'
                             ? 'bg-green-200 text-green-800'
                             : 'bg-gray-50 text-gray-700'
@@ -2510,21 +2687,12 @@ export default function WorkstationPage() {
                       <div 
                         key={action.id}
                         ref={index === currentActionIndex ? activeActionRef : null}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCurrentActionIndex(index);
-                          // 如果动作有设备配置，自动开始监控
-                          if (action.device && isExecutionMode) {
-                            console.log('手动切换到动作:', action.name);
-                            // 触发设备监控会在useEffect中自动开始
-                          }
-                        }}
-                        className={`p-2 text-base rounded cursor-pointer transition-colors ${
+                        className={`p-2 text-base rounded ${
                           index === currentActionIndex 
-                            ? 'bg-yellow-400 text-black font-bold' 
+                            ? 'bg-green-400 text-white font-bold' 
                             : action.status === 'completed'
                             ? 'bg-green-200 text-green-800'
-                            : 'bg-gray-50 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-50 text-gray-700'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -2650,7 +2818,7 @@ export default function WorkstationPage() {
                                       }}
                                       className={`px-2 py-0.5 rounded border text-xs transition-colors ${
                                         isCurrentAction 
-                                          ? 'bg-yellow-300 border-yellow-500 font-bold' 
+                                          ? 'bg-green-300 border-green-500 font-bold' 
                                           : action?.status === 'completed'
                                           ? 'bg-green-100 border-green-300 text-green-700'
                                           : 'bg-gray-100 border-gray-300 hover:bg-gray-200'
@@ -3036,6 +3204,17 @@ export default function WorkstationPage() {
             <span>1. station: {workstationSession.workstation.workstationId}</span>
             <span>2. name: {userInfo.username}</span>
             <span>3. login date: {new Date(workstationSession.loginTime).toLocaleDateString('zh-CN')} {new Date(workstationSession.loginTime).toLocaleTimeString('zh-CN')}</span>
+            {/* 设备预加载状态显示 */}
+            {(isPreloading || preloadStatus) && (
+              <span className={`px-2 py-1 rounded text-xs ${
+                isPreloading ? 'bg-yellow-500 text-black' : 
+                preloadStatus.includes('完成') ? 'bg-green-500 text-white' : 
+                preloadStatus.includes('失败') ? 'bg-red-500 text-white' : 
+                'bg-gray-500 text-white'
+              }`}>
+                {isPreloading ? '🔄' : preloadStatus.includes('完成') ? '✓' : preloadStatus.includes('失败') ? '✗' : ''} {preloadStatus}
+              </span>
+            )}
           </div>
           <div className="text-lg font-mono">{formatDateTime(currentTime)}</div>
         </div>

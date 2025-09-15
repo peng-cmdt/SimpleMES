@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { DeviceCacheManager } from '@/lib/device-cache/DeviceCacheManager';
 
 interface RouteParams {
   params: { id: string }
@@ -11,6 +12,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     
     console.log('Connect API - Received device ID:', id);
+    
+    // 检查连接池状态
+    const cache = DeviceCacheManager.getInstance();
+    const isAlreadyConnected = cache.isDeviceConnected(id);
+    
+    if (isAlreadyConnected === true) {
+      console.log('Connect API - Device already in connection pool:', id);
+      return NextResponse.json({
+        success: true,
+        message: 'Device already connected (from pool)',
+        data: {
+          deviceId: id,
+          status: 'CONNECTED',
+          fromPool: true
+        }
+      });
+    }
     
     // 获取工位设备信息
     const workstationDevice = await prisma.workstationDevice.findUnique({
@@ -62,7 +80,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // 调用.NET设备通信服务的执行API
     const dotnetServiceUrl = 'http://localhost:5000';
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 500); // 500ms超时，工业优化
     
     const response = await fetch(`${dotnetServiceUrl}/api/devices/execute`, {
       method: 'POST',
@@ -98,8 +116,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const result = await response.json();
     
-    // 更新数据库中的连接状态
+    // 更新连接池和数据库状态
     if (result.success) {
+      // 更新连接池
+      cache.updateConnectionStatus(id, true);
+      
+      // 缓存设备信息
+      cache.setDevice({
+        deviceId: workstationDevice.instanceId,
+        instanceId: workstationDevice.instanceId,
+        name: workstationDevice.displayName,
+        type: workstationDevice.template.type,
+        ipAddress: workstationDevice.ipAddress,
+        port: workstationDevice.port,
+        brand: workstationDevice.template.brand,
+        protocol: workstationDevice.protocol,
+        isConnected: true,
+        lastHeartbeat: new Date()
+      });
+      
+      // 更新数据库
       await prisma.workstationDevice.update({
         where: { instanceId: id },
         data: {
@@ -107,6 +143,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           lastHeartbeat: new Date()
         }
       });
+    } else {
+      // 连接失败，更新连接池状态
+      cache.updateConnectionStatus(id, false);
     }
     
     // 返回包含详细错误信息的结果

@@ -102,8 +102,8 @@ namespace DeviceCommunicationService.Drivers
                     _logger.LogInformation("Connecting to PLC device {DeviceId} in SIMULATION MODE at {Address}:{Port}", 
                         config.DeviceId, config.Connection?.Address, config.Connection?.Port);
                     
-                    // Simulate successful connection for testing
-                    await Task.Delay(500, cancellationToken); // Simulate connection delay
+                    // Simulate successful connection for testing - 工业优化
+                    await Task.Delay(100, cancellationToken); // 减少模拟连接延迟到100ms
                     
                     // Create simulated connection context
                     var simulatedConnectionInfo = new DeviceConnectionInfo
@@ -207,7 +207,7 @@ namespace DeviceCommunicationService.Drivers
                     case "MITSUBISHI":
                         var mitsubishiMc = new MelsecMcNet(ipAddress, port)
                         {
-                            ConnectTimeOut = 3000 // Increased timeout for better network reliability
+                            ConnectTimeOut = 1500 // 优化为1.5秒，平衡速度与稳定性
                         };
                         _logger.LogInformation("Attempting to connect to Mitsubishi PLC at {IpAddress}:{Port}", 
                             ipAddress, port);
@@ -219,7 +219,7 @@ namespace DeviceCommunicationService.Drivers
                     case "MODBUS":
                         var modbusTcp = new ModbusTcpNet(ipAddress, port)
                         {
-                            ConnectTimeOut = 3000 // Increased timeout for better network reliability
+                            ConnectTimeOut = 1500 // 优化为1.5秒，平衡速度与稳定性
                         };
                         _logger.LogInformation("Attempting to connect to Modbus TCP device at {IpAddress}:{Port}", 
                             ipAddress, port);
@@ -236,7 +236,7 @@ namespace DeviceCommunicationService.Drivers
                             Port = port,
                             Rack = (byte)rack,
                             Slot = (byte)slot,
-                            ConnectTimeOut = 3000 // Increased timeout for better network reliability
+                            ConnectTimeOut = 1500 // 优化为1.5秒，平衡速度与稳定性
                         };
                         _logger.LogInformation("Attempting to connect to Siemens PLC at {IpAddress}:{Port}, Rack={Rack}, Slot={Slot}", 
                             ipAddress, port, rack, slot);

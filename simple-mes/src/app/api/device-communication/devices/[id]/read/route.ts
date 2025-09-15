@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { DeviceCacheManager } from '@/lib/device-cache/DeviceCacheManager';
 
 interface RouteParams {
   params: { id: string }
@@ -20,28 +21,42 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       bit
     });
 
-    // 获取设备信息（仅使用新架构）
-    const workstationDevice = await prisma.workstationDevice.findUnique({
-      where: { instanceId: id },
-      include: { template: true }
-    });
+    // 先从缓存获取设备信息
+    const cache = DeviceCacheManager.getInstance();
+    let deviceInfo = cache.getDevice(id);
     
-    if (!workstationDevice) {
-      return NextResponse.json({
-        success: false,
-        error: 'Workstation device not found'
-      }, { status: 404 });
+    if (!deviceInfo) {
+      // 缓存未命中，从数据库查询
+      const workstationDevice = await prisma.workstationDevice.findUnique({
+        where: { instanceId: id },
+        include: { template: true }
+      });
+      
+      if (!workstationDevice) {
+        return NextResponse.json({
+          success: false,
+          error: 'Workstation device not found'
+        }, { status: 404 });
+      }
+      
+      deviceInfo = {
+        deviceId: workstationDevice.instanceId,
+        instanceId: workstationDevice.instanceId,
+        name: workstationDevice.displayName,
+        type: workstationDevice.template.type,
+        ipAddress: workstationDevice.ipAddress,
+        port: workstationDevice.port,
+        brand: workstationDevice.template.brand,
+        protocol: workstationDevice.protocol,
+        isConnected: false,
+        lastHeartbeat: workstationDevice.lastHeartbeat || new Date()
+      };
+      
+      // 缓存设备信息
+      cache.setDevice(deviceInfo);
     }
 
-    const deviceInfo = {
-      deviceId: workstationDevice.instanceId,
-      name: workstationDevice.displayName,
-      type: workstationDevice.template.type,
-      ipAddress: workstationDevice.ipAddress,
-      port: workstationDevice.port,
-      brand: workstationDevice.template.brand,
-      protocol: workstationDevice.protocol
-    };
+    // deviceInfo 现在已经从缓存或数据库获取
 
     // 根据PLC类型构造正确的地址格式
     let fullAddress = '';
@@ -101,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // 调用.NET设备通信服务的执行API
       const dotnetServiceUrl = 'http://localhost:5000';
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+      const timeoutId = setTimeout(() => controller.abort(), 350); // 350ms超时，工业优化
       
       const response = await fetch(`${dotnetServiceUrl}/api/devices/execute`, {
         method: 'POST',

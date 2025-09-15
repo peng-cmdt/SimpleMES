@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// 简单的内存缓存 - 工业性能优化
+const deviceInfoCache = new Map<string, {
+  data: any;
+  timestamp: number;
+  ttl: number;
+}>();
+const CACHE_TTL = 5000; // 5秒缓存
+
 interface RouteParams {
   params: { id: string }
 }
@@ -12,19 +20,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     
     console.log('Status API - Received device ID:', id);
     
-    // 获取设备信息（支持通过instanceId或数据库ID查找）
-    let workstationDevice = await prisma.workstationDevice.findUnique({
-      where: { instanceId: id },
-      include: { template: true }
-    });
+    // 检查缓存 - 工业性能优化
+    const cached = deviceInfoCache.get(id);
+    let workstationDevice = null;
     
-    // 如果通过instanceId没找到，尝试通过数据库ID查找
-    if (!workstationDevice) {
-      console.log('Status API - Device not found by instanceId, trying database ID...');
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+      console.log('Status API - Using cached device info for:', id);
+      workstationDevice = cached.data;
+    } else {
+      // 缓存未命中或过期，查询数据库
       workstationDevice = await prisma.workstationDevice.findUnique({
-        where: { id: id },
+        where: { instanceId: id },
         include: { template: true }
       });
+      
+      // 如果通过instanceId没找到，尝试通过数据库ID查找
+      if (!workstationDevice) {
+        console.log('Status API - Device not found by instanceId, trying database ID...');
+        workstationDevice = await prisma.workstationDevice.findUnique({
+          where: { id: id },
+          include: { template: true }
+        });
+      }
+      
+      // 更新缓存
+      if (workstationDevice) {
+        deviceInfoCache.set(id, {
+          data: workstationDevice,
+          timestamp: Date.now(),
+          ttl: CACHE_TTL
+        });
+      }
     }
     
     if (!workstationDevice) {
@@ -51,7 +77,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     try {
       const dotnetServiceUrl = 'http://localhost:5000';
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2秒超时
+      const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5秒超时，工业优化
       
       const response = await fetch(`${dotnetServiceUrl}/api/devices/${deviceInfo.deviceId}/status`, {
         method: 'GET',

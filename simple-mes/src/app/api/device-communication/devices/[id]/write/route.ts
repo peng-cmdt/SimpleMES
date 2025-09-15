@@ -103,7 +103,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // 调用.NET设备通信服务的执行API
       const dotnetServiceUrl = 'http://localhost:5000';
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+      const timeoutId = setTimeout(() => controller.abort(), 350); // 350ms超时，工业优化
       
       const response = await fetch(`${dotnetServiceUrl}/api/devices/execute`, {
         method: 'POST',
