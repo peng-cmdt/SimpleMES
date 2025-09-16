@@ -14,9 +14,20 @@ interface Order {
   carrierId: string; // carrier_id
   status: string;
   priority: number;
+  quantity?: number; // 订单数量
   product?: {
     name: string;
     productCode: string;
+  };
+  bom?: {
+    bomCode: string;
+    name: string;
+    bomItems: Array<{
+      itemCode: string;
+      itemName: string;
+      quantity: number;
+      unit: string;
+    }>;
   };
   process?: {
     name: string;
@@ -43,6 +54,12 @@ interface OrderStep {
       instructions?: string;
       image?: string;
       estimatedTime?: number;
+      conditions?: Array<{
+        id: string;
+        type: string;
+        value: string;
+        description?: string;
+      }>;
     };
     actions: Action[];
   };
@@ -878,9 +895,6 @@ export default function WorkstationPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          console.log('API返回的订单数据:', data.data);
-          console.log('Process steps数据:', data.data.process?.steps);
-          console.log('OrderSteps数据:', data.data.orderSteps);
           
           // 检查每个步骤的actions
           if (data.data.process?.steps) {
@@ -892,8 +906,22 @@ export default function WorkstationPage() {
           // 检查是否有orderSteps数据
           if (data.data.orderSteps && data.data.orderSteps.length > 0) {
             // 使用orderSteps数据，但确保actions有status字段
-            console.log('使用真实的OrderSteps数据');
-            const processedOrderSteps = data.data.orderSteps.map((orderStep: any) => ({
+            
+            // 为了确保步骤条件的准确性，也对orderSteps进行过滤检查
+            const stepsToFilter = data.data.orderSteps.map((os: any) => os.step);
+            const filteredSteps = filterStepsByConditions(stepsToFilter, data.data);
+            
+            // 只保留条件匹配的orderSteps
+            const validOrderSteps = data.data.orderSteps.filter((orderStep: any) => 
+              filteredSteps.some(fs => fs.id === orderStep.step.id)
+            );
+            
+            if (validOrderSteps.length === 0) {
+              alert('根据当前订单条件，没有需要执行的工艺步骤');
+              return;
+            }
+            
+            const processedOrderSteps = validOrderSteps.map((orderStep: any) => ({
               ...orderStep,
               step: {
                 ...orderStep.step,
@@ -930,8 +958,16 @@ export default function WorkstationPage() {
             }
           } else if (data.data.process?.steps && data.data.process.steps.length > 0) {
             // 如果没有orderSteps但有process.steps，创建orderSteps
-            console.log('没有OrderSteps，使用Process Steps创建OrderSteps');
-            const orderStepsFromProcess = data.data.process.steps.map((step: any) => ({
+            
+            // 应用步骤显示条件过滤
+            const filteredSteps = filterStepsByConditions(data.data.process.steps, data.data);
+            
+            if (filteredSteps.length === 0) {
+              alert('根据当前订单条件，没有需要执行的工艺步骤');
+              return;
+            }
+            
+            const orderStepsFromProcess = filteredSteps.map((step: any) => ({
               id: `temp-${step.id}`,
               sequence: step.sequence,
               status: 'pending',
@@ -1008,7 +1044,21 @@ export default function WorkstationPage() {
           console.log('继续执行订单:', data.data);
           
           if (data.data.orderSteps && data.data.orderSteps.length > 0) {
-            const processedOrderSteps = data.data.orderSteps.map((orderStep: any) => ({
+            // 对继续执行的订单也进行条件检查
+            const stepsToFilter = data.data.orderSteps.map((os: any) => os.step);
+            const filteredSteps = filterStepsByConditions(stepsToFilter, data.data);
+            
+            // 只保留条件匹配的orderSteps
+            const validOrderSteps = data.data.orderSteps.filter((orderStep: any) => 
+              filteredSteps.some(fs => fs.id === orderStep.step.id)
+            );
+            
+            if (validOrderSteps.length === 0) {
+              alert('根据当前订单条件，没有需要执行的工艺步骤');
+              return;
+            }
+            
+            const processedOrderSteps = validOrderSteps.map((orderStep: any) => ({
               ...orderStep,
               step: {
                 ...orderStep.step,
@@ -1567,6 +1617,98 @@ export default function WorkstationPage() {
     return 0; // 如果没有找到有actions的步骤，返回第一个步骤
   };
 
+  // 条件判断函数
+  const checkStepConditions = (step: any, order: Order): boolean => {
+    if (!step?.stepTemplate?.conditions || step.stepTemplate.conditions.length === 0) {
+      return true;
+    }
+
+    const conditions = step.stepTemplate.conditions;
+    
+    // 遍历所有条件，所有条件都必须满足才显示步骤
+    for (const condition of conditions) {
+      const conditionMet = checkSingleCondition(condition, order);
+      if (!conditionMet) {
+        console.log(`步骤 ${step.name} 不满足条件: ${condition.type} = ${condition.value}`);
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  // 单个条件判断
+  const checkSingleCondition = (condition: any, order: Order): boolean => {
+    const { type, value } = condition;
+    
+    switch (type) {
+      case 'BOM_CHECK':
+        // BOM号检查：检查订单的BOM中是否包含指定的物料编号
+        if (!order.bom?.bomItems) return false;
+        const bomItemCodes = order.bom.bomItems.map((item: any) => item.itemCode);
+        const requiredCodes = value.split('||').map((v: string) => v.trim()).filter((v: string) => v);
+        return requiredCodes.some((code: string) => bomItemCodes.includes(code));
+        
+      case 'PART_CHECK':
+        // 零件号检查：检查BOM中是否包含特定零件
+        if (!order.bom?.bomItems) return false;
+        const itemNames = order.bom.bomItems.map((item: any) => item.itemName);
+        const requiredParts = value.split('||').map((v: string) => v.trim()).filter((v: string) => v);
+        return requiredParts.some((part: string) => itemNames.includes(part));
+        
+      case 'PRODUCT_CHECK':
+        // 产品型号检查：检查产品代码或名称
+        if (!order.product) return false;
+        const requiredProducts = value.split('||').map((v: string) => v.trim()).filter((v: string) => v);
+        return requiredProducts.some((product: string) => 
+          order.product?.productCode === product || order.product?.name === product
+        );
+        
+      case 'QUANTITY_CHECK':
+        // 数量检查：检查订单数量是否满足条件
+        const quantityCondition = value.trim();
+        const orderQuantity = order.quantity || 0;
+        
+        if (quantityCondition.startsWith('>=')) {
+          return orderQuantity >= parseInt(quantityCondition.substring(2));
+        } else if (quantityCondition.startsWith('<=')) {
+          return orderQuantity <= parseInt(quantityCondition.substring(2));
+        } else if (quantityCondition.startsWith('>')) {
+          return orderQuantity > parseInt(quantityCondition.substring(1));
+        } else if (quantityCondition.startsWith('<')) {
+          return orderQuantity < parseInt(quantityCondition.substring(1));
+        } else if (quantityCondition.startsWith('=')) {
+          return orderQuantity === parseInt(quantityCondition.substring(1));
+        } else {
+          return orderQuantity === parseInt(quantityCondition);
+        }
+        
+      case 'CUSTOM_FIELD':
+        // 自定义字段检查（可以根据实际需求扩展）
+        console.warn('自定义字段条件检查尚未实现:', condition);
+        return true;
+        
+      default:
+        console.warn('未知的条件类型:', type);
+        return true;
+    }
+  };
+
+  // 步骤过滤函数
+  const filterStepsByConditions = (steps: any[], order: Order): any[] => {
+    if (!steps || steps.length === 0) return steps;
+    
+    const filteredSteps = steps.filter(step => checkStepConditions(step, order));
+    
+    console.log(`原始步骤数: ${steps.length}, 过滤后步骤数: ${filteredSteps.length}`);
+    
+    // 重新计算sequence，确保连续性
+    return filteredSteps.map((step, index) => ({
+      ...step,
+      sequence: index + 1
+    }));
+  };
+
   const getCurrentStep = () => {
     if (!currentOrder || !currentOrder.orderSteps || currentStepIndex >= currentOrder.orderSteps.length) {
       return null;
@@ -1969,7 +2111,7 @@ export default function WorkstationPage() {
       if (!action.device || !isUSBScannerDevice(action.device)) {
         return false;
       }
-debugger
+      
       // 从动作参数中获取预期条码
       const expectedCode = action.parameters?.sensorValue || action.parameters?.barcode || action.parameters?.expectedValue || '';
       if (!expectedCode) {

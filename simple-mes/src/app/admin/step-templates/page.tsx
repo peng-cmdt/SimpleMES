@@ -1532,10 +1532,10 @@ export default function StepTemplatesPage() {
                 步骤名称
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                工位
+                描述说明
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                描述说明
+                工位
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 是否被项目引用
@@ -1583,13 +1583,13 @@ export default function StepTemplatesPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                    {template.workstation ? template.workstation.name : '未指定'}
-                  </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
                     <div className="max-w-xs truncate" title={template.description || '无描述'}>
                       {template.description || '无描述'}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    {template.workstation ? template.workstation.name : '未指定'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     {template._count.steps > 0 ? (
@@ -1964,6 +1964,9 @@ export default function StepTemplatesPage() {
                                         名称
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                        描述
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         动作
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -2044,11 +2047,11 @@ export default function StepTemplatesPage() {
                                               </span>
                                             )}
                                           </div>
-                                          {action.description && (
-                                            <div className="text-xs text-gray-500 mt-1 max-w-xs truncate">
-                                              {action.description}
-                                            </div>
-                                          )}
+                                        </td>
+                                        <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-300">
+                                          <div className="max-w-xs truncate" title={action.description || '无描述'}>
+                                            {action.description || '无描述'}
+                                          </div>
                                         </td>
                                         <td className="px-4 py-4 text-sm">
                                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">

@@ -57,7 +57,15 @@ export async function GET(
                       description: true,
                       instructions: true,
                       image: true,
-                      estimatedTime: true
+                      estimatedTime: true,
+                      conditions: {
+                        select: {
+                          id: true,
+                          type: true,
+                          value: true,
+                          description: true
+                        }
+                      }
                     }
                   },
                   actions: {
@@ -112,7 +120,15 @@ export async function GET(
                       description: true,
                       instructions: true,
                       image: true,
-                      estimatedTime: true
+                      estimatedTime: true,
+                      conditions: {
+                        select: {
+                          id: true,
+                          type: true,
+                          value: true,
+                          description: true
+                        }
+                      }
                     }
                   },
                   actions: {
@@ -548,14 +564,21 @@ export async function PUT(
 // DELETE /api/orders/[id] - 删除订单
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    // 验证订单是否存在
+    // 验证订单是否存在，并包含BOM信息
     const existingOrder = await prisma.order.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        bom: {
+          include: {
+            bomItems: true
+          }
+        }
+      }
     });
 
     if (!existingOrder) {
@@ -578,6 +601,35 @@ export async function DELETE(
         { success: false, error: '已完成的订单无法删除' },
         { status: 400 }
       );
+    }
+
+    // 如果订单有关联的BOM，需要检查是否为订单专用BOM
+    if (existingOrder.bomId) {
+      // 检查这个BOM是否只被当前订单使用
+      const bomUsageCount = await prisma.order.count({
+        where: { 
+          bomId: existingOrder.bomId,
+          id: { not: id } // 排除当前要删除的订单
+        }
+      });
+
+      // 如果BOM只被当前订单使用，则删除BOM及其所有BOMItem
+      // 注意：我们只删除BOM相关数据，不删除Part表中的零部件元数据
+      if (bomUsageCount === 0) {
+        // 先删除所有BOM项（BOMItem表中的数据）
+        await prisma.bOMItem.deleteMany({
+          where: { bomId: existingOrder.bomId }
+        });
+
+        // 再删除BOM主表数据
+        await prisma.bOM.delete({
+          where: { id: existingOrder.bomId }
+        });
+
+        console.log(`已删除订单专用BOM (${existingOrder.bomId}) 及其BOM项，保留零部件元数据`);
+      } else {
+        console.log(`BOM (${existingOrder.bomId}) 被其他订单使用，仅删除订单关联`);
+      }
     }
 
     // 删除订单（相关的订单步骤和执行日志会因为级联删除而自动删除）
