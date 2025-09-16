@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DevicePreloadManager } from "@/lib/device-preload/DevicePreloadManager";
+import { useUSBScannerDetector } from "@/hooks/useUSBScannerDetector";
 
 interface Order {
   id: string;
@@ -22,6 +23,7 @@ interface Order {
     processCode: string;
   };
   orderSteps?: OrderStep[];
+  steps?: any[]; // 兼容性字段
 }
 
 interface OrderStep {
@@ -62,11 +64,20 @@ interface Action {
   description?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   parameters?: any;
+  deviceAddress?: string;
+  expectedValue?: any;
+  deviceId?: string;
+  deviceName?: string;
+  deviceType?: string;
+  deviceIP?: string;
+  devicePort?: number;
   device?: {
     id: string;
     deviceId: string;
     name: string;
     type: string;
+    ipAddress?: string;
+    port?: number;
   };
 }
 
@@ -101,6 +112,7 @@ interface Device {
   description?: string;
   ipAddress?: string;
   port?: number;
+  protocol?: string;
   status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'MAINTENANCE';
   isOnline: boolean;
   lastConnected?: string;
@@ -145,6 +157,68 @@ export default function WorkstationPage() {
   });
   const [plcTestResult, setPlcTestResult] = useState<PLCTestResult | null>(null);
   const [plcTestLoading, setPlcTestLoading] = useState(false);
+  
+  // USB扫码枪后台服务 - 等待用户输入完成后再验证
+  const {
+    isDeviceDetected,
+    isListening,
+    lastScanResult,
+    scanHistory,
+    startListening,
+    stopListening,
+    setConfig
+  } = useUSBScannerDetector(
+    (result) => {
+      // 扫码成功回调 - 用户按回车键后触发
+      console.log('USB扫码枪输入完成，开始验证:', result.code);
+      if (handleScannerValidationRef.current) {
+        handleScannerValidationRef.current(result.code, true);
+      }
+    },
+    (error) => {
+      // 扫码失败回调  
+      console.log('USB扫码枪验证失败:', error);
+      if (handleScannerValidationRef.current) {
+        handleScannerValidationRef.current('', false);
+      }
+    },
+    {
+      autoStart: false,  // 改为手动启动
+      minInputLength: 1, // 降低最小长度要求
+      maxInputLength: 100, // 增加最大长度限制
+      inputTimeout: 1000 // 增加输入超时时间，给用户更多时间
+    }
+  );
+  
+  // 兼容现有代码的状态变量
+  const [expectedBarcode, setExpectedBarcode] = useState('');
+  const [scannerValidationStatus, setScannerValidationStatus] = useState<'waiting' | 'success' | 'error'>('waiting');
+  const scannerInputRef = useRef<HTMLInputElement>(null);
+  
+  // 新增的USB扫码枪验证状态变量
+  const [isScanning, setIsScanning] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  
+  // 添加缺失的状态变量
+  const [scannerStatus, setScannerStatus] = useState<'waiting' | 'success' | 'error'>('waiting');
+  const [isUSBScannerActive, setIsUSBScannerActive] = useState(false);
+  const [scannerInput, setScannerInput] = useState('');
+  
+  // 判断设备是否为USB扫码枪设备
+  const isUSBScannerDevice = (device: any): boolean => {
+    if (!device) return false;
+    
+    const deviceType = device.type?.toLowerCase() || '';
+    return deviceType.includes('scanner') || 
+           deviceType.includes('barcode') || 
+           deviceType.includes('usb') ||
+           deviceType.includes('key') ||
+           device.type === 'USB扫码枪' ||
+           device.type === 'USB_KEY';
+  };
+  
+  // USB扫码枪验证处理函数 - 将在后面定义handleNextAction后重新定义
+  const handleScannerValidationRef = useRef<(scannedCode: string, isSuccess: boolean) => void>();
   
   // 系统设置相关状态
   const [orderDisplayLimit, setOrderDisplayLimit] = useState<number>(20); // 默认20条
@@ -289,8 +363,8 @@ export default function WorkstationPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to load system settings:', error);
-        // 使用默认值20
+        // 系统设置加载失败，使用默认值20
+        setOrderDisplayLimit(20);
       }
     };
 
@@ -339,7 +413,8 @@ export default function WorkstationPage() {
           }
         }
       } catch (error) {
-        console.error('批量检测设备状态失败:', error);
+        // 批量设备状态检测失败，可能是网络问题，静默处理
+        // 设备状态会在下次定时检测中重试
       }
     };
 
@@ -455,7 +530,7 @@ export default function WorkstationPage() {
     const orderRefreshInterval = setInterval(() => {
       console.log('Auto-refreshing order list...');
       loadOrdersWithSession(workstationSession);
-    }, 3000); // 更改为每3秒刷新一次
+    }, 2000); // 更改为每2秒刷新一次
     
     return () => clearInterval(orderRefreshInterval);
   }, [workstationSession, isExecutionMode, orderDisplayLimit]);
@@ -482,15 +557,23 @@ export default function WorkstationPage() {
 
   // 自动滚动到当前步骤
   useEffect(() => {
-    if (activeStepRef.current) {
-      activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (activeStepRef.current && typeof activeStepRef.current.scrollIntoView === 'function') {
+      try {
+        activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (error) {
+        console.warn('滚动到当前步骤失败:', error);
+      }
     }
   }, [currentStepIndex]);
 
   // 自动滚动到当前动作，并开始PLC监控
   useEffect(() => {
-    if (activeActionRef.current) {
-      activeActionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (activeActionRef.current && typeof activeActionRef.current.scrollIntoView === 'function') {
+      try {
+        activeActionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (error) {
+        console.warn('滚动到当前动作失败:', error);
+      }
     }
     
     // 当切换到新动作时，检测设备状态并开始监控
@@ -498,18 +581,113 @@ export default function WorkstationPage() {
     if (currentAction && currentAction.device && isExecutionMode) {
       console.log('切换到新动作，开始设备状态检测:', currentAction.name);
       
-      // 首先检测设备连接状态
-      checkCurrentActionDeviceStatus(currentAction).then((isConnected) => {
-        if (isConnected) {
-          // 设备连接正常，开始PLC监控
-          console.log('设备连接正常，开始PLC监控:', currentAction.name);
-          startPLCMonitoring(currentAction);
-        } else {
-          console.log('设备连接失败，停止执行:', currentAction.name);
+      // 检查是否为USB扫码枪设备
+      if (isUSBScannerDevice(currentAction.device)) {
+        // USB扫码枪设备，直接启动USB扫码枪验证
+        console.log('检测到USB扫码枪设备，启动USB扫码枪验证:', currentAction.device.name);
+        const result = startUSBScannerValidation(currentAction);
+        if (!result) {
+          console.error('启动USB扫码枪验证失败');
         }
-      });
+      } else {
+        // 非USB扫码枪设备，进行设备连接检测和PLC监控
+        checkCurrentActionDeviceStatus(currentAction).then((isConnected) => {
+          if (isConnected) {
+            // 设备连接正常，开始PLC监控
+            console.log('设备连接正常，开始PLC监控:', currentAction.name);
+            startPLCMonitoring(currentAction);
+          } else {
+            console.log('设备连接失败，停止执行:', currentAction.name);
+          }
+        });
+      }
     }
   }, [currentActionIndex, isExecutionMode]);
+
+  // USB扫码枪键盘事件监听器
+  useEffect(() => {
+    if (!isScanning) return;
+
+    let inputBuffer = '';
+    let inputTimeout: NodeJS.Timeout;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      try {
+        // 阻止默认行为，避免在其他输入框中输入
+        if (isScanning && document.activeElement !== scannerInputRef.current) {
+          event.preventDefault();
+        }
+
+        // 检测回车键，表示扫码完成
+        if (event.key === 'Enter') {
+          if (inputBuffer.trim()) {
+            setBarcodeInput(inputBuffer.trim());
+            
+            // 验证扫描结果
+            const currentAction = getCurrentAction();
+            const expectedValue = currentAction?.parameters?.expectedBarcode || expectedBarcode;
+            
+            if (inputBuffer.trim() === expectedValue) {
+              setScannerStatus('success');
+              // 2秒后自动继续执行
+              setTimeout(() => {
+                setIsScanning(false);
+                setScannerStatus('waiting');
+                setBarcodeInput('');
+                executeCurrentAction();
+              }, 2000);
+            } else {
+              setScannerStatus('error');
+              // 3秒后重置状态，允许重新扫描
+              setTimeout(() => {
+                setScannerStatus('waiting');
+                setBarcodeInput('');
+                inputBuffer = '';
+              }, 3000);
+            }
+          }
+          inputBuffer = '';
+          return;
+        }
+
+        // 累积字符输入
+        if (event.key.length === 1) {
+          inputBuffer += event.key;
+          
+          // 清除之前的超时
+          if (inputTimeout) {
+            clearTimeout(inputTimeout);
+          }
+          
+          // 设置新的超时，如果500ms内没有新输入，清空缓冲区
+          inputTimeout = setTimeout(() => {
+            inputBuffer = '';
+          }, 500);
+        }
+      } catch (error) {
+        console.error('USB扫码枪事件处理错误:', error);
+      }
+    };
+
+    // 添加键盘事件监听器
+    document.addEventListener('keydown', handleKeyPress);
+    
+    // 自动聚焦到隐藏的输入框
+    try {
+      if (scannerInputRef.current && typeof scannerInputRef.current.focus === 'function') {
+        scannerInputRef.current.focus();
+      }
+    } catch (error) {
+      console.warn('扫码枪输入框聚焦失败:', error);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+      if (inputTimeout) {
+        clearTimeout(inputTimeout);
+      }
+    };
+  }, [isScanning, expectedBarcode]);
 
   // 使用传入的session对象加载订单，避免状态异步更新问题
   const loadOrdersWithSession = async (session: WorkstationSession) => {
@@ -554,7 +732,7 @@ export default function WorkstationPage() {
       // API失败时不加载任何数据  
       setOrders([]);
     } catch (error) {
-      console.error('Failed to load orders:', error);
+      // 订单加载失败，可能是网络问题，设置为空数组
       setOrders([]);
     }
   };
@@ -594,7 +772,8 @@ export default function WorkstationPage() {
             console.log('设备预加载任务完成:', task);
           })
           .catch(error => {
-            console.error('设备预加载失败:', error);
+            // 设备预加载失败，可能是网络或设备问题
+            setPreloadStatus('设备预加载失败');
           });
       } else {
         console.log(`工位 ${workstationId} 没有需要预加载的设备`);
@@ -602,7 +781,7 @@ export default function WorkstationPage() {
       }
       
     } catch (error) {
-      console.error('设备预加载初始化失败:', error);
+      // 设备预加载初始化失败，可能是配置或网络问题
       setPreloadStatus('预加载初始化失败');
     }
   };
@@ -1041,7 +1220,7 @@ export default function WorkstationPage() {
           orderId: currentOrder.id,
           status: currentOrder.status,
           currentStep: currentStepIndex,
-          totalSteps: currentOrder.steps?.length || 0
+          totalSteps: currentOrder.orderSteps?.length || 0
         }
       };
 
@@ -1060,10 +1239,10 @@ export default function WorkstationPage() {
       if (result.success) {
         console.log('工作状态保存成功:', result);
       } else {
-        console.error('工作状态保存失败:', result.error);
+        // 工作状态保存失败，可能是网络问题，静默处理
       }
     } catch (error) {
-      console.error('保存工作状态时出错:', error);
+      // 保存工作状态失败，可能是网络问题，静默处理
     }
   };
 
@@ -1092,7 +1271,7 @@ export default function WorkstationPage() {
         console.log('没有发现保存的工作状态');
       }
     } catch (error) {
-      console.error('恢复工作状态时出错:', error);
+      // 恢复工作状态失败，可能是网络问题，静默处理
     }
   };
 
@@ -1108,7 +1287,7 @@ export default function WorkstationPage() {
         console.log('工作状态清除成功');
       }
     } catch (error) {
-      console.error('清除工作状态时出错:', error);
+      // 清除工作状态失败，可能是网络问题，静默处理
     }
   };
 
@@ -1129,8 +1308,7 @@ export default function WorkstationPage() {
         });
       }
     } catch (error) {
-      console.error('登出API调用失败:', error);
-      // 即使API调用失败，也继续清理本地存储
+      // 登出API调用失败，可能是网络问题，继续清理本地存储
     }
 
     // 清理本地存储
@@ -1164,13 +1342,11 @@ export default function WorkstationPage() {
           setDevices([]);
         }
       } else {
-        console.error('Failed to fetch devices, status:', response.status);
-        const errorData = await response.json();
-        console.error('Error details:', errorData);
+        // 设备加载失败，可能是权限或网络问题
         setDevices([]);
       }
     } catch (error) {
-      console.error('Failed to load devices:', error);
+      // 设备加载失败，可能是网络问题
       setDevices([]);
     } finally {
       setIsLoadingDevices(false);
@@ -1250,7 +1426,7 @@ export default function WorkstationPage() {
       } else {
         // 连接失败
         const errorMsg = connectResult.message || connectResult.error || 'Connection failed';
-        console.error(`Device connection failed: ${device.name} - ${errorMsg}`);
+        // 设备连接失败，可能是网络或设备配置问题
         
         // 更新设备状态为错误
         setDevices(prev => prev.map(d => 
@@ -1268,7 +1444,7 @@ export default function WorkstationPage() {
         setShowDeviceTestErrorModal(true);
       }
     } catch (error) {
-      console.error('Device test error:', error);
+      // 设备测试异常，可能是网络或设备问题
       
       // 更新设备状态为错误
       setDevices(prev => prev.map(d => 
@@ -1334,6 +1510,18 @@ export default function WorkstationPage() {
   // 检测当前动作设备连接状态并显示警告
   const checkCurrentActionDeviceStatus = async (action: Action) => {
     if (!action.device) return true;
+    
+    // 对于USB设备，跳过网络连接检测
+    if (isUSBScannerDevice(action.device) || 
+        action.device.type?.toLowerCase().includes('keyboard') ||
+        action.device.type?.toLowerCase().includes('rfid') ||
+        action.device.type?.toLowerCase().includes('scale') ||
+        action.device.type === 'USB键盘' ||
+        action.device.type === 'USB RFID读卡器' ||
+        action.device.type === 'USB电子秤') {
+      console.log('USB设备无需网络连接检测:', action.device.name, '设备类型:', action.device.type);
+      return true;
+    }
     
     // action.device.id 是数据库ID， action.device.deviceId 是instanceId
     const isConnected = await checkDeviceConnectionStatus(action.device.id, action.device.deviceId);
@@ -1503,6 +1691,39 @@ export default function WorkstationPage() {
     }
   };
 
+  // USB扫码枪验证处理函数 - 等待用户输入完成后再验证
+  const handleScannerValidation = (scannedCode: string, isSuccess: boolean) => {
+    console.log('USB扫码枪验证处理:', { scannedCode, isSuccess, expectedBarcode });
+    
+    if (isSuccess) {
+      setScannerValidationStatus('success');
+      console.log('USB扫码枪验证成功:', scannedCode);
+      
+      // 停止监听扫码输入
+      if (isListening) {
+        stopListening();
+      }
+      
+      // 验证成功后自动执行下一步操作
+      setTimeout(() => {
+        setScannerValidationStatus('waiting');
+        setExpectedBarcode('');
+        handleNextAction();
+      }, 1000);
+    } else {
+      setScannerValidationStatus('error');
+      console.log('USB扫码枪验证失败:', scannedCode, '预期:', expectedBarcode);
+      
+      // 验证失败后3秒重置状态，允许重新扫描
+      setTimeout(() => {
+        setScannerValidationStatus('waiting');
+      }, 3000);
+    }
+  };
+  
+  // 将函数赋值给ref，以便在useUSBScannerDetector中使用
+  handleScannerValidationRef.current = handleScannerValidation;
+
   const handleRepeatStep = () => {
     // 重新执行当前步骤的所有Action
     const currentStep = getCurrentStep();
@@ -1524,6 +1745,20 @@ export default function WorkstationPage() {
       return;
     }
 
+    // 检查是否为USB扫码枪设备
+    if (isUSBScannerDevice(action.device)) {
+      console.log('检测到USB扫码枪设备，使用USB扫码枪验证模式:', action.device.name);
+      const result = startUSBScannerValidation(action);
+      if (result) {
+        // USB扫码枪验证已启动
+        return;
+      } else {
+        console.error('启动USB扫码枪验证失败');
+        return;
+      }
+    }
+
+    // 非USB扫码枪设备，继续原有的PLC监控流程
     // 重置屏幕状态和监控控制
     setScreenError(false);
     setIsMonitoringPLC(true);
@@ -1657,7 +1892,7 @@ export default function WorkstationPage() {
                 // 判断值是否匹配期望值
                 const isMatch = checkValueMatch(value, addressInfo.expectedValue);
                 if (isMatch) {
-                  console.log(`PLC值检测通过，动作完成 (${addressInfo.fullCondition})`);
+                  console.log(`PLC值检测通过，动作完成 (${addressInfo.address}=${addressInfo.expectedValue})`);
                   return true;
                 }
                 
@@ -1688,7 +1923,7 @@ export default function WorkstationPage() {
       
       if (success) {
         // 监控成功，动作通过
-        console.log(`动作自动完成: ${action.name}, PLC条件 ${addressInfo.fullCondition} 已满足`);
+        console.log(`动作自动完成: ${action.name}, PLC条件已满足`);
         setIsMonitoringPLC(false);
         monitoringControlRef.current.isActive = false;
         setTimeout(() => handleNextAction(), 100); // 快速进入下一步
@@ -1719,7 +1954,7 @@ export default function WorkstationPage() {
         deviceName: action.device.name,
         deviceIP: deviceIP,
         errorMessage: error instanceof Error && error.message === 'TIMEOUT' ? 
-          `设备连接超时 - PLC条件 ${addressInfo.fullCondition} 监控超时` : 
+          `设备连接超时 - PLC监控超时` : 
           `连接错误: ${error instanceof Error ? error.message : '未知错误'}`,
         actionName: action.name
       });
@@ -1727,11 +1962,91 @@ export default function WorkstationPage() {
     }
   };
 
+  // USB扫码枪验证相关函数 - 等待用户输入完成后再验证
+  const startUSBScannerValidation = (action: Action) => {
+    try {
+      // 检查动作是否需要USB扫码枪验证
+      if (!action.device || !isUSBScannerDevice(action.device)) {
+        return false;
+      }
+debugger
+      // 从动作参数中获取预期条码
+      const expectedCode = action.parameters?.sensorValue || action.parameters?.barcode || action.parameters?.expectedValue || '';
+      if (!expectedCode) {
+        console.warn('USB扫码枪动作未配置预期条码');
+        return false;
+      }
+
+      console.log('启动USB扫码枪验证，等待用户输入:', { actionName: action.name, expectedCode, deviceType: action.device.type });
+      
+      // 设置预期条码并配置USB扫码枪服务
+      setExpectedBarcode(expectedCode);
+      setConfig({ 
+        targetCode: expectedCode,
+        minInputLength: 1,
+        maxInputLength: 100,
+        inputTimeout: 200000 // 给用户更多时间输入
+      });
+      setScannerValidationStatus('waiting');
+      
+      // 如果扫码枪服务未启动，则启动它
+      if (!isListening) {
+        console.log('启动USB扫码枪监听服务');
+        startListening();
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('启动USB扫码枪验证失败:', error);
+      return false;
+    }
+  };
+
+  const handleScannerInput = (inputValue: string) => {
+    console.log('扫码枪输入:', inputValue, '预期:', expectedBarcode);
+    
+    if (inputValue.trim() === expectedBarcode.trim()) {
+      // 验证成功
+      setScannerValidationStatus('success');
+      console.log('USB扫码枪验证通过');
+      
+      // 1秒后自动进入下一动作
+      setTimeout(() => {
+        setIsUSBScannerActive(false);
+        handleNextAction();
+      }, 1000);
+    } else {
+      // 验证失败
+      setScannerValidationStatus('error');
+      console.log('USB扫码枪验证失败');
+      
+      // 3秒后重置为等待状态
+      setTimeout(() => {
+        setScannerValidationStatus('waiting');
+        setScannerInput('');
+      }, 3000);
+    }
+  };
+
+  const stopUSBScannerValidation = () => {
+    setIsUSBScannerActive(false);
+    setScannerValidationStatus('waiting');
+    setScannerInput('');
+    setExpectedBarcode('');
+  };
+
   // 手动确认当前动作
+
   const executeCurrentAction = () => {
     const currentAction = getCurrentAction();
     if (!currentAction) {
       alert('没有可执行的动作');
+      return;
+    }
+    
+    // 检查是否是USB扫码枪动作
+    if (startUSBScannerValidation(currentAction)) {
+      // 启动USB扫码枪验证，不需要手动确认
       return;
     }
     
@@ -2911,11 +3226,99 @@ export default function WorkstationPage() {
             {currentAction && (
               <div 
                 className="absolute bottom-4 left-4 right-4 bg-white bg-opacity-95 text-black p-4 rounded-lg shadow-lg overflow-y-auto"
-                style={{ maxHeight: '15vh' }}
+                style={{ maxHeight: '30vh' }}
               >
                 <h3 className="text-2xl font-bold mb-2 text-gray-900">{currentAction.name}</h3>
                 {currentAction.description && (
-                  <p className="text-lg leading-relaxed whitespace-pre-line text-gray-800">{currentAction.description}</p>
+                  <p className="text-lg leading-relaxed whitespace-pre-line text-gray-800 mb-4">{currentAction.description}</p>
+                )}
+                
+                {/* USB扫码枪验证界面 */}
+                {(isScanning || isListening) && (
+                  <div className="mt-4 p-4 border-2 rounded-lg" 
+                       style={{
+                         borderColor: scannerValidationStatus === 'success' ? '#10b981' : 
+                                     scannerValidationStatus === 'error' ? '#ef4444' : '#6b7280',
+                         backgroundColor: scannerValidationStatus === 'success' ? '#f0fdf4' : 
+                                         scannerValidationStatus === 'error' ? '#fef2f2' : '#f9fafb'
+                       }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-lg font-semibold">USB扫码枪验证</h4>
+                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        scannerValidationStatus === 'success' ? 'bg-green-100 text-green-800' :
+                        scannerValidationStatus === 'error' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {scannerValidationStatus === 'success' ? '✓ 验证通过' :
+                         scannerValidationStatus === 'error' ? '✗ 验证失败' :
+                         '⏳ 等待扫码输入，请扫描后按回车键...'}
+                      </div>
+                    </div>
+                    
+                    {/* 隐藏的输入框用于接收扫码枪输入 */}
+                    <input
+                      ref={scannerInputRef}
+                      type="text"
+                      value={barcodeInput}
+                      onChange={(e) => setBarcodeInput(e.target.value)}
+                      className="opacity-0 absolute -left-9999px"
+                      autoFocus
+                    />
+                    
+                    <div className="text-sm text-gray-600 mb-2">
+                      请使用扫码枪扫描条码，扫描完成后按回车键进行验证
+                    </div>
+                    
+                    {expectedBarcode && (
+                      <div className="text-sm mb-2">
+                        <span className="text-gray-600">预期条码: </span>
+                        <span className="font-mono bg-gray-100 px-2 py-1 rounded">{expectedBarcode}</span>
+                      </div>
+                    )}
+                    
+                    {lastScanResult && (
+                      <div className="text-sm mb-2">
+                        <span className="text-gray-600">最近扫描: </span>
+                        <span className="font-mono bg-gray-100 px-2 py-1 rounded">{lastScanResult.code}</span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {lastScanResult.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => {
+                          setIsScanning(false);
+                          setScannerValidationStatus('waiting');
+                          setBarcodeInput('');
+                          if (isListening) {
+                            stopListening();
+                          }
+                        }}
+                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                      >
+                        取消验证
+                      </button>
+                      {scannerValidationStatus === 'success' && (
+                        <button
+                          onClick={() => {
+                            setIsScanning(false);
+                            setScannerValidationStatus('waiting');
+                            setBarcodeInput('');
+                            if (isListening) {
+                              stopListening();
+                            }
+                            // 继续执行下一步
+                            executeCurrentAction();
+                          }}
+                          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                        >
+                          继续执行
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -3368,6 +3771,7 @@ export default function WorkstationPage() {
           </div>
         </div>
       </div>
+
 
       {/* 主要内容区域 - 占据剩余空间 */}
       <div className="flex gap-4 flex-1">

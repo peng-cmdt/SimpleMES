@@ -6,7 +6,7 @@ interface Part {
   id: string
   partNumber: string
   name: string
-  sapDescription?: string
+  partDescription?: string
   visible: boolean
   category?: string
   status: string
@@ -40,7 +40,7 @@ export default function PartsPage() {
   const [partFormData, setPartFormData] = useState({
     partNumber: '',
     name: '',
-    sapDescription: '',
+    partDescription: '',
     visible: true,
     category: '',
     status: 'active'
@@ -162,7 +162,7 @@ export default function PartsPage() {
     setPartFormData({
       partNumber: part.partNumber,
       name: part.name,
-      sapDescription: part.sapDescription || '',
+      partDescription: part.partDescription || '',
       visible: part.visible,
       category: part.category || '',
       status: part.status
@@ -174,7 +174,7 @@ export default function PartsPage() {
     setPartFormData({
       partNumber: '',
       name: '',
-      sapDescription: '',
+      partDescription: '',
       visible: true,
       category: '',
       status: 'active'
@@ -257,7 +257,7 @@ export default function PartsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="搜索零部件号、名称或SAP描述"
+                placeholder="搜索零部件号、名称或零部件描述"
               />
             </div>
             <div>
@@ -299,7 +299,7 @@ export default function PartsPage() {
                   零部件名称
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                  SAP描述
+                  零部件描述
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   类别
@@ -341,8 +341,8 @@ export default function PartsPage() {
                       {part.name}
                     </td>
                     <td className="px-6 py-4 text-base text-gray-600 dark:text-gray-400 max-w-xs">
-                      <div className="truncate" title={part.sapDescription || ''}>
-                        {part.sapDescription || '-'}
+                      <div className="truncate" title={part.partDescription || ''}>
+                        {part.partDescription || '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500 dark:text-gray-300">
@@ -521,13 +521,13 @@ export default function PartsPage() {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    SAP描述
+                    零部件描述
                   </label>
                   <textarea
-                    value={partFormData.sapDescription}
-                    onChange={(e) => setPartFormData({ ...partFormData, sapDescription: e.target.value })}
+                    value={partFormData.partDescription}
+                    onChange={(e) => setPartFormData({ ...partFormData, partDescription: e.target.value })}
                     className="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="SAP描述信息"
+                    placeholder="零部件详细描述信息"
                     rows={3}
                   />
                 </div>
@@ -650,13 +650,13 @@ export default function PartsPage() {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    SAP描述
+                    零部件描述
                   </label>
                   <textarea
-                    value={partFormData.sapDescription}
-                    onChange={(e) => setPartFormData({ ...partFormData, sapDescription: e.target.value })}
+                    value={partFormData.partDescription}
+                    onChange={(e) => setPartFormData({ ...partFormData, partDescription: e.target.value })}
                     className="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="SAP描述信息"
+                    placeholder="零部件详细描述信息"
                     rows={3}
                   />
                 </div>

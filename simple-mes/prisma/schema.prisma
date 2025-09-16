@@ -269,15 +269,15 @@ model BOMItem {
 }
 
 model Part {
-  id             String   @id @default(cuid())
-  partNumber     String   @unique
-  name           String
-  sapDescription String?
-  visible        Boolean  @default(true)
-  category       String?
-  status         String   @default("active")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(cuid())
+  partNumber      String   @unique
+  name            String
+  partDescription String?
+  visible         Boolean  @default(true)
+  category        String?
+  status          String   @default("active")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("parts")
 }

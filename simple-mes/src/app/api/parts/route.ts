@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       OR: [
         { partNumber: { contains: search, mode: 'insensitive' as const } },
         { name: { contains: search, mode: 'insensitive' as const } },
-        { sapDescription: { contains: search, mode: 'insensitive' as const } }
+        { partDescription: { contains: search, mode: 'insensitive' as const } }
       ]
     } : {}
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       data: {
         partNumber: data.partNumber,
         name: data.name,
-        sapDescription: data.sapDescription || null,
+        partDescription: data.partDescription || null,
         visible: data.visible ?? true,
         category: data.category || null
       }

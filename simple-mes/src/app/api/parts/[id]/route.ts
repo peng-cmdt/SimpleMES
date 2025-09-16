@@ -15,7 +15,7 @@ export async function PUT(
       data: {
         partNumber: data.partNumber,
         name: data.name,
-        sapDescription: data.sapDescription || null,
+        partDescription: data.partDescription || null,
         visible: data.visible ?? true,
         category: data.category || null
       }
