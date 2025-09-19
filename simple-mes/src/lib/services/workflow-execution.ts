@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { orderManagementService } from './order-management';
+import { workstationOrderQueueService } from './workstation-order-queue';
 
 export interface StepExecutionContext {
   orderId: string;
@@ -72,9 +74,6 @@ export class WorkflowExecutionEngine {
         step: {
           include: {
             actions: {
-              include: {
-                device: true
-              },
               orderBy: { sequence: 'asc' }
             }
           }
@@ -148,9 +147,6 @@ export class WorkflowExecutionEngine {
           step: {
             include: {
               actions: {
-                include: {
-                  device: true
-                },
                 orderBy: { sequence: 'asc' }
               }
             }
@@ -246,7 +242,6 @@ export class WorkflowExecutionEngine {
       const action = await prisma.action.findUnique({
         where: { id: actionId },
         include: {
-          device: true,
           step: true
         }
       });
@@ -272,7 +267,7 @@ export class WorkflowExecutionEngine {
         throw new Error('步骤未在执行中');
       }
 
-      let result: ActionExecutionResult;
+      let result: Omit<ActionExecutionResult, 'actionId' | 'executedAt' | 'executionTime'>;
 
       // 根据动作类型执行相应操作
       switch (action.type) {
@@ -317,8 +312,8 @@ export class WorkflowExecutionEngine {
           executionTime: Date.now() - startTime,
           errorCode: result.errorCode,
           errorMessage: result.errorMessage,
-          parameters: parameters ? JSON.stringify(parameters) : null,
-          result: result.result ? JSON.stringify(result.result) : null
+          parameters: (parameters as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+          result: (result.result as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull
         }
       });
 
@@ -350,7 +345,7 @@ export class WorkflowExecutionEngine {
             executedBy: context.executedBy,
             executionTime: Date.now() - startTime,
             errorMessage,
-            parameters: parameters ? JSON.stringify(parameters) : null
+            parameters: (parameters as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull
           }
         });
       }
@@ -412,25 +407,8 @@ export class WorkflowExecutionEngine {
         }
       });
 
-      // 检查是否是订单的最后一个步骤
-      const allOrderSteps = await tx.orderStep.findMany({
-        where: { orderId },
-        include: { step: true },
-        orderBy: { step: { sequence: 'asc' } }
-      });
-
-      const completedSteps = allOrderSteps.filter(s => s.status === 'completed');
-      const isLastStep = completedSteps.length === allOrderSteps.length;
-
-      if (success && isLastStep) {
-        // 所有步骤完成，订单完成
-        await orderManagementService.changeOrderStatus({
-          orderId,
-          newStatus: 'COMPLETED',
-          changedBy: executedBy || 'system',
-          reason: '所有工艺步骤已完成'
-        });
-      } else if (!success) {
+      // 基于工位标记的订单完成逻辑
+      if (!success) {
         // 步骤失败，订单进入错误状态
         await orderManagementService.changeOrderStatus({
           orderId,
@@ -439,19 +417,60 @@ export class WorkflowExecutionEngine {
           reason: `步骤 ${orderStep.step.name} 执行失败`
         });
       } else {
-        // 找下一个步骤
-        const nextStep = allOrderSteps.find(s => 
-          s.step.sequence > orderStep.step.sequence && s.status === 'pending'
-        );
-        
-        if (nextStep) {
-          await tx.order.update({
-            where: { id: orderId },
-            data: {
-              currentStepId: nextStep.stepId,
-              currentStationId: nextStep.workstationId
-            }
+        // 步骤成功，更新工位订单队列状态
+        const currentWorkstation = await tx.workstation.findUnique({
+          where: { id: workstationId }
+        });
+
+        // 更新工位订单队列状态为完成
+        try {
+          await workstationOrderQueueService.updateWorkstationOrderStatus({
+            orderId,
+            workstationId,
+            status: 'COMPLETED',
+            notes: `步骤执行完成 - ${executedBy || 'system'}`,
+            updatedBy: executedBy || 'system'
           });
+
+        } catch (queueError) {
+
+          // 不阻断主流程，继续执行
+        }
+
+        if (currentWorkstation?.isOrderCompleteStation) {
+          // 当前工位是订单完成标记工位，全局完成订单（向后兼容）
+          await orderManagementService.changeOrderStatus({
+            orderId,
+            newStatus: 'COMPLETED',
+            changedBy: executedBy || 'system',
+            reason: `订单完成标记工位 ${currentWorkstation.name} 的步骤已完成`
+          });
+
+        } else {
+          // 当前工位不是订单完成标记工位，订单继续
+          const allOrderSteps = await tx.orderStep.findMany({
+            where: { orderId },
+            include: { step: true },
+            orderBy: { step: { sequence: 'asc' } }
+          });
+
+          // 找下一个待执行的步骤，更新订单当前位置
+          const nextStep = allOrderSteps.find(s => 
+            s.status === 'pending'
+          );
+          
+          if (nextStep) {
+            await tx.order.update({
+              where: { id: orderId },
+              data: {
+                currentStepId: nextStep.stepId,
+                currentStationId: nextStep.workstationId
+              }
+            });
+
+          } else {
+
+          }
         }
       }
 
