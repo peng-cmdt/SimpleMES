@@ -586,7 +586,9 @@ export default function OrderMonitoringPage() {
                               style={{ width: `${order.progressPercentage}%` }}
                             ></div>
                           </div>
-                          <div className="text-sm text-gray-600 mt-1">{order.progressPercentage}%</div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {order.progressPercentage}% ({order.workstationStatusSummary.completed}/{order.workstationStatusSummary.total})
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {order.currentStation ? (

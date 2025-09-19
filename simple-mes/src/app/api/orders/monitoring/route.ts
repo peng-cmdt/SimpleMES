@@ -148,9 +148,9 @@ export async function GET(request: NextRequest) {
         total: order.orderSteps.length
       };
 
-      // 计算整体进度
-      const progressPercentage = stepStatusSummary.total > 0 
-        ? Math.round((stepStatusSummary.completed / stepStatusSummary.total) * 100)
+      // 计算整体进度（基于工位数量）
+      const progressPercentage = workstationStatusSummary.total > 0 
+        ? Math.round((workstationStatusSummary.completed / workstationStatusSummary.total) * 100)
         : 0;
 
       // 找出当前活跃的工位（有进行中状态的工位）
@@ -194,20 +194,30 @@ export async function GET(request: NextRequest) {
       // 重新计算订单状态：基于工位完成情况
       let calculatedStatus = order.status;
       if (order.status !== 'CANCELLED' && order.status !== 'ERROR') {
-        // 检查是否所有工位都已完成
-        const hasIncompleteWorkstations = workstationStatuses.some(ws => 
-          ws.queueStatus !== 'COMPLETED' && ws.queueStatus !== 'SKIPPED'
-        );
-        
-        if (!hasIncompleteWorkstations && workstationStatuses.length > 0) {
-          // 所有工位都已完成或跳过
-          calculatedStatus = 'COMPLETED';
-        } else if (workstationStatuses.some(ws => ws.queueStatus === 'IN_PROGRESS')) {
-          // 有工位正在进行中
-          calculatedStatus = 'IN_PROGRESS';
-        } else if (workstationStatuses.some(ws => ws.queueStatus === 'PENDING')) {
-          // 有工位等待中
-          calculatedStatus = 'IN_PROGRESS'; // 订单已开始但未完成
+        if (workstationStatuses.length === 0) {
+          // 没有工位分配
+          calculatedStatus = 'PENDING';
+        } else {
+          // 检查是否所有工位都已完成
+          const hasIncompleteWorkstations = workstationStatuses.some(ws => 
+            ws.queueStatus !== 'COMPLETED' && ws.queueStatus !== 'SKIPPED'
+          );
+          
+          if (!hasIncompleteWorkstations) {
+            // 所有工位都已完成或跳过
+            calculatedStatus = 'COMPLETED';
+          } else if (workstationStatuses.some(ws => ws.queueStatus === 'IN_PROGRESS')) {
+            // 有工位正在进行中
+            calculatedStatus = 'IN_PROGRESS';
+          } else if (workstationStatuses.some(ws => 
+            ws.queueStatus === 'COMPLETED' || ws.queueStatus === 'SKIPPED' || ws.queueStatus === 'CANCELLED'
+          )) {
+            // 有工位已经开始过（已完成/跳过/取消），但还有工位等待中
+            calculatedStatus = 'IN_PROGRESS';
+          } else {
+            // 所有工位都是等待状态
+            calculatedStatus = 'PENDING';
+          }
         }
       }
 
