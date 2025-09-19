@@ -163,6 +163,7 @@ export default function OrderMonitoringPage() {
     zh: {
       title: "订单监测",
       refresh: "刷新",
+      refreshing: "正在刷新...",
       search: "搜索订单号/生产号",
       allStatus: "全部状态",
       allWorkstationStatus: "全部工位状态",
@@ -207,6 +208,7 @@ export default function OrderMonitoringPage() {
     en: {
       title: "Order Monitoring",
       refresh: "Refresh",
+      refreshing: "Refreshing...",
       search: "Search Order/Production Number",
       allStatus: "All Status",
       allWorkstationStatus: "All Workstation Status",
@@ -248,31 +250,42 @@ export default function OrderMonitoringPage() {
       quantity: "Quantity",
       completedQuantity: "Completed Qty"
     }
-  };
+  } as const;
+
+  type Language = keyof typeof translations;
 
   const getText = (key: string): string => {
-    return translations[language][key] || key;
+    const lang = (language in translations ? (language as Language) : 'zh');
+    const dict = translations[lang] as Record<string, string>;
+    return dict[key] ?? key;
   };
 
   // 获取状态颜色
+  type StatusKey =
+    | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'CANCELLED' | 'ERROR' | 'SKIPPED'
+    | 'pending' | 'in_progress' | 'completed' | 'paused' | 'cancelled' | 'error' | 'skipped';
+
+  const statusColors: Record<StatusKey, string> = {
+    'PENDING': 'bg-gray-100 text-gray-800',
+    'IN_PROGRESS': 'bg-blue-100 text-blue-800',
+    'COMPLETED': 'bg-green-100 text-green-800',
+    'PAUSED': 'bg-yellow-100 text-yellow-800',
+    'CANCELLED': 'bg-red-100 text-red-800',
+    'ERROR': 'bg-red-100 text-red-800',
+    'SKIPPED': 'bg-purple-100 text-purple-800',
+    'pending': 'bg-gray-100 text-gray-800',
+    'in_progress': 'bg-blue-100 text-blue-800',
+    'completed': 'bg-green-100 text-green-800',
+    'paused': 'bg-yellow-100 text-yellow-800',
+    'cancelled': 'bg-red-100 text-red-800',
+    'error': 'bg-red-100 text-red-800',
+    'skipped': 'bg-purple-100 text-purple-800'
+  };
+
+  const isStatusKey = (s: string): s is StatusKey => s in statusColors;
+
   const getStatusColor = (status: string) => {
-    const statusColors = {
-      'PENDING': 'bg-gray-100 text-gray-800',
-      'IN_PROGRESS': 'bg-blue-100 text-blue-800',
-      'COMPLETED': 'bg-green-100 text-green-800',
-      'PAUSED': 'bg-yellow-100 text-yellow-800',
-      'CANCELLED': 'bg-red-100 text-red-800',
-      'ERROR': 'bg-red-100 text-red-800',
-      'SKIPPED': 'bg-purple-100 text-purple-800',
-      'pending': 'bg-gray-100 text-gray-800',
-      'in_progress': 'bg-blue-100 text-blue-800',
-      'completed': 'bg-green-100 text-green-800',
-      'paused': 'bg-yellow-100 text-yellow-800',
-      'cancelled': 'bg-red-100 text-red-800',
-      'error': 'bg-red-100 text-red-800',
-      'skipped': 'bg-purple-100 text-purple-800'
-    };
-    return statusColors[status] || 'bg-gray-100 text-gray-800';
+    return isStatusKey(status) ? statusColors[status] : 'bg-gray-100 text-gray-800';
   };
 
   // 获取进度条颜色
@@ -538,6 +551,9 @@ export default function OrderMonitoringPage() {
                       {getText('orderNumber')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {getText('productionNumber')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {getText('product')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -563,15 +579,15 @@ export default function OrderMonitoringPage() {
                       {/* 主行 */}
                       <tr className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
-                            <div className="text-sm text-gray-500">{order.productionNumber}</div>
-                          </div>
+                          <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{order.productionNumber}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{order.product.productCode}</div>
-                            <div className="text-sm text-gray-500">{order.product.name}</div>
+                            <div className="text-sm font-medium text-gray-900">{order.product.name}</div>
+                            <div className="text-sm text-gray-500">{order.product.productCode}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -592,10 +608,7 @@ export default function OrderMonitoringPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {order.currentStation ? (
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{order.currentStation.name}</div>
-                              <div className="text-sm text-gray-500">{order.currentStation.workstationId}</div>
-                            </div>
+                            <div className="text-sm font-medium text-gray-900">{order.currentStation.name}</div>
                           ) : (
                             <span className="text-sm text-gray-400">-</span>
                           )}
@@ -627,7 +640,7 @@ export default function OrderMonitoringPage() {
                       {/* 展开的详细信息 */}
                       {expandedOrder === order.id && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                          <td colSpan={8} className="px-6 py-4 bg-gray-50">
                             <div className="space-y-4">
                               <h4 className="text-lg font-medium text-gray-900">工位执行详情</h4>
                               <div className="overflow-x-auto">
