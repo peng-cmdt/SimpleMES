@@ -18,7 +18,7 @@ export async function GET(
       // 获取完整的执行状态信息
       order = await orderManagementService.getOrderExecutionStatus(id);
     } else {
-      // 获取基本订单信息
+      // 获取基本订单信息 - 简化查询避免复杂的嵌套关联
       order = await prisma.order.findUnique({
         where: { id },
         include: {
@@ -47,25 +47,6 @@ export async function GET(
                       workstationId: true,
                       name: true,
                       type: true
-                    }
-                  },
-                  stepTemplate: {
-                    select: {
-                      id: true,
-                      stepCode: true,
-                      name: true,
-                      description: true,
-                      instructions: true,
-                      image: true,
-                      estimatedTime: true,
-                      conditions: {
-                        select: {
-                          id: true,
-                          type: true,
-                          value: true,
-                          description: true
-                        }
-                      }
                     }
                   },
                   actions: {
@@ -112,25 +93,6 @@ export async function GET(
             include: {
               step: {
                 include: {
-                  stepTemplate: {
-                    select: {
-                      id: true,
-                      stepCode: true,
-                      name: true,
-                      description: true,
-                      instructions: true,
-                      image: true,
-                      estimatedTime: true,
-                      conditions: {
-                        select: {
-                          id: true,
-                          type: true,
-                          value: true,
-                          description: true
-                        }
-                      }
-                    }
-                  },
                   actions: {
                     select: {
                       id: true,
@@ -261,8 +223,17 @@ export async function GET(
 
   } catch (error) {
     console.error('获取订单详情失败:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      orderId: await params.then(p => p.id).catch(() => 'unknown')
+    });
     return NextResponse.json(
-      { success: false, error: '获取订单详情失败' },
+      { 
+        success: false, 
+        error: '获取订单详情失败',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
