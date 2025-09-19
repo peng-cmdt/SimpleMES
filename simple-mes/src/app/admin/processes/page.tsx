@@ -1172,7 +1172,16 @@ export default function ProcessesPage() {
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                工艺信息
+                工艺名称
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                工艺代码
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                版本
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                描述
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 关联产品
@@ -1208,14 +1217,17 @@ export default function ProcessesPage() {
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{process.name}</div>
-                        <div className="text-xs text-gray-400">{process.processCode} - v{process.version}</div>
-                        {process.description && (
-                          <div className="text-xs text-gray-400 mt-1">{process.description}</div>
-                        )}
-                      </div>
+                      <div className="font-medium text-gray-900 dark:text-white">{process.name}</div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {process.processCode}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {process.version}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
+                    {process.description || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     <div>
@@ -1242,7 +1254,7 @@ export default function ProcessesPage() {
                 {/* 展开的选项卡内容 */}
                 {expandedProcessId === process.id && editingProcess && (
                   <tr>
-                    <td colSpan={6} className="p-4 bg-gray-100 dark:bg-gray-900">
+                    <td colSpan={9} className="p-4 bg-gray-100 dark:bg-gray-900">
                       {/* 选项卡导航 */}
                       <div className="border-b border-gray-200 dark:border-gray-700">
                         <nav className="-mb-px flex space-x-8">
