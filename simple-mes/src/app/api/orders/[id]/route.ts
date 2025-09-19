@@ -226,7 +226,7 @@ export async function GET(
     console.error('Error details:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      orderId: await params.then(p => p.id).catch(() => 'unknown')
+      orderId: id
     });
     return NextResponse.json(
       { 
