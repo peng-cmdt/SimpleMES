@@ -45,20 +45,15 @@ class DeviceConfigSyncManager {
    */
   async initialize(): Promise<boolean> {
     try {
-      console.log('🔄 Initializing DeviceConfigSyncManager...');
-      
       // 检查.NET服务是否可用
       const isServiceAvailable = await this.checkServiceHealth();
       if (!isServiceAvailable) {
-        console.warn('⚠️ .NET Device Communication Service is not available');
         // 即使服务不可用也标记为已初始化，避免阻塞前台功能
       }
 
       this.isInitialized = true;
-      console.log('✅ DeviceConfigSyncManager initialized successfully');
       return true;
     } catch (error) {
-      console.error('❌ Failed to initialize DeviceConfigSyncManager:', error);
       this.isInitialized = true; // 失败时也标记为已初始化
       return false;
     }
@@ -83,7 +78,6 @@ class DeviceConfigSyncManager {
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      console.debug('Service health check failed:', error);
       return false;
     }
   }
@@ -119,7 +113,6 @@ class DeviceConfigSyncManager {
    */
   async notifyConfigurationChange(notification: SyncNotification): Promise<SyncResponse> {
     if (!this.config.enableAutoSync) {
-      console.debug('Auto-sync is disabled, skipping notification');
       return {
         success: true,
         message: 'Auto-sync disabled',
@@ -171,7 +164,6 @@ class DeviceConfigSyncManager {
 
       return await response.json();
     } catch (error) {
-      console.error('Failed to get sync status:', error);
       throw error;
     }
   }
@@ -201,25 +193,20 @@ class DeviceConfigSyncManager {
         const result = await response.json();
 
         if (response.ok) {
-          console.log(`✅ Sync successful on attempt ${attempt}:`, result);
           return result;
         } else {
-          console.warn(`⚠️ Sync failed on attempt ${attempt}:`, result);
           lastError = new Error(result.message || `HTTP ${response.status}`);
         }
       } catch (error) {
-        console.warn(`⚠️ Sync attempt ${attempt} failed:`, error);
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt < this.config.retryAttempts) {
-          console.log(`🔄 Retrying in ${this.config.retryDelayMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, this.config.retryDelayMs));
         }
       }
     }
 
     // 所有重试都失败了
-    console.error(`❌ All sync attempts failed. Last error:`, lastError);
     return {
       success: false,
       message: lastError?.message || 'Sync failed after all retries',
@@ -278,7 +265,6 @@ class DeviceConfigSyncManager {
    */
   setAutoSyncEnabled(enabled: boolean): void {
     this.config.enableAutoSync = enabled;
-    console.log(`🔧 Auto-sync ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -293,7 +279,6 @@ class DeviceConfigSyncManager {
    */
   updateConfig(newConfig: Partial<DeviceSyncConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('🔧 DeviceConfigSyncManager configuration updated:', this.config);
   }
 }
 
@@ -304,7 +289,7 @@ const deviceSyncManager = new DeviceConfigSyncManager();
 if (typeof window !== 'undefined') {
   // 延迟初始化，避免阻塞页面加载
   setTimeout(() => {
-    deviceSyncManager.initialize().catch(console.error);
+    deviceSyncManager.initialize().catch(() => {});
   }, 1000);
 }
 

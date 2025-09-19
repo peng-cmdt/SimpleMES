@@ -73,7 +73,7 @@ export class DeviceManager extends EventEmitter {
       
       return connection;
     } catch (error) {
-      console.error(`创建设备连接失败 ${deviceId}:`, error);
+
       throw error;
     }
   }
@@ -84,7 +84,7 @@ export class DeviceManager extends EventEmitter {
     if (!connection) return false;
     
     try {
-      console.log(`正在连接设备: ${deviceId} (${connection.ipAddress}:${connection.port})`);
+
       
       // 调用现有的连接API
       const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/device-communication/devices/${deviceId}/connect`, {
@@ -99,7 +99,7 @@ export class DeviceManager extends EventEmitter {
         connection.connectionTime = new Date();
         connection.reconnectAttempts = 0;
         
-        console.log(`设备连接成功: ${deviceId}`);
+
         this.emit('device:connected', { deviceId, connection });
         
         return true;
@@ -107,7 +107,7 @@ export class DeviceManager extends EventEmitter {
         throw new Error(result.error || '连接失败');
       }
     } catch (error) {
-      console.error(`设备连接失败 ${deviceId}:`, error);
+
       connection.isConnected = false;
       
       this.emit('device:disconnected', { deviceId, error });
@@ -125,13 +125,13 @@ export class DeviceManager extends EventEmitter {
     if (!connection) return false;
     
     if (connection.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
-      console.error(`设备重连失败次数过多，放弃重连: ${deviceId}`);
+
       this.emit('device:reconnect:failed', { deviceId });
       return false;
     }
     
     connection.reconnectAttempts++;
-    console.log(`尝试重连设备 ${deviceId} (第 ${connection.reconnectAttempts} 次)`);
+
     
     return await this.connectDevice(deviceId);
   }
@@ -178,7 +178,7 @@ export class DeviceManager extends EventEmitter {
         throw new Error(result.error || '读取失败');
       }
     } catch (error) {
-      console.error(`PLC读取失败 ${deviceId}:`, error);
+
       
       // 检查是否需要重连
       if (this.isConnectionError(error)) {
@@ -215,7 +215,7 @@ export class DeviceManager extends EventEmitter {
         throw new Error(result.error || '写入失败');
       }
     } catch (error) {
-      console.error(`PLC写入失败 ${deviceId}:`, error);
+
       
       // 检查是否需要重连
       if (this.isConnectionError(error)) {
@@ -251,7 +251,7 @@ export class DeviceManager extends EventEmitter {
       
       return results;
     } catch (error) {
-      console.error(`批量读取失败 ${deviceId}:`, error);
+
       throw error;
     }
   }
@@ -325,10 +325,10 @@ export class DeviceManager extends EventEmitter {
         this.reconnectTimers.delete(deviceId);
       }
       
-      console.log(`设备已断开: ${deviceId}`);
+
       this.emit('device:disconnected', { deviceId });
     } catch (error) {
-      console.error(`断开设备失败 ${deviceId}:`, error);
+
     }
   }
   
@@ -339,7 +339,7 @@ export class DeviceManager extends EventEmitter {
         // 检查长时间未活动的连接
         const inactiveTime = Date.now() - connection.lastActivity.getTime();
         if (inactiveTime > 5 * 60 * 1000) { // 5分钟未活动
-          console.log(`设备长时间未活动，检查连接: ${deviceId}`);
+
           // 可以发送心跳或重连
         }
       }

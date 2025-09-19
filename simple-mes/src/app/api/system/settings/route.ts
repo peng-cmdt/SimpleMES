@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
 // GET - 获取系统设置
 export async function GET(request: NextRequest) {
   try {
-    let settings = { ...DEFAULT_SETTINGS };
+    const settings = { ...DEFAULT_SETTINGS };
     
     try {
       // 使用原始SQL查询来避免Prisma客户端问题

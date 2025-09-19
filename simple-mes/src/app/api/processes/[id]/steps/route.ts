@@ -61,6 +61,22 @@ export async function POST(
 
         console.log('Processing step:', stepData);
 
+        // 确定工位分配 - 优先使用明确指定的工位，否则从步骤模板继承
+        let finalWorkstationId = stepData.workstationId || null;
+        
+        if (!finalWorkstationId && stepData.stepTemplateId) {
+          // 如果没有明确指定工位，从步骤模板获取工位分配
+          const stepTemplate = await tx.stepTemplate.findUnique({
+            where: { id: stepData.stepTemplateId },
+            select: { workstationId: true }
+          });
+          
+          if (stepTemplate && stepTemplate.workstationId) {
+            finalWorkstationId = stepTemplate.workstationId;
+            console.log(`从步骤模板继承工位分配: ${stepTemplate.workstationId}`);
+          }
+        }
+
         // 创建步骤
         const step = await tx.step.create({
           data: {
@@ -68,7 +84,7 @@ export async function POST(
             stepCode: stepData.stepCode,
             name: stepData.name,
             stepTemplateId: stepData.stepTemplateId || null,
-            workstationId: stepData.workstationId || null,
+            workstationId: finalWorkstationId,
             sequence: stepSequence,
             description: stepData.description || '',
             estimatedTime: stepData.estimatedTime || 0,

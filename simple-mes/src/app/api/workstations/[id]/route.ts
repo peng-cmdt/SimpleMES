@@ -88,7 +88,8 @@ export async function PUT(
       description,
       location,
       configuredIp,
-      settings
+      settings,
+      isOrderCompleteStation
     } = await request.json()
 
     if (!workstationId || !name || !configuredIp) {
@@ -130,7 +131,8 @@ export async function PUT(
         description: description || null,
         location: location || null,
         configuredIp,
-        settings: settings || {}
+        settings: settings || {},
+        isOrderCompleteStation: isOrderCompleteStation !== undefined ? isOrderCompleteStation : false
       },
       include: {
         workstationDevices: {

@@ -96,7 +96,7 @@ export default function WorkstationExecutePage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('orderId');
+  const orderId = searchParams?.get('orderId');
 
   // 验证会话
   useEffect(() => {
@@ -120,22 +120,49 @@ export default function WorkstationExecutePage() {
 
   const validateSession = () => {
     const userInfoStr = localStorage.getItem("clientUserInfo");
-    const workstationSessionStr = localStorage.getItem("workstationSession");
     
-    if (!userInfoStr || !workstationSessionStr) {
+    if (!userInfoStr) {
       router.push("/client/login");
       return;
     }
 
-    try {
-      const user = JSON.parse(userInfoStr);
-      const session = JSON.parse(workstationSessionStr);
-      setUserInfo(user);
-      setWorkstationSession(session);
-    } catch (error) {
-      console.error('Session validation failed:', error);
-      router.push("/client/login");
+    // 扫描所有可用的工位session
+    const availableSessions = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('workstationSession_')) {
+        const sessionStr = localStorage.getItem(key);
+        if (sessionStr) {
+          try {
+            const session = JSON.parse(sessionStr);
+            availableSessions.push(session);
+          } catch (e) {
+            // 无效的session，忽略
+          }
+        }
+      }
     }
+
+    // 检查旧格式的session（向后兼容）
+    const oldSessionStr = localStorage.getItem('workstationSession');
+    if (oldSessionStr) {
+      try {
+        const oldSession = JSON.parse(oldSessionStr);
+        availableSessions.push(oldSession);
+      } catch (e) {
+        // 无效的session，忽略
+      }
+    }
+
+    if (availableSessions.length === 0) {
+      router.push("/client/login");
+      return;
+    }
+    
+    // 使用第一个可用的session
+    const session = availableSessions[0];
+    setUserInfo(JSON.parse(userInfoStr));
+    setWorkstationSession(session);
   };
 
   const loadOrderData = async (orderId: string) => {
@@ -289,7 +316,12 @@ export default function WorkstationExecutePage() {
     } else {
       // 所有步骤完成
       alert('所有工艺步骤已完成！');
-      router.push('/client/workstation');
+      const workstationId = workstationSession?.workstation?.workstationId;
+      if (workstationId) {
+        router.push(`/client/workstation?workstationId=${workstationId}`);
+      } else {
+        router.push('/client/workstation');
+      }
     }
   };
 
@@ -314,7 +346,12 @@ export default function WorkstationExecutePage() {
 
   const handleCancel = () => {
     if (confirm('确定要取消当前操作吗？')) {
-      router.push('/client/workstation');
+      const workstationId = workstationSession?.workstation?.workstationId;
+      if (workstationId) {
+        router.push(`/client/workstation?workstationId=${workstationId}`);
+      } else {
+        router.push('/client/workstation');
+      }
     }
   };
 

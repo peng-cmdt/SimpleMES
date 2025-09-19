@@ -46,7 +46,7 @@ export class WebSocketServer {
   
   private setupEventHandlers() {
     this.io.on('connection', (socket: Socket) => {
-      console.log(`WebSocket客户端连接: ${socket.id}`);
+
       
       // 创建会话
       const session: ClientSession = {
@@ -66,7 +66,7 @@ export class WebSocketServer {
       socket.on('authenticate', (data) => {
         session.userId = data.userId;
         session.workstationId = data.workstationId;
-        console.log(`用户认证: ${data.userId}, 工位: ${data.workstationId}`);
+
         
         // 加入工位房间
         if (data.workstationId) {
@@ -81,7 +81,7 @@ export class WebSocketServer {
         const { deviceId, address, interval = 100 } = data;
         const subscriptionKey = `plc:${deviceId}:${address}`;
         
-        console.log(`订阅PLC监控: ${subscriptionKey}, 间隔: ${interval}ms`);
+
         
         // 添加订阅
         session.subscriptions.add(subscriptionKey);
@@ -106,7 +106,7 @@ export class WebSocketServer {
         const { deviceId, address } = data;
         const subscriptionKey = `plc:${deviceId}:${address}`;
         
-        console.log(`取消订阅PLC监控: ${subscriptionKey}`);
+
         
         // 移除订阅
         session.subscriptions.delete(subscriptionKey);
@@ -173,7 +173,7 @@ export class WebSocketServer {
         session.subscriptions.add(subscriptionKey);
         socket.join(subscriptionKey);
         
-        console.log(`订阅订单更新: ${subscriptionKey}`);
+
         socket.emit('subscribed:orders', { success: true });
       });
       
@@ -192,13 +192,13 @@ export class WebSocketServer {
           ...status
         });
         
-        console.log(`订阅设备状态: ${subscriptionKey}`);
+
         socket.emit('subscribed:device:status', { success: true });
       });
       
       // 处理断开连接
       socket.on('disconnect', async () => {
-        console.log(`WebSocket客户端断开: ${socket.id}`);
+
         
         const session = this.sessions.get(socket.id);
         if (session) {
@@ -269,7 +269,7 @@ export class WebSocketServer {
       
       for (const [socketId, session] of this.sessions) {
         if (now.getTime() - session.lastActivity.getTime() > timeout) {
-          console.log(`会话超时，断开连接: ${socketId}`);
+
           const socket = this.io.sockets.sockets.get(socketId);
           if (socket) {
             socket.disconnect(true);

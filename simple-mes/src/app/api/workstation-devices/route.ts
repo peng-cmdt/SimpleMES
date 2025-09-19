@@ -111,14 +111,23 @@ export async function POST(request: NextRequest) {
       port,
       protocol,
       connectionString,
+      connectionType,
       config,
       status
     } = requestData
 
     // 验证必填字段
-    if (!workstationId || !templateId || !displayName || !ipAddress || !port) {
+    if (!workstationId || !templateId || !displayName) {
       return NextResponse.json(
-        { error: '工位ID、模板ID、显示名称、IP地址和端口为必填项' },
+        { error: '工位ID、模板ID、显示名称为必填项' },
+        { status: 400 }
+      )
+    }
+
+    // 对于网络设备，IP地址和端口为必填
+    if (connectionType !== 'USB' && (!ipAddress || !port)) {
+      return NextResponse.json(
+        { error: '网络设备需要IP地址和端口' },
         { status: 400 }
       )
     }
@@ -147,35 +156,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 检查同一工位内IP地址和端口是否冲突
-    const existingDevice = await prisma.workstationDevice.findFirst({
-      where: {
-        workstationId,
-        ipAddress,
-        port
-      }
-    })
+    // 对于网络设备，检查同一工位内IP地址和端口是否冲突
+    if (connectionType !== 'USB' && ipAddress && port) {
+      const existingDevice = await prisma.workstationDevice.findFirst({
+        where: {
+          workstation: {
+            id: workstationId
+          },
+          ipAddress,
+          port
+        }
+      })
 
-    if (existingDevice) {
-      return NextResponse.json(
-        { error: '此IP地址和端口在工位内已被其他设备使用' },
-        { status: 409 }
-      )
+      if (existingDevice) {
+        return NextResponse.json(
+          { error: '此IP地址和端口在工位内已被其他设备使用' },
+          { status: 409 }
+        )
+      }
     }
 
     // 创建工位设备实例
     const device = await prisma.workstationDevice.create({
       data: {
-        workstationId,
-        templateId,
         displayName,
-        ipAddress,
-        port,
-        protocol: protocol || 'TCP',
+        ipAddress: connectionType === 'USB' ? '0.0.0.0' : ipAddress,
+        port: connectionType === 'USB' ? 0 : port,
+        protocol: protocol || (connectionType === 'USB' ? 'USB' : 'TCP'),
         connectionString,
         config: config || {},
         status: status || 'OFFLINE',
-        isOnline: false
+        isOnline: false,
+        template: {
+          connect: { id: templateId }
+        },
+        workstation: {
+          connect: { id: workstationId }
+        }
       },
       include: {
         template: {

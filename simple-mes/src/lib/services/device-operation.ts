@@ -43,7 +43,7 @@ class DeviceOperationService {
       const result = await response.json();
       return result;
     } catch (error) {
-      console.error('Device operation failed:', error);
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Device operation failed',

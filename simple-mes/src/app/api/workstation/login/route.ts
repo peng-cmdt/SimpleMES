@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取工位配置的设备
-    let allDevices = [];
+    const allDevices = [];
     
     // 处理新架构设备
     if (workstation.workstationDevices && workstation.workstationDevices.length > 0) {
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
           success: true,
           sessionId: loginResult.sessionId,
           workstation: {
-            id: workstation.workstationId,
+            id: workstation.id,
             workstationId: workstation.workstationId,
             name: workstation.name,
             description: workstation.description,
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
         success: true,
         sessionId: session.sessionId,
         workstation: {
-          id: workstation.workstationId,
+          id: workstation.id,
           workstationId: workstation.workstationId,
           name: workstation.name,
           description: workstation.description,

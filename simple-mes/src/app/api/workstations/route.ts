@@ -69,7 +69,8 @@ export async function POST(request: NextRequest) {
       description,
       location,
       configuredIp,
-      settings
+      settings,
+      isOrderCompleteStation
     } = await request.json()
 
     if (!workstationId || !name || !configuredIp) {
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
         configuredIp,
         settings: settings || {},
         status: 'offline',
+        isOrderCompleteStation: isOrderCompleteStation || false,
       },
       include: {
         workstationDevices: {

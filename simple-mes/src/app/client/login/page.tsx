@@ -190,16 +190,17 @@ export default function ClientLogin() {
       setLoginResult(result);
 
       if (result.success) {
-        // 保存工位会话信息
-        localStorage.setItem('workstationSession', JSON.stringify({
+        // 保存工位会话信息（使用工位特定的key）
+        const sessionKey = `workstationSession_${result.workstation.workstationId}`;
+        localStorage.setItem(sessionKey, JSON.stringify({
           sessionId: result.sessionId,
           workstation: result.workstation,
           username: credentials.username.trim(),
           loginTime: result.loginTime
         }));
 
-        // 立即跳转到工位操作界面
-        router.push('/client/workstation');
+        // 立即跳转到工位操作界面，包含工位ID参数
+        router.push(`/client/workstation?workstationId=${result.workstation.workstationId}`);
       }
     } catch (error) {
       console.error('Workstation login error:', error);
@@ -367,8 +368,9 @@ export default function ClientLogin() {
       setLoginResult(result);
 
       if (result.success) {
-        // 保存工位会话信息
-        localStorage.setItem('workstationSession', JSON.stringify({
+        // 保存工位会话信息（使用工位特定的key）
+        const sessionKey = `workstationSession_${result.workstation.workstationId}`;
+        localStorage.setItem(sessionKey, JSON.stringify({
           sessionId: result.sessionId,
           workstation: result.workstation,
           username: credentials.username.trim(),
@@ -457,7 +459,7 @@ export default function ClientLogin() {
       } else {
         // 没有找到匹配的工位，显示工位选择界面
         console.log(`❌ 未找到匹配的工位 (检测IP: ${clientIp})`);
-        workstations.forEach(ws => {
+        workstations.forEach((ws: { name: any; configuredIp: any; }) => {
           console.log(`工位 ${ws.name}: ${ws.configuredIp}`);
         });
         setShowWorkstationSelector(true);
@@ -501,7 +503,7 @@ export default function ClientLogin() {
         localStorage.setItem("clientUserInfo", JSON.stringify(data.user));
         
         // 第二步：获取客户端IP地址
-        let clientIp = await getClientIpAddress();
+        const clientIp = await getClientIpAddress();
         setClientIpAddress(clientIp);
         console.log(`检测到客户端IP地址: ${clientIp}`);
         

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { orderManagementService } from '@/lib/services/order-management';
+import { workstationOrderQueueService } from '@/lib/services/workstation-order-queue';
 
 // GET /api/orders - 获取生产订单列表
 export async function GET(request: NextRequest) {
@@ -237,36 +238,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 自动选择产品的第一个可用BOM（可选）
-    let selectedBomId = bomId;
-    if (!selectedBomId) {
-      const firstBom = await prisma.bOM.findFirst({
-        where: { 
-          productId: productId,
-          status: 'active' 
-        },
-        orderBy: { createdAt: 'asc' }
-      });
-
-      // 如果有可用的BOM则自动选择，没有也不强制要求
-      if (firstBom) {
-        selectedBomId = firstBom.id;
-      }
-    }
-
-    // 验证BOM（仅当指定了BOM时）
-    if (selectedBomId) {
-      const bom = await prisma.bOM.findUnique({
-        where: { id: selectedBomId }
-      });
-
-      if (!bom || bom.productId !== productId) {
-        return NextResponse.json(
-          { success: false, error: '指定的BOM不存在或与产品不匹配' },
-          { status: 400 }
-        );
-      }
-    }
+    // 不自动分配BOM，订单创建时应为空BOM，通过BOM选项卡手动添加零件
+    // 注意：bomId参数保留用于导入功能，但正常创建订单时不应使用
 
     const process = await prisma.process.findUnique({
       where: { id: processId }
@@ -303,9 +276,19 @@ export async function POST(request: NextRequest) {
         importSource: 'manual'
       };
 
-      // 只有当selectedBomId存在时才添加bomId字段
-      if (selectedBomId) {
-        orderData.bomId = selectedBomId;
+      // 正常创建订单时不分配BOM，保持bomId为null
+      // 只有通过导入时才可能指定bomId
+      if (bomId) {
+        // 验证BOM（仅当指定了BOM时）
+        const bom = await tx.bOM.findUnique({
+          where: { id: bomId }
+        });
+
+        if (!bom || bom.productId !== productId) {
+          throw new Error('指定的BOM不存在或与产品不匹配');
+        }
+        
+        orderData.bomId = bomId;
       }
 
       const newOrder = await tx.order.create({
@@ -368,7 +351,20 @@ export async function POST(request: NextRequest) {
       return newOrder;
     });
 
-    const message = selectedBomId ? '订单创建成功' : '订单创建成功，请在订单详情中配置BOM';
+    // 自动分配订单到相关工位
+    try {
+      await workstationOrderQueueService.assignOrderToWorkstations({
+        orderId: order.id,
+        priority: order.priority,
+        assignedBy: createdBy || 'system'
+      });
+      console.log(`订单 ${order.orderNumber} 已自动分配到相关工位`);
+    } catch (assignError) {
+      console.error('自动分配订单到工位失败:', assignError);
+      // 不阻断订单创建流程，只记录错误
+    }
+
+    const message = bomId ? '订单创建成功' : '订单创建成功，请在BOM选项卡中添加零件';
     
     return NextResponse.json({
       success: true,

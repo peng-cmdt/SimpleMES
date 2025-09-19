@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState, Fragment } from "react";
@@ -16,6 +17,7 @@ interface Workstation {
   status: string;
   lastConnected: string | null;
   settings: any;
+  isOrderCompleteStation: boolean;
   createdAt: string;
   updatedAt: string;
   devices?: Device[];
@@ -40,6 +42,7 @@ interface WorkstationFormData {
   description: string;
   location: string;
   configuredIp: string;
+  isOrderCompleteStation: boolean;
 }
 
 export default function WorkstationsPage() {
@@ -57,11 +60,13 @@ export default function WorkstationsPage() {
     name: '',
     description: '',
     location: '',
-    configuredIp: ''
+    configuredIp: '',
+    isOrderCompleteStation: false
   });
   const [newDeviceFormData, setNewDeviceFormData] = useState<{
     name: string;
     deviceTypeId: string;
+    deviceCategory: string;
     ipAddress: string;
     port: string;
     plcType: string;
@@ -70,6 +75,7 @@ export default function WorkstationsPage() {
   }>({
     name: '',
     deviceTypeId: '',
+    deviceCategory: 'NETWORK', // 'NETWORK' 或 'USB'
     ipAddress: '',
     port: '',
     plcType: '',
@@ -80,7 +86,7 @@ export default function WorkstationsPage() {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [deviceFormData, setDeviceFormData] = useState<Partial<Device>>({});
   const [formData, setFormData] = useState<Partial<WorkstationFormData>>({});
-  const [error, setError] = useState('');
+  const [setError] = useState('');
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -313,6 +319,7 @@ export default function WorkstationsPage() {
     setNewDeviceFormData({
       name: '',
       deviceTypeId: '',
+      deviceCategory: 'NETWORK',
       ipAddress: '',
       port: '',
       plcType: '',
@@ -327,44 +334,67 @@ export default function WorkstationsPage() {
     if (!selectedWorkstation || !newDeviceFormData.deviceTypeId) return;
     
     try {
-      // 获取选中的设备模板信息
-      const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
-      if (!selectedTemplate) {
-        alert('请选择设备模板');
-        return;
-      }
-
-      // 基于设备模板创建工位设备实例
-      const deviceData: any = {
+      let deviceData: any = {
         workstationId: selectedWorkstation.id,
-        templateId: selectedTemplate.id,
-        displayName: newDeviceFormData.name || `${selectedTemplate.name} - ${selectedWorkstation.name}`,
-        ipAddress: newDeviceFormData.ipAddress,
-        port: newDeviceFormData.port ? parseInt(newDeviceFormData.port) : null,
-        protocol: 'TCP',
         status: 'OFFLINE'
       };
 
+      if (newDeviceFormData.deviceCategory === 'USB') {
+        // USB设备处理 - 也需要使用模板ID
+        const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
+        if (!selectedTemplate) {
+          alert('请选择USB设备类型');
+          return;
+        }
+        
+        deviceData = {
+          ...deviceData,
+          templateId: selectedTemplate.id,  // 使用模板ID
+          displayName: newDeviceFormData.name || `${selectedTemplate.name} - ${selectedWorkstation.name}`,
+          connectionType: 'USB',
+          protocol: 'USB'
+        };
+      } else {
+        // 网络设备处理
+        const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
+        if (!selectedTemplate) {
+          alert('请选择设备模板');
+          return;
+        }
+
+        deviceData = {
+          ...deviceData,
+          templateId: selectedTemplate.id,
+          displayName: newDeviceFormData.name || `${selectedTemplate.name} - ${selectedWorkstation.name}`,
+          ipAddress: newDeviceFormData.ipAddress,
+          port: newDeviceFormData.port ? parseInt(newDeviceFormData.port) : null,
+          protocol: 'TCP'
+        };
+      }
+
       // 如果是PLC设备，添加PLC特定配置
-      if (selectedTemplate.type === 'PLC_CONTROLLER') {
-        const config: any = {};
-        
-        // 添加PLC类型
-        if (newDeviceFormData.plcType) {
-          config.plcType = newDeviceFormData.plcType;
-        }
-        
-        // 只对西门子PLC添加rack和slot参数
-        if (newDeviceFormData.plcType === 'Siemens_S7') {
-          if (newDeviceFormData.rack) {
-            config.rack = parseInt(newDeviceFormData.rack);
+      if (newDeviceFormData.deviceCategory === 'NETWORK') {
+        const selectedTemplate = availableDeviceTypes.find(d => d.id === newDeviceFormData.deviceTypeId);
+        if (selectedTemplate?.type === 'PLC_CONTROLLER') {
+          const config: any = {};
+          
+          // 添加PLC类型
+          if (newDeviceFormData.plcType) {
+            config.plcType = newDeviceFormData.plcType;
           }
-          if (newDeviceFormData.slot) {
-            config.slot = parseInt(newDeviceFormData.slot);
+          
+          // 只对西门子PLC添加rack和slot参数
+          if (newDeviceFormData.plcType === 'Siemens_S7') {
+            if (newDeviceFormData.rack) {
+              config.rack = parseInt(newDeviceFormData.rack);
+            }
+            if (newDeviceFormData.slot) {
+              config.slot = parseInt(newDeviceFormData.slot);
+            }
           }
+          
+          deviceData.config = config;
         }
-        
-        deviceData.config = config;
       }
 
       const response = await fetch('/api/workstation-devices', {
@@ -379,6 +409,7 @@ export default function WorkstationsPage() {
         setNewDeviceFormData({
           name: '',
           deviceTypeId: '',
+          deviceCategory: 'NETWORK',
           ipAddress: '',
           port: '',
           plcType: '',
@@ -446,6 +477,9 @@ export default function WorkstationsPage() {
                 {t('common.name') || '名称'}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                {t('common.description') || '描述'}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 {t('admin.workstations.configuredIp') || '配置IP'}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -465,6 +499,7 @@ export default function WorkstationsPage() {
                 <tr onClick={() => handleRowClick(workstation)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4">{workstation.workstationId}</td>
                   <td className="px-6 py-4">{workstation.name}</td>
+                  <td className="px-6 py-4">{workstation.description || '-'}</td>
                   <td className="px-6 py-4">{workstation.configuredIp}</td>
                   <td className="px-6 py-4"><span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(workstation.status)}`}>{workstation.status}</span></td>
                   <td className="px-6 py-4">{workstation.devices?.length || 0}</td>
@@ -479,7 +514,7 @@ export default function WorkstationsPage() {
                 </tr>
                 {expandedWorkstationId === workstation.id && (
                   <tr>
-                    <td colSpan={6} className="p-4 bg-gray-100 dark:bg-gray-900">
+                    <td colSpan={7} className="p-4 bg-gray-100 dark:bg-gray-900">
                       <div className="border-b border-gray-200 dark:border-gray-700">
                         <nav className="-mb-px flex space-x-8">
                           <button 
@@ -569,6 +604,23 @@ export default function WorkstationsPage() {
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                               />
                             </div>
+                            
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                id="editIsOrderCompleteStation"
+                                checked={formData.isOrderCompleteStation || false}
+                                onChange={(e) => setFormData({...formData, isOrderCompleteStation: e.target.checked})}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <label htmlFor="editIsOrderCompleteStation" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                是否关闭订单
+                              </label>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              勾选此选项后，该工位完成任务时将直接关闭整个订单，订单在其他工位上也不再显示
+                            </p>
+                            
                             <div className="flex justify-end pt-4">
                               <button 
                                 type="submit" 
@@ -751,6 +803,22 @@ export default function WorkstationsPage() {
                   placeholder="工位描述信息"
                 />
               </div>
+
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="isOrderCompleteStation"
+                  checked={newWorkstationFormData.isOrderCompleteStation}
+                  onChange={(e) => setNewWorkstationFormData({...newWorkstationFormData, isOrderCompleteStation: e.target.checked})}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="isOrderCompleteStation" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  是否关闭订单
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                勾选此选项后，该工位完成任务时将直接关闭整个订单，订单在其他工位上也不再显示
+              </p>
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
@@ -763,7 +831,8 @@ export default function WorkstationsPage() {
                     name: '',
                     description: '',
                     location: '',
-                    configuredIp: ''
+                    configuredIp: '',
+                    isOrderCompleteStation: false
                   });
                 }} 
                 className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
@@ -788,19 +857,71 @@ export default function WorkstationsPage() {
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">为 {selectedWorkstation?.name} 添加新设备</h3>
             
             <div className="space-y-4">
+              {/* 设备连接类型选择 */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    选择设备类型
-                  </label>
-                  <button
-                    type="button"
-                    onClick={loadAvailableDeviceTypes}
-                    className="text-blue-600 hover:text-blue-800 text-xs underline"
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  设备连接类型
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div 
+                    onClick={() => setNewDeviceFormData({...newDeviceFormData, deviceCategory: 'NETWORK'})}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      newDeviceFormData.deviceCategory === 'NETWORK' 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                    }`}
                   >
-                    🔄 刷新设备列表
-                  </button>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">网络设备</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">PLC、传感器等网络设备</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    onClick={() => setNewDeviceFormData({...newDeviceFormData, deviceCategory: 'USB'})}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      newDeviceFormData.deviceCategory === 'USB' 
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m0 0v2a1 1 0 01-1 1H8a1 1 0 01-1-1V4m0 0H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">USB设备</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">扫码枪、键盘等USB设备</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              {/* 网络设备类型选择 */}
+              {newDeviceFormData.deviceCategory === 'NETWORK' && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      选择设备模板
+                    </label>
+                    <button
+                      type="button"
+                      onClick={loadAvailableDeviceTypes}
+                      className="text-blue-600 hover:text-blue-800 text-xs underline"
+                    >
+                      🔄 刷新设备列表
+                    </button>
+                  </div>
                 {availableDeviceTypes.length === 0 ? (
                   <div className="w-full px-3 py-2 border border-orange-300 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                     <div className="flex items-center justify-between">
@@ -837,6 +958,34 @@ export default function WorkstationsPage() {
                     : '请先到设备管理页面创建设备模板'}
                 </p>
               </div>
+              )}
+
+              {/* USB设备类型选择 */}
+              {newDeviceFormData.deviceCategory === 'USB' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    USB设备类型
+                  </label>
+                  <select
+                    value={newDeviceFormData.deviceTypeId}
+                    onChange={(e) => setNewDeviceFormData({...newDeviceFormData, deviceTypeId: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  >
+                    <option value="">请选择USB设备类型</option>
+                    {availableDeviceTypes
+                      .filter(t => t.type === 'BARCODE_SCANNER' && t.brand === 'Generic')
+                      .map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    USB设备通过系统自动识别，无需配置网络参数
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -852,34 +1001,37 @@ export default function WorkstationsPage() {
                 <p className="text-xs text-gray-500 mt-1">为空时将自动生成名称</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    IP地址
-                  </label>
-                  <input
-                    type="text"
-                    value={newDeviceFormData.ipAddress}
-                    onChange={(e) => setNewDeviceFormData({...newDeviceFormData, ipAddress: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="192.168.1.100"
-                    required
-                  />
+              {/* 网络设备配置 - 只在选择网络设备时显示 */}
+              {newDeviceFormData.deviceCategory === 'NETWORK' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      IP地址
+                    </label>
+                    <input
+                      type="text"
+                      value={newDeviceFormData.ipAddress}
+                      onChange={(e) => setNewDeviceFormData({...newDeviceFormData, ipAddress: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="192.168.1.100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      端口
+                    </label>
+                    <input
+                      type="number"
+                      value={newDeviceFormData.port}
+                      onChange={(e) => setNewDeviceFormData({...newDeviceFormData, port: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="502"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    端口
-                  </label>
-                  <input
-                    type="number"
-                    value={newDeviceFormData.port}
-                    onChange={(e) => setNewDeviceFormData({...newDeviceFormData, port: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="502"
-                    required
-                  />
-                </div>
-              </div>
+              )}
 
               {/* PLC配置参数 */}
               {newDeviceFormData.deviceTypeId && (() => {
@@ -964,6 +1116,7 @@ export default function WorkstationsPage() {
                   setNewDeviceFormData({
                     name: '',
                     deviceTypeId: '',
+                    deviceCategory: 'NETWORK',
                     ipAddress: '',
                     port: '',
                     plcType: '',
@@ -977,7 +1130,11 @@ export default function WorkstationsPage() {
               </button>
               <button 
                 onClick={handleCreateDeviceInstance}
-                disabled={!newDeviceFormData.deviceTypeId || !newDeviceFormData.ipAddress || !newDeviceFormData.port}
+                disabled={
+                  !newDeviceFormData.deviceTypeId || 
+                  !newDeviceFormData.name ||
+                  (newDeviceFormData.deviceCategory === 'NETWORK' && (!newDeviceFormData.ipAddress || !newDeviceFormData.port))
+                }
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 创建设备实例

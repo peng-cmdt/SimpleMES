@@ -282,51 +282,55 @@ export default function ClientDashboard() {
   // 安全验证增强的认证检查
   const validateSession = useCallback(async () => {
     const userInfoStr = localStorage.getItem("clientUserInfo");
-    const workstationSessionStr = localStorage.getItem("workstationSession");
     
-    if (!userInfoStr || !workstationSessionStr) {
-      await logSecurityEvent('INVALID_SESSION', { reason: 'Missing session data' });
+    if (!userInfoStr) {
       router.push("/client/login");
       return false;
     }
 
-    try {
-      const user = JSON.parse(userInfoStr);
-      const session = JSON.parse(workstationSessionStr);
-      
-      // 验证会话完整性
-      if (!session.sessionId || !session.workstation || !user.id) {
-        throw new Error('Session data corrupted');
+    // 扫描所有可用的工位session
+    const availableSessions = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('workstationSession_')) {
+        const sessionStr = localStorage.getItem(key);
+        if (sessionStr) {
+          try {
+            const session = JSON.parse(sessionStr);
+            availableSessions.push(session);
+          } catch (e) {
+            // 无效的session，忽略
+          }
+        }
       }
-      
-      // 检查会话时间
-      const loginTime = new Date(session.loginTime);
-      const now = new Date();
-      if (now.getTime() - loginTime.getTime() > SECURITY_CONFIG.SESSION_TIMEOUT) {
-        throw new Error('Session expired');
+    }
+
+    // 检查旧格式的session（向后兼容）
+    const oldSessionStr = localStorage.getItem('workstationSession');
+    if (oldSessionStr) {
+      try {
+        const oldSession = JSON.parse(oldSessionStr);
+        availableSessions.push(oldSession);
+      } catch (e) {
+        // 无效的session，忽略
       }
-      
-      setUserInfo(user);
-      setWorkstationSession(session);
-      updateLastActivity();
-      
-      await logSecurityEvent('SESSION_VALIDATED', {
-        sessionId: session.sessionId,
-        username: user.username,
-        workstationId: session.workstation.id
-      });
-      
-      return true;
-    } catch (error) {
-      await logSecurityEvent('SESSION_VALIDATION_FAILED', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        userAgent: navigator.userAgent
-      });
-      
-      localStorage.removeItem("clientUserInfo");
-      localStorage.removeItem("workstationSession");
+    }
+
+    if (availableSessions.length === 0) {
       router.push("/client/login");
       return false;
+    } else if (availableSessions.length === 1) {
+      // 只有一个有效session，直接使用
+      const session = availableSessions[0];
+      setUserInfo(JSON.parse(userInfoStr));
+      setWorkstationSession(session);
+      return true;
+    } else {
+      // 多个session，使用第一个（dashboard不需要选择逻辑）
+      const session = availableSessions[0];
+      setUserInfo(JSON.parse(userInfoStr));
+      setWorkstationSession(session);
+      return true;
     }
   }, [router, updateLastActivity]);
 
@@ -716,7 +720,13 @@ export default function ClientDashboard() {
       localStorage.removeItem("clientAuth");
       localStorage.removeItem("clientUserInfo");
       localStorage.removeItem("clientInfo");
-      localStorage.removeItem("workstationSession");
+      // 只清理当前工位的session，不影响其他工位
+      if (workstationSession && workstationSession.workstation) {
+        const sessionKey = `workstationSession_${workstationSession.workstation.workstationId}`;
+        localStorage.removeItem(sessionKey);
+      }
+      // 清理旧格式的session（向后兼容）
+      localStorage.removeItem('workstationSession');
       router.push("/");
     }
   };

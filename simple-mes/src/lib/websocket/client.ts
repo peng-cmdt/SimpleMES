@@ -56,7 +56,7 @@ export class WebSocketClient {
       }
       
       this.isConnecting = true;
-      console.log('正在连接WebSocket服务器...');
+
       
       this.socket = io(this.config.url!, {
         transports: ['websocket', 'polling'],
@@ -66,7 +66,7 @@ export class WebSocketClient {
       
       // 连接成功
       this.socket.on('connect', () => {
-        console.log('WebSocket连接成功:', this.socket!.id);
+
         this.isConnecting = false;
         
         // 发送认证信息
@@ -85,7 +85,7 @@ export class WebSocketClient {
       
       // 连接失败
       this.socket.on('connect_error', (error) => {
-        console.error('WebSocket连接失败:', error);
+
         this.isConnecting = false;
         
         // 触发错误事件
@@ -101,7 +101,7 @@ export class WebSocketClient {
       
       // 断开连接
       this.socket.on('disconnect', (reason) => {
-        console.log('WebSocket断开连接:', reason);
+
         
         // 停止心跳
         this.stopHeartbeat();
@@ -136,7 +136,7 @@ export class WebSocketClient {
       this.socket = null;
     }
     
-    console.log('WebSocket已断开连接');
+
   }
   
   // 认证
@@ -150,13 +150,13 @@ export class WebSocketClient {
     
     this.socket.once('authenticated', (data) => {
       if (data.success) {
-        console.log('WebSocket认证成功');
+
         this.emit('authenticated', data);
         
         // 恢复订阅
         this.restoreSubscriptions();
       } else {
-        console.error('WebSocket认证失败');
+
         this.emit('authentication_failed', data);
       }
     });
@@ -194,7 +194,7 @@ export class WebSocketClient {
         }
       });
       
-      console.log(`订阅PLC数据: ${subscriptionKey}`);
+
     }
     
     return subscriptionKey;
@@ -213,7 +213,7 @@ export class WebSocketClient {
         address: subscription.address
       });
       
-      console.log(`取消订阅PLC数据: ${subscriptionKey}`);
+
     }
   }
   
@@ -307,7 +307,7 @@ export class WebSocketClient {
       }
     });
     
-    console.log(`订阅订单更新: ${workstationId}`);
+
   }
   
   // 订阅设备状态
@@ -322,7 +322,7 @@ export class WebSocketClient {
       }
     });
     
-    console.log(`订阅设备状态: ${deviceId}`);
+
   }
   
   // 添加事件监听
@@ -363,7 +363,7 @@ export class WebSocketClient {
     
     // 心跳响应
     this.socket.on('pong', (data) => {
-      // console.log('收到心跳响应:', data.timestamp);
+
     });
   }
   
@@ -376,7 +376,7 @@ export class WebSocketClient {
         address: subscription.address,
         interval: subscription.interval
       });
-      console.log(`恢复订阅: ${key}`);
+
     }
   }
   
@@ -403,12 +403,12 @@ export class WebSocketClient {
   private scheduleReconnect() {
     if (this.reconnectTimer) return;
     
-    console.log(`${this.config.reconnectInterval! / 1000}秒后重连...`);
+
     
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect().catch(error => {
-        console.error('重连失败:', error);
+
       });
     }, this.config.reconnectInterval!);
   }

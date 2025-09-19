@@ -97,6 +97,7 @@ model Workstation {
   status              String                @default("offline")
   lastConnected       DateTime?
   settings            Json?
+  isOrderCompleteStation Boolean            @default(false)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   orderSteps          OrderStep[]
@@ -105,6 +106,7 @@ model Workstation {
   stepTemplates       StepTemplate[]
   steps               Step[]
   workstationDevices  WorkstationDevice[]
+  workstationOrderQueues WorkstationOrderQueue[]
   sessions            WorkstationSession[]
   workState           WorkstationWorkState? @relation("WorkstationWorkState")
 
@@ -451,6 +453,7 @@ model Order {
   currentStep       Step?                @relation("OrderCurrentStep", fields: [currentStepId], references: [id])
   process           Process              @relation(fields: [processId], references: [id])
   product           Product              @relation(fields: [productId], references: [id])
+  workstationOrderQueues WorkstationOrderQueue[]
 
   @@index([status])
   @@index([productId])
@@ -614,4 +617,36 @@ enum OrderStatus {
   PAUSED
   CANCELLED
   ERROR
+}
+
+enum WorkstationOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  SKIPPED
+}
+
+model WorkstationOrderQueue {
+  id            String                @id @default(cuid())
+  orderId       String
+  workstationId String  
+  status        WorkstationOrderStatus @default(PENDING)
+  assignedAt    DateTime              @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  priority      Int                   @default(0)
+  sequence      Int                   @default(0)
+  isVisible     Boolean               @default(true)
+  notes         String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  
+  order         Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  workstation   Workstation           @relation(fields: [workstationId], references: [id], onDelete: Cascade)
+  
+  @@unique([orderId, workstationId])
+  @@index([workstationId, status])
+  @@index([orderId])
+  @@map("workstation_order_queues")
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -213,10 +214,6 @@ export default function ClientsPage() {
       }
     });
     setError('');
-  };
-
-  const handleBack = () => {
-    // Not needed anymore with AdminLayout
   };
 
   const getStatusColor = (status: string) => {

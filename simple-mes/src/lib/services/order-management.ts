@@ -59,8 +59,8 @@ export class OrderManagementService {
       // 准备更新数据
       const updateData: any = {
         status: newStatus,
-        startedAt: newStatus === 'IN_PROGRESS' && !currentOrder.startedAt ? new Date() : currentOrder.startedAt,
-        completedAt: newStatus === 'COMPLETED' ? new Date() : currentOrder.completedAt,
+        startedAt: newStatus === OrderStatus.IN_PROGRESS && !currentOrder.startedAt ? new Date() : currentOrder.startedAt,
+        completedAt: newStatus === OrderStatus.COMPLETED ? new Date() : currentOrder.completedAt,
         updatedAt: new Date()
       };
 
@@ -74,10 +74,10 @@ export class OrderManagementService {
           if (workstationExists) {
             updateData.currentStationId = workstationId;
           } else {
-            console.warn(`Workstation ID ${workstationId} not found, skipping workstation update`);
+
           }
         } catch (error) {
-          console.warn(`Error validating workstation ID ${workstationId}:`, error);
+
         }
       }
       if (stepId) {
@@ -89,10 +89,10 @@ export class OrderManagementService {
           if (stepExists) {
             updateData.currentStepId = stepId;
           } else {
-            console.warn(`Step ID ${stepId} not found, skipping step update`);
+
           }
         } catch (error) {
-          console.warn(`Error validating step ID ${stepId}:`, error);
+
         }
       }
 
@@ -101,6 +101,29 @@ export class OrderManagementService {
         where: { id: orderId },
         data: updateData
       });
+
+      // 如果订单状态重置为PENDING，同时重置所有工位的订单状态
+      if (newStatus === OrderStatus.PENDING) {
+        await tx.workstationOrderQueue.updateMany({
+          where: {
+            orderId: orderId
+          },
+          data: {
+            status: 'PENDING',
+            startedAt: null,
+            completedAt: null,
+            isVisible: true,
+            notes: null
+          }
+        });
+        
+
+      }
+
+      // 如果订单状态变为IN_PROGRESS且之前不是IN_PROGRESS，创建OrderStep记录
+      if (newStatus === OrderStatus.IN_PROGRESS && oldStatus !== OrderStatus.IN_PROGRESS) {
+        await this.createOrderSteps(tx, orderId, currentOrder);
+      }
 
       // 记录状态变更历史
       await tx.orderStatusHistory.create({
@@ -146,10 +169,10 @@ export class OrderManagementService {
       });
 
       // 如果订单完成数量达到目标数量，自动设置为完成状态
-      if (completedQuantity !== undefined && completedQuantity >= currentOrder.quantity) {
+      if (completedQuantity !== undefined && currentOrder.quantity !== null && currentOrder.quantity !== undefined && completedQuantity >= currentOrder.quantity) {
         await this.changeOrderStatus({
           orderId,
-          newStatus: 'COMPLETED',
+          newStatus: OrderStatus.COMPLETED,
           changedBy: updatedBy || 'system',
           reason: '生产数量已达到目标',
           notes: `完成数量: ${completedQuantity}/${currentOrder.quantity}`
@@ -235,7 +258,7 @@ export class OrderManagementService {
         };
       };
     } = {
-      status: status ? { in: status } : { in: ['PENDING', 'IN_PROGRESS'] },
+      status: status ? { in: status } : { in: [OrderStatus.PENDING, OrderStatus.IN_PROGRESS] },
       orderSteps: {
         some: {
           workstationId,
@@ -313,8 +336,7 @@ export class OrderManagementService {
             workstation: true,
             actionLogs: {
               include: {
-                action: true,
-                device: true
+                action: true
               },
               orderBy: { executedAt: 'desc' }
             }
@@ -358,6 +380,58 @@ export class OrderManagementService {
     }
 
     return results;
+  }
+
+  /**
+   * 创建订单步骤记录
+   */
+  private async createOrderSteps(tx: any, orderId: string, order: any) {
+    // 获取订单的工艺流程步骤
+    const orderWithProcess = await tx.order.findUnique({
+      where: { id: orderId },
+      include: {
+        process: {
+          include: {
+            steps: {
+              include: {
+                workstation: true
+              },
+              orderBy: { sequence: 'asc' }
+            }
+          }
+        }
+      }
+    });
+
+    if (!orderWithProcess?.process?.steps || orderWithProcess.process.steps.length === 0) {
+
+      return;
+    }
+
+    // 检查是否已存在OrderStep记录
+    const existingOrderSteps = await tx.orderStep.findMany({
+      where: { orderId }
+    });
+
+    if (existingOrderSteps.length > 0) {
+
+      return;
+    }
+
+    // 为每个工艺步骤创建OrderStep记录
+    const orderStepPromises = orderWithProcess.process.steps.map((step: { id: string; workstationId: string }) => 
+      tx.orderStep.create({
+        data: {
+          orderId,
+          stepId: step.id,
+          workstationId: step.workstationId,
+          status: 'pending'
+        }
+      })
+    );
+
+    await Promise.all(orderStepPromises);
+
   }
 
   /**
@@ -441,10 +515,10 @@ export class OrderManagementService {
     return {
       statusCounts,
       totalOrders,
-      totalQuantity: totalQuantity._sum.quantity || 0,
-      completedQuantity: completedQuantity._sum.completedQuantity || 0,
-      completionRate: totalQuantity._sum.quantity > 0 
-        ? ((completedQuantity._sum.completedQuantity || 0) / totalQuantity._sum.quantity * 100).toFixed(2)
+      totalQuantity: (totalQuantity._sum.quantity ?? 0),
+      completedQuantity: (completedQuantity._sum.completedQuantity ?? 0),
+      completionRate: (totalQuantity._sum.quantity ?? 0) > 0
+        ? (((completedQuantity._sum.completedQuantity ?? 0) / (totalQuantity._sum.quantity ?? 0)) * 100).toFixed(2)
         : '0'
     };
   }

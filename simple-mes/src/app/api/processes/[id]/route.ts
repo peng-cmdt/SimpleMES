@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma';
 // GET /api/processes/[id] - 获取单个工艺流程详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const process = await prisma.process.findUnique({
       where: { id },
@@ -31,16 +31,6 @@ export async function GET(
               }
             },
             actions: {
-              include: {
-                device: {
-                  select: {
-                    id: true,
-                    deviceId: true,
-                    name: true,
-                    type: true
-                  }
-                }
-              },
               orderBy: { sequence: 'asc' }
             },
             _count: {
@@ -96,12 +86,12 @@ export async function GET(
 // PUT /api/processes/[id] - 更新工艺流程
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const { processCode, name, productId, version, description, status, steps = [] } = body;
+    const { processCode, name, productId, version, description, status, steps } = body;
 
     // 验证工艺流程是否存在
     const existingProcess = await prisma.process.findUnique({
@@ -158,8 +148,8 @@ export async function PUT(
         }
       });
 
-      // 如果提供了steps数据，更新步骤和动作
-      if (steps.length >= 0) {
+      // 只有当明确提供了steps数据时，才更新步骤和动作
+      if (steps !== undefined && Array.isArray(steps)) {
         // 删除现有的步骤（动作会因为级联删除而自动删除）
         await tx.step.deleteMany({
           where: { processId: id }
@@ -228,16 +218,6 @@ export async function PUT(
               }
             },
             actions: {
-              include: {
-                device: {
-                  select: {
-                    id: true,
-                    deviceId: true,
-                    name: true,
-                    type: true
-                  }
-                }
-              },
               orderBy: { sequence: 'asc' }
             }
           },
@@ -264,10 +244,10 @@ export async function PUT(
 // DELETE /api/processes/[id] - 删除工艺流程
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // 验证工艺流程是否存在
     const existingProcess = await prisma.process.findUnique({

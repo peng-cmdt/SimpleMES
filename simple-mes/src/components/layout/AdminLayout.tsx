@@ -89,6 +89,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           children: [
             { id: "processes", name: "工艺管理", icon: "⚙️", path: "/admin/processes", order: 1 },
             { id: "step-templates", name: "工艺步骤管理", icon: "📋", path: "/admin/step-templates", order: 2 },
+            { id: "order-monitoring", name: "订单监测", icon: "📊", path: "/admin/order-monitoring", order: 3 },
+            { id: "segment", name: "订单分配监控", icon: "📋", path: "/admin/segment", order: 4 },
           ]
         },
         { id: "workstations", name: t('menu.workstations'), icon: "🏭", path: "/admin/workstations", order: 4 },

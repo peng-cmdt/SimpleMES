@@ -58,7 +58,7 @@ export class PLCMonitor {
     
     this.tasks.set(subscriptionKey, task);
     
-    console.log(`开始监控PLC: ${subscriptionKey}, 间隔: ${task.interval}ms`);
+
   }
   
   // 停止监控
@@ -73,7 +73,7 @@ export class PLCMonitor {
     
     this.tasks.delete(subscriptionKey);
     
-    console.log(`停止监控PLC: ${subscriptionKey}`);
+
   }
   
   // 读取并广播数据
@@ -102,7 +102,7 @@ export class PLCMonitor {
     } catch (error) {
       task.errorCount++;
       
-      console.error(`PLC监控读取失败 ${task.subscriptionKey}:`, error);
+
       
       // 广播错误
       this.wsServer.broadcastPLCUpdate(task.subscriptionKey, {
@@ -114,7 +114,7 @@ export class PLCMonitor {
       
       // 错误次数过多，自动停止监控
       if (task.errorCount >= this.MAX_ERROR_COUNT) {
-        console.error(`监控错误次数过多，停止监控: ${task.subscriptionKey}`);
+
         await this.stopMonitoring(task.subscriptionKey);
       }
     }

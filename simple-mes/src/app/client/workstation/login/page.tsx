@@ -104,17 +104,18 @@ export default function WorkstationLoginPage() {
       setLoginResult(result);
 
       if (result.success) {
-        // 保存会话信息到localStorage
-        localStorage.setItem('workstationSession', JSON.stringify({
+        // 保存会话信息到localStorage（使用工位特定的key）
+        const sessionKey = `workstationSession_${result.workstation.workstationId}`;
+        localStorage.setItem(sessionKey, JSON.stringify({
           sessionId: result.sessionId,
           workstation: result.workstation,
           username: username.trim(),
           loginTime: result.loginTime
         }));
 
-        // 跳转到工位工作台
+        // 跳转到工位工作台，包含工位ID参数
         setTimeout(() => {
-          router.push('/client/workstation');
+          router.push(`/client/workstation?workstationId=${result.workstation.workstationId}`);
         }, 2000);
       }
     } catch (error) {

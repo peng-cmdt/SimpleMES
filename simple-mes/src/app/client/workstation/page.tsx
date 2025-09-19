@@ -1,10 +1,26 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DevicePreloadManager } from "@/lib/device-preload/DevicePreloadManager";
 import { useUSBScannerDetector } from "@/hooks/useUSBScannerDetector";
+
+// 安全的JSON解析函数
+const safeJsonParse = async (response: Response) => {
+  try {
+    const text = await response.text();
+    if (!text.trim()) {
+      return { success: false, error: '空响应' };
+    }
+    if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+      return { success: false, error: '服务器返回HTML页面，可能是路由错误' };
+    }
+    return JSON.parse(text);
+  } catch (error) {
+    return { success: false, error: 'JSON解析错误' };
+  }
+};
 
 interface Order {
   id: string;
@@ -152,10 +168,16 @@ interface PLCTestResult {
 }
 
 export default function WorkstationPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { t } = useLanguage();
+  
   const [workstationSession, setWorkstationSession] = useState<WorkstationSession | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [multipleSessionsAvailable, setMultipleSessionsAvailable] = useState<WorkstationSession[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
+  const [isValidatingSession, setIsValidatingSession] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
@@ -187,14 +209,13 @@ export default function WorkstationPage() {
   } = useUSBScannerDetector(
     (result) => {
       // 扫码成功回调 - 用户按回车键后触发
-      console.log('USB扫码枪输入完成，开始验证:', result.code);
       if (handleScannerValidationRef.current) {
         handleScannerValidationRef.current(result.code, true);
       }
     },
     (error) => {
       // 扫码失败回调  
-      console.log('USB扫码枪验证失败:', error);
+
       if (handleScannerValidationRef.current) {
         handleScannerValidationRef.current('', false);
       }
@@ -234,8 +255,8 @@ export default function WorkstationPage() {
            device.type === 'USB_KEY';
   };
   
-  // USB扫码枪验证处理函数 - 将在后面定义handleNextAction后重新定义
-  const handleScannerValidationRef = useRef<(scannedCode: string, isSuccess: boolean) => void>();
+  // USB扫码枪验证处理函数
+  const handleScannerValidationRef = useRef<(scannedCode: string, isSuccess: boolean) => void>(() => {});
   
   // 系统设置相关状态
   const [orderDisplayLimit, setOrderDisplayLimit] = useState<number>(20); // 默认20条
@@ -324,9 +345,6 @@ export default function WorkstationPage() {
   const activeStepRef = useRef<HTMLDivElement>(null);
   const activeActionRef = useRef<HTMLDivElement>(null);
   
-  const router = useRouter();
-  const { t } = useLanguage();
-  
   // 初始化设备预加载管理器
   useEffect(() => {
     preloadManagerRef.current = DevicePreloadManager.getInstance();
@@ -346,7 +364,7 @@ export default function WorkstationPage() {
     const handlePreloadCompleted = (data: any) => {
       setIsPreloading(false);
       setPreloadStatus(`预加载完成: ${data.successCount}/${data.totalCount} 设备, 耗时 ${data.totalTime}ms`);
-      console.log('设备预加载完成:', data);
+
     };
     
     const handlePreloadFailed = (data: any) => {
@@ -374,7 +392,7 @@ export default function WorkstationPage() {
       try {
         const response = await fetch('/api/system/settings');
         if (response.ok) {
-          const data = await response.json();
+          const data = await safeJsonParse(response);
           if (data.success && data.settings) {
             setOrderDisplayLimit(data.settings.clientOrderDisplayCount || 20);
           }
@@ -463,7 +481,7 @@ export default function WorkstationPage() {
         const result = await response.json();
         
         if (!result.success) {
-          console.error('心跳检测失败:', result.error, result.message);
+
           
           // 检查是否被接管
           if (result.error === 'SESSION_TAKEN_OVER') {
@@ -479,15 +497,21 @@ export default function WorkstationPage() {
             localStorage.removeItem("clientAuth");
             localStorage.removeItem("clientUserInfo"); 
             localStorage.removeItem("clientInfo");
-            localStorage.removeItem("workstationSession");
+            // 只清理当前工位的session，不影响其他工位
+            if (workstationSession && workstationSession.workstation) {
+              const sessionKey = `workstationSession_${workstationSession.workstation.workstationId}`;
+              localStorage.removeItem(sessionKey);
+            }
+            // 清理旧格式的session（向后兼容）
+            localStorage.removeItem('workstationSession');
             router.push("/client/login");
             return;
           }
         } else {
-          console.log('会话心跳发送成功');
+
         }
       } catch (error) {
-        console.error('会话心跳发送失败:', error);
+
       }
     };
 
@@ -503,32 +527,154 @@ export default function WorkstationPage() {
   // 验证会话和加载数据
   useEffect(() => {
     const validateSession = () => {
+
+      setIsValidatingSession(true);
       const userInfoStr = localStorage.getItem("clientUserInfo");
-      const workstationSessionStr = localStorage.getItem("workstationSession");
+
       
-      if (!userInfoStr || !workstationSessionStr) {
+      if (!userInfoStr) {
+
         router.push("/client/login");
         return;
       }
 
-      try {
-        const user = JSON.parse(userInfoStr);
-        const session = JSON.parse(workstationSessionStr);
-        
-        setUserInfo(user);
-        setWorkstationSession(session);
-        // 直接使用session对象来加载订单，而不是依赖状态
-        loadOrdersWithSession(session);
-        // 尝试恢复工作状态
-        restoreWorkState(session.workstation.workstationId);
-      } catch (error) {
-        console.error('Session validation failed:', error);
-        router.push("/client/login");
+      // 扫描所有可用的工位session
+
+      const availableSessions = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('workstationSession_')) {
+
+          const sessionStr = localStorage.getItem(key);
+          if (sessionStr) {
+            try {
+              const session = JSON.parse(sessionStr);
+
+              availableSessions.push(session);
+            } catch (e) {
+
+            }
+          }
+        }
       }
+
+      // 检查旧格式的session（向后兼容）
+      const oldSessionStr = localStorage.getItem('workstationSession');
+      if (oldSessionStr) {
+
+        try {
+          const oldSession = JSON.parse(oldSessionStr);
+
+          availableSessions.push(oldSession);
+        } catch (e) {
+
+        }
+      }
+
+
+      if (availableSessions.length === 0) {
+
+        router.push("/client/login");
+        return;
+      }
+      
+      // 声明preferredSession变量以便在后面使用
+      let preferredSession = null;
+      
+      if (availableSessions.length === 1) {
+        // 只有一个有效session，直接使用
+        const session = availableSessions[0];
+
+        
+        // 确保URL参数与选择的工位一致
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('workstationId', session.workstation.workstationId);
+        window.history.replaceState({}, '', newUrl.toString());
+        
+        setUserInfo(JSON.parse(userInfoStr));
+        setWorkstationSession(session);
+        setIsValidatingSession(false);
+      } else {
+        // 多个session，首先检查URL参数中的工位ID
+        const urlWorkstationId = searchParams?.get('workstationId');
+
+        
+        if (urlWorkstationId) {
+          // 优先使用URL参数指定的工位
+          preferredSession = availableSessions.find(session => 
+            session.workstation.workstationId === urlWorkstationId
+          );
+          if (preferredSession) {
+
+            // 更新lastSelectedWorkstation以保持一致性
+            localStorage.setItem('lastSelectedWorkstation', urlWorkstationId);
+          } else {
+
+          }
+        }
+        
+        // 如果URL参数没有指定工位或指定的工位无效，则检查用户偏好的工位
+        if (!preferredSession) {
+          const lastSelectedWorkstation = localStorage.getItem('lastSelectedWorkstation');
+
+          
+          if (lastSelectedWorkstation) {
+            preferredSession = availableSessions.find(session => 
+              session.workstation.workstationId === lastSelectedWorkstation
+            );
+          }
+        }
+        
+        if (preferredSession) {
+          // 找到用户偏好的工位，自动选择
+
+          
+          // 确保URL参数与选择的工位一致
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('workstationId', preferredSession.workstation.workstationId);
+          window.history.replaceState({}, '', newUrl.toString());
+          
+          setUserInfo(JSON.parse(userInfoStr));
+          setWorkstationSession(preferredSession);
+          setIsValidatingSession(false);
+        } else {
+          // 没有偏好或偏好的工位不存在，需要用户手动选择
+
+          setUserInfo(JSON.parse(userInfoStr));
+          setMultipleSessionsAvailable(availableSessions);
+          setIsValidatingSession(false);
+          return; // 不自动选择，等待用户选择
+        }
+      }
+      
+      // 加载订单和恢复工作状态 - 只在有明确session时加载
+      if (availableSessions.length === 1) {
+        const session = availableSessions[0];
+        loadOrdersWithSession(session);
+        restoreWorkState(session.workstation.workstationId);
+      } else if (preferredSession) {
+        // 多个session且找到偏好的工位
+        loadOrdersWithSession(preferredSession);
+        restoreWorkState(preferredSession.workstation.workstationId);
+      }
+      
+
+      setIsValidatingSession(false);
     };
 
     validateSession();
-  }, [router]);
+    
+    // 添加超时机制，5秒后如果还在验证，则强制跳转到登录页面
+    const timeoutId = setTimeout(() => {
+      if (isValidatingSession) {
+
+        localStorage.clear();
+        router.push("/client/login");
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [router, isValidatingSession]);
 
   // 添加一个独立的useEffect来监听workstationSession变化
   useEffect(() => {
@@ -545,7 +691,7 @@ export default function WorkstationPage() {
     if (!workstationSession || isExecutionMode) return;
     
     const orderRefreshInterval = setInterval(() => {
-      console.log('Auto-refreshing order list...');
+
       loadOrdersWithSession(workstationSession);
     }, 2000); // 更改为每2秒刷新一次
     
@@ -578,7 +724,7 @@ export default function WorkstationPage() {
       try {
         activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } catch (error) {
-        console.warn('滚动到当前步骤失败:', error);
+
       }
     }
   }, [currentStepIndex]);
@@ -589,32 +735,32 @@ export default function WorkstationPage() {
       try {
         activeActionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } catch (error) {
-        console.warn('滚动到当前动作失败:', error);
+
       }
     }
     
     // 当切换到新动作时，检测设备状态并开始监控
     const currentAction = getCurrentAction();
     if (currentAction && currentAction.device && isExecutionMode) {
-      console.log('切换到新动作，开始设备状态检测:', currentAction.name);
+
       
       // 检查是否为USB扫码枪设备
       if (isUSBScannerDevice(currentAction.device)) {
         // USB扫码枪设备，直接启动USB扫码枪验证
-        console.log('检测到USB扫码枪设备，启动USB扫码枪验证:', currentAction.device.name);
+
         const result = startUSBScannerValidation(currentAction);
         if (!result) {
-          console.error('启动USB扫码枪验证失败');
+
         }
       } else {
         // 非USB扫码枪设备，进行设备连接检测和PLC监控
         checkCurrentActionDeviceStatus(currentAction).then((isConnected) => {
           if (isConnected) {
             // 设备连接正常，开始PLC监控
-            console.log('设备连接正常，开始PLC监控:', currentAction.name);
+
             startPLCMonitoring(currentAction);
           } else {
-            console.log('设备连接失败，停止执行:', currentAction.name);
+
           }
         });
       }
@@ -682,7 +828,7 @@ export default function WorkstationPage() {
           }, 500);
         }
       } catch (error) {
-        console.error('USB扫码枪事件处理错误:', error);
+
       }
     };
 
@@ -695,7 +841,7 @@ export default function WorkstationPage() {
         scannerInputRef.current.focus();
       }
     } catch (error) {
-      console.warn('扫码枪输入框聚焦失败:', error);
+
     }
 
     return () => {
@@ -711,12 +857,12 @@ export default function WorkstationPage() {
     if (!session) return;
     
     try {
-      // 从API加载真实数据 - 使用工位的workstationId字段而不是UUID id
-      // 查询非已完成状态的订单，包括 pending 和 in_progress
+      // 从API加载真实数据 - 使用新的工位订单队列API
+      // 查询工位的可见订单，包括 pending 和 in_progress
       const workstationId = session.workstation.workstationId;
-      const response = await fetch(`/api/orders?status=pending,in_progress&workstationId=${workstationId}&limit=${orderDisplayLimit}`);
+      const response = await fetch(`/api/workstation-orders?workstationId=${workstationId}&limit=${orderDisplayLimit}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await safeJsonParse(response);
         if (data.success && data.data.orders) {
           // 映射API数据到界面格式，并按订单号排序
           const mappedOrders = data.data.orders
@@ -741,7 +887,7 @@ export default function WorkstationPage() {
             });
           
           setOrders(mappedOrders);
-          console.log('已加载订单列表 (按订单号排序):', mappedOrders);
+
           return;
         }
       }
@@ -764,12 +910,12 @@ export default function WorkstationPage() {
   // 启动设备预加载
   const startDevicePreload = async (workstationId: string) => {
     if (!preloadManagerRef.current) {
-      console.warn('预加载管理器未初始化');
+
       return;
     }
     
     try {
-      console.log(`开始为工位 ${workstationId} 预加载设备...`);
+
       
       // 获取工位设备列表
       const response = await fetch('/api/workstation/preload', {
@@ -786,14 +932,14 @@ export default function WorkstationPage() {
         // 启动预加载（异步执行，不阻塞界面）
         preloadManagerRef.current.preloadWorkstationDevices(workstationId, deviceIds)
           .then(task => {
-            console.log('设备预加载任务完成:', task);
+
           })
           .catch(error => {
             // 设备预加载失败，可能是网络或设备问题
             setPreloadStatus('设备预加载失败');
           });
       } else {
-        console.log(`工位 ${workstationId} 没有需要预加载的设备`);
+
         setPreloadStatus('没有设备需要预加载');
       }
       
@@ -819,7 +965,7 @@ export default function WorkstationPage() {
     
     if (inProgressOrder) {
       // 如果有正在进行中的订单，继续执行该订单（无论是哪个订单）
-      console.log('发现进行中的订单，继续执行:', inProgressOrder.orderNumber);
+
       await handleContinueOrder(inProgressOrder);
       return;
     }
@@ -832,7 +978,7 @@ export default function WorkstationPage() {
       return;
     }
     
-    console.log('按顺序开始执行订单:', firstPendingOrder.orderNumber);
+
     await handleStartOrder(firstPendingOrder);
   };
 
@@ -848,15 +994,15 @@ export default function WorkstationPage() {
           if (wsResponse.ok) {
             validWorkstationId = workstationSession.workstation.id;
           } else {
-            console.warn('Workstation ID not found in database:', workstationSession.workstation.id);
+
           }
         } catch (error) {
-          console.warn('Error validating workstation ID:', error);
+
         }
       }
       
       // First update order status to IN_PROGRESS
-      console.log('Updating order status to IN_PROGRESS:', order.id);
+
       const statusUpdateResponse = await fetch(`/api/orders/${order.id}`, {
         method: 'PUT',
         headers: {
@@ -873,19 +1019,19 @@ export default function WorkstationPage() {
       
       if (statusUpdateResponse.ok) {
         const statusResult = await statusUpdateResponse.json();
-        console.log('订单状态更新成功:', statusResult);
+
       } else {
-        console.error('订单状态更新失败，停止执行');
+
         const errorData = await statusUpdateResponse.json();
-        console.error('错误详情:', errorData);
-        console.error('Request payload:', {
-          action: 'changeStatus',
-          status: 'IN_PROGRESS',
-          updatedBy: userInfo?.username || 'client',
-          reason: '开始工艺执行',
-          currentStationId: validWorkstationId
-        });
-        console.error('Workstation session:', workstationSession);
+
+
+
+        //   status: 'IN_PROGRESS',
+        //   updatedBy: userInfo?.username || 'client',
+        //   reason: '开始工艺执行',
+        //   currentStationId: validWorkstationId
+
+
         alert('无法启动订单执行 - 状态更新失败: ' + (errorData.error || '未知错误'));
         return; // 停止执行
       }
@@ -899,17 +1045,27 @@ export default function WorkstationPage() {
           // 检查每个步骤的actions
           if (data.data.process?.steps) {
             data.data.process.steps.forEach((step: any, index: number) => {
-              console.log(`Step ${index + 1} (${step.name}) actions:`, step.actions);
+
             });
           }
+          
+
+
+
+
+
           
           // 检查是否有orderSteps数据
           if (data.data.orderSteps && data.data.orderSteps.length > 0) {
             // 使用orderSteps数据，但确保actions有status字段
+
+
             
             // 为了确保步骤条件的准确性，也对orderSteps进行过滤检查
             const stepsToFilter = data.data.orderSteps.map((os: any) => os.step);
+
             const filteredSteps = filterStepsByConditions(stepsToFilter, data.data);
+
             
             // 只保留条件匹配的orderSteps
             const validOrderSteps = data.data.orderSteps.filter((orderStep: any) => 
@@ -917,6 +1073,7 @@ export default function WorkstationPage() {
             );
             
             if (validOrderSteps.length === 0) {
+
               alert('根据当前订单条件，没有需要执行的工艺步骤');
               return;
             }
@@ -943,7 +1100,7 @@ export default function WorkstationPage() {
             setCurrentActionIndex(0);
             setIsExecutionMode(true);
             setStartTime(new Date()); // 启动计时器
-            console.log('Started order execution with OrderSteps data:', processedOrder);
+
             
             // 强制触发重新渲染以确保设备信息正确显示
             setTimeout(() => {
@@ -958,11 +1115,16 @@ export default function WorkstationPage() {
             }
           } else if (data.data.process?.steps && data.data.process.steps.length > 0) {
             // 如果没有orderSteps但有process.steps，创建orderSteps
+
             
             // 应用步骤显示条件过滤
+
+
             const filteredSteps = filterStepsByConditions(data.data.process.steps, data.data);
+
             
             if (filteredSteps.length === 0) {
+
               alert('根据当前订单条件，没有需要执行的工艺步骤');
               return;
             }
@@ -988,14 +1150,14 @@ export default function WorkstationPage() {
               orderSteps: orderStepsFromProcess
             };
             
-            console.log('创建的OrderSteps:', orderStepsFromProcess);
+
             setCurrentOrder(orderWithSteps);
             const firstActionStepIndex = findFirstStepWithActions(orderStepsFromProcess);
             setCurrentStepIndex(firstActionStepIndex);
             setCurrentActionIndex(0);
             setIsExecutionMode(true);
             setStartTime(new Date()); // 启动计时器
-            console.log('Started order execution with generated OrderSteps:', orderWithSteps);
+
             
             // 强制触发重新渲染以确保设备信息正确显示
             setTimeout(() => {
@@ -1009,22 +1171,22 @@ export default function WorkstationPage() {
               saveWorkState(workstationSession.workstation.workstationId);
             }
           } else {
-            console.log('API返回成功但无有效步骤数据');
+
             alert('订单没有配置工艺步骤 - 请在管理系统中为订单配置工艺流程');
             return;
           }
         } else {
-          console.log('API返回失败，无有效数据');
+
           alert('无法加载订单详情 - 请检查订单配置');
           return;
         }
       } else {
-        console.log('API调用失败');
+
         alert('无法连接到服务器 - 请检查网络连接');
         return;
       }
     } catch (error) {
-      console.error('Failed to load order details:', error);
+
       alert('加载订单详情时发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
     } finally {
@@ -1036,17 +1198,27 @@ export default function WorkstationPage() {
     // 对于进行中的订单，直接加载并继续执行
     setIsProcessing(true);
     try {
+
+
+      
       // 加载订单详细信息包括工艺步骤
       const response = await fetch(`/api/orders/${order.id}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          console.log('继续执行订单:', data.data);
+
+          
+
+
+
           
           if (data.data.orderSteps && data.data.orderSteps.length > 0) {
             // 对继续执行的订单也进行条件检查
+
             const stepsToFilter = data.data.orderSteps.map((os: any) => os.step);
+
             const filteredSteps = filterStepsByConditions(stepsToFilter, data.data);
+
             
             // 只保留条件匹配的orderSteps
             const validOrderSteps = data.data.orderSteps.filter((orderStep: any) => 
@@ -1054,6 +1226,7 @@ export default function WorkstationPage() {
             );
             
             if (validOrderSteps.length === 0) {
+
               alert('根据当前订单条件，没有需要执行的工艺步骤');
               return;
             }
@@ -1099,12 +1272,13 @@ export default function WorkstationPage() {
             setCurrentActionIndex(currentActionIdx);
             setIsExecutionMode(true);
             setStartTime(new Date()); // 启动计时器
-            console.log('Continued order execution:', processedOrder);
+
             
             setTimeout(() => {
               setCurrentActionIndex(currentActionIdx);
             }, 50);
           } else {
+
             alert('订单没有配置工艺步骤');
             return;
           }
@@ -1117,7 +1291,7 @@ export default function WorkstationPage() {
         return;
       }
     } catch (error) {
-      console.error('Failed to continue order:', error);
+
       alert('继续执行订单时发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
     } finally {
@@ -1186,7 +1360,7 @@ export default function WorkstationPage() {
         alert(t('manualInsert.invalidStatus').replace('{status}', mappedOrder.status));
       }
     } catch (error) {
-      console.error('手动插入订单失败:', error);
+
       alert(t('manualInsert.searchFailed') + ': ' + (error instanceof Error ? error.message : '未知错误'));
     } finally {
       setManualInsertLoading(false);
@@ -1247,7 +1421,7 @@ export default function WorkstationPage() {
         setScanError(`Invalid order status: ${mappedOrder.status}`);
       }
     } catch (error) {
-      console.error('扫描工单失败:', error);
+
       setScanError('No step found for the record!');
     } finally {
       setManualInsertLoading(false);
@@ -1287,7 +1461,7 @@ export default function WorkstationPage() {
 
       const result = await response.json();
       if (result.success) {
-        console.log('工作状态保存成功:', result);
+
       } else {
         // 工作状态保存失败，可能是网络问题，静默处理
       }
@@ -1304,7 +1478,7 @@ export default function WorkstationPage() {
 
       if (result.success && result.hasWorkState) {
         const workState = result.workState;
-        console.log('发现保存的工作状态:', workState);
+
 
         // 恢复订单状态
         if (workState.currentOrder) {
@@ -1318,7 +1492,7 @@ export default function WorkstationPage() {
           alert(`检测到之前的工作进度，已自动恢复订单 "${workState.currentOrder.productionNumber}" 的执行状态。`);
         }
       } else {
-        console.log('没有发现保存的工作状态');
+
       }
     } catch (error) {
       // 恢复工作状态失败，可能是网络问题，静默处理
@@ -1365,7 +1539,13 @@ export default function WorkstationPage() {
     localStorage.removeItem("clientAuth");
     localStorage.removeItem("clientUserInfo");
     localStorage.removeItem("clientInfo");
-    localStorage.removeItem("workstationSession");
+    // 只清理当前工位的session，不影响其他工位
+    if (workstationSession && workstationSession.workstation) {
+      const sessionKey = `workstationSession_${workstationSession.workstation.workstationId}`;
+      localStorage.removeItem(sessionKey);
+    }
+    // 清理旧格式的session（向后兼容）
+    localStorage.removeItem('workstationSession');
     router.push("/");
   };
 
@@ -1698,12 +1878,59 @@ export default function WorkstationPage() {
   const filterStepsByConditions = (steps: any[], order: Order): any[] => {
     if (!steps || steps.length === 0) return steps;
     
-    const filteredSteps = steps.filter(step => checkStepConditions(step, order));
+    // 第一步：按工位过滤 - 只显示分配给当前工位的步骤，或者没有指定工位的步骤
+    const currentWorkstationId = workstationSession?.workstation?.id;
+    const currentWorkstationCode = workstationSession?.workstation?.workstationId;
     
-    console.log(`原始步骤数: ${steps.length}, 过滤后步骤数: ${filteredSteps.length}`);
+    const workstationFilteredSteps = steps.filter(step => {
+      //console.log(`=== 检查步骤 ${step.name} (${step.stepCode}) ===`);
+      //console.log(`步骤完整信息:`, JSON.stringify(step, null, 2));
+      //console.log(`步骤模板信息:`, step.stepTemplate ? JSON.stringify(step.stepTemplate, null, 2) : '无模板');
+      //console.log(`当前工位会话:`, JSON.stringify(workstationSession?.workstation, null, 2));
+      
+      // 如果步骤没有指定工位，则显示
+      if (!step.workstationId && !step.workstation) {
+        //console.log(`✓ 步骤 ${step.name} 没有指定工位，显示`);
+        return true;
+      }
+      
+      // 如果步骤指定了工位，检查是否匹配当前工位
+      if (step.workstationId === currentWorkstationId) {
+        //console.log(`✓ 步骤 ${step.name} 工位UUID匹配 (${step.workstationId} === ${currentWorkstationId})，显示`);
+        return true;
+      }
+      
+      // 如果步骤有workstation对象，检查其id
+      if (step.workstation && step.workstation.id === currentWorkstationId) {
+        //console.log(`✓ 步骤 ${step.name} 工位对象UUID匹配，显示`);
+        return true;
+      }
+      
+      // 也检查工位代码匹配
+      if (step.workstation && step.workstation.workstationId === currentWorkstationCode) {
+        //console.log(`✓ 步骤 ${step.name} 工位代码匹配 (${step.workstation.workstationId} === ${currentWorkstationCode})，显示`);
+        return true;
+      }
+      
+      //console.log(`✗ 步骤 ${step.name} 不属于当前工位，隐藏`);
+      //console.log(`  步骤工位ID: ${step.workstationId}`);
+      //console.log(`  步骤工位对象: ${step.workstation ? step.workstation.workstationId : '无'}`);
+      //console.log(`  当前工位UUID: ${currentWorkstationId}`);
+      //console.log(`  当前工位代码: ${currentWorkstationCode}`);
+      return false;
+    });
+    
+    //console.log(`当前工位信息: ID=${currentWorkstationId}, 代码=${currentWorkstationCode}`);
+    //console.log(`工位会话完整信息:`, JSON.stringify(workstationSession, null, 2));
+    //console.log(`原始步骤数: ${steps.length}, 工位过滤后步骤数: ${workstationFilteredSteps.length}`);
+    
+    // 第二步：按条件过滤
+    const finalFilteredSteps = workstationFilteredSteps.filter(step => checkStepConditions(step, order));
+    
+    console.log(`工位过滤后步骤数: ${workstationFilteredSteps.length}, 条件过滤后步骤数: ${finalFilteredSteps.length}`);
     
     // 重新计算sequence，确保连续性
-    return filteredSteps.map((step, index) => ({
+    return finalFilteredSteps.map((step, index) => ({
       ...step,
       sequence: index + 1
     }));
@@ -1765,6 +1992,34 @@ export default function WorkstationPage() {
             }
           }
 
+          console.log('更新工位订单状态为已完成:', currentOrder.id);
+          
+          // 首先更新工位订单队列状态
+          const workstationOrderResponse = await fetch('/api/segment/update-status', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              orderId: currentOrder.id,
+              workstationId: workstationSession?.workstation.id,
+              status: 'COMPLETED',
+              notes: '所有工艺步骤已完成',
+              updatedBy: userInfo?.username || 'client'
+            })
+          });
+
+          if (!workstationOrderResponse.ok) {
+            const errorData = await workstationOrderResponse.json();
+            console.error('工位订单状态更新失败:', errorData);
+            alert('工位订单状态更新失败: ' + (errorData.error || '未知错误'));
+            return;
+          }
+
+          const workstationOrderResult = await workstationOrderResponse.json();
+          console.log('工位订单状态更新成功:', workstationOrderResult);
+
+          // 然后更新订单状态（如果需要）
           console.log('更新订单状态为已完成:', currentOrder.id);
           const statusUpdateResponse = await fetch(`/api/orders/${currentOrder.id}`, {
             method: 'PUT',
@@ -2595,7 +2850,27 @@ export default function WorkstationPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">加载中...</p>
+          <p className="text-gray-600">
+            {isValidatingSession ? '正在验证会话信息...' : '加载工位数据...'}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">请稍候，系统正在初始化</p>
+          <div className="mt-4">
+            <button
+              onClick={() => {
+                console.log('🚨 用户手动重定向到登录页面');
+                localStorage.clear();
+                router.push("/client/login");
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              返回登录
+            </button>
+          </div>
+          {isValidatingSession && (
+            <p className="text-xs text-gray-400 mt-4">
+              验证中... 如果长时间没有响应，请点击"返回登录"
+            </p>
+          )}
         </div>
       </div>
     );
@@ -3894,6 +4169,88 @@ export default function WorkstationPage() {
     );
   }
 
+  // 如果有多个工位session可选，显示选择界面
+  if (multipleSessionsAvailable.length > 0) {
+    const lastSelectedWorkstation = localStorage.getItem('lastSelectedWorkstation');
+    
+    return (
+      <div className="h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+          <h2 className="text-2xl font-bold text-center mb-6">选择工位</h2>
+          <p className="text-gray-600 text-center mb-6">
+            检测到多个工位登录，请选择要操作的工位：
+          </p>
+          {lastSelectedWorkstation && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                💡 上次使用的工位: <span className="font-medium">{lastSelectedWorkstation}</span>
+              </p>
+            </div>
+          )}
+          <div className="space-y-3">
+            {multipleSessionsAvailable.map((session, index) => {
+              const isLastSelected = session.workstation.workstationId === lastSelectedWorkstation;
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                  // 使用从localStorage获取的userInfo确保数据一致性
+                  const userInfoStr = localStorage.getItem("clientUserInfo");
+                  if (userInfoStr) {
+                    setUserInfo(JSON.parse(userInfoStr));
+                  }
+                  
+                  // 保存用户的工位偏好
+                  localStorage.setItem('lastSelectedWorkstation', session.workstation.workstationId);
+                  console.log(`保存用户工位偏好: ${session.workstation.workstationId}`);
+                  
+                  // 更新URL参数以确保刷新后能正确显示该工位
+                  const newUrl = new URL(window.location.href);
+                  newUrl.searchParams.set('workstationId', session.workstation.workstationId);
+                  window.history.replaceState({}, '', newUrl.toString());
+                  
+                  setWorkstationSession(session);
+                  setMultipleSessionsAvailable([]);
+                  loadOrdersWithSession(session);
+                  restoreWorkState(session.workstation.workstationId);
+                }}
+                className={`w-full p-4 border rounded-lg transition-colors text-left ${
+                  isLastSelected 
+                    ? 'border-blue-500 bg-blue-50 hover:bg-blue-100' 
+                    : 'border-gray-300 hover:bg-blue-50 hover:border-blue-500'
+                }`}
+              >
+                <div className="font-semibold text-lg flex items-center">
+                  {isLastSelected && <span className="mr-2">🌟</span>}
+                  {session.workstation.workstationId} - {session.workstation.name}
+                  {isLastSelected && <span className="ml-2 text-sm text-blue-600">(上次使用)</span>}
+                </div>
+                <div className="text-sm text-gray-500">
+                  用户: {session.username} | 登录时间: {new Date(session.loginTime).toLocaleString()}
+                </div>
+              </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => {
+              // 清理所有session并回到登录页面
+              multipleSessionsAvailable.forEach(session => {
+                const sessionKey = `workstationSession_${session.workstation.workstationId}`;
+                localStorage.removeItem(sessionKey);
+              });
+              localStorage.removeItem('workstationSession');
+              router.push('/client/login');
+            }}
+            className="w-full mt-4 p-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            全部退出并重新登录
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 默认的订单列表界面
   return (
     <div className="h-screen bg-gray-100 p-4 flex flex-col">
@@ -4017,7 +4374,7 @@ export default function WorkstationPage() {
                 
                 const pendingOrder = sortedOrders.find(order => order.status?.toLowerCase() === 'pending');
                 if (pendingOrder) {
-                  return `开始执行 ${pendingOrder.orderNumber}`;
+                  return `开始`;
                 }
                 
                 return "暂无待执行订单";

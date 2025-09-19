@@ -1532,6 +1532,9 @@ export default function StepTemplatesPage() {
                 步骤名称
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                图片
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 描述说明
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -1566,21 +1569,29 @@ export default function StepTemplatesPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {template.image && (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {template.name}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center justify-center">
+                      {template.image ? (
                         <img
                           src={template.image}
                           alt={template.name}
-                          className="w-8 h-8 rounded object-cover mr-3 cursor-pointer hover:opacity-80 transition-opacity"
+                          className="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleImageClick(template.image!);
                           }}
                         />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
                       )}
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {template.name}
-                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
@@ -1607,7 +1618,7 @@ export default function StepTemplatesPage() {
                 {/* 展开的选项卡内容 */}
                 {expandedTemplateId === template.id && editingTemplate && (
                   <tr>
-                    <td colSpan={5} className="p-4 bg-gray-100 dark:bg-gray-900">
+                    <td colSpan={6} className="p-4 bg-gray-100 dark:bg-gray-900">
                       {/* 选项卡导航 */}
                       <div className="border-b border-gray-200 dark:border-gray-700">
                         <nav className="-mb-px flex space-x-8">

@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Models\PlcSimulatorOptions.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="HslCommunication" Version="12.3.3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.8" />

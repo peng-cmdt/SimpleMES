@@ -587,7 +587,6 @@ export default function OrderMonitoringPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">{order.product.name}</div>
-                            <div className="text-sm text-gray-500">{order.product.productCode}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -676,7 +675,6 @@ export default function OrderMonitoringPage() {
                                         <td className="px-4 py-3 whitespace-nowrap">
                                           <div>
                                             <div className="text-sm font-medium text-gray-900">{ws.workstation.name}</div>
-                                            <div className="text-sm text-gray-500">{ws.workstation.workstationId}</div>
                                           </div>
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap">
