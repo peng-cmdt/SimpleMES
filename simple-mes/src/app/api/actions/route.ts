@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // 验证设备是否存在
     if (deviceId) {
-      const device = await prisma.device.findUnique({
+      const device = await prisma.workstationDevice.findUnique({
         where: { id: deviceId }
       });
 

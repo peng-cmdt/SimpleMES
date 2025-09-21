@@ -18,7 +18,7 @@ interface BOM {
   status: string;
   description?: string;
   createdAt: string;
-  bomItems?: BOMItem[];
+  bomItems: BOMItem[];
 }
 
 interface BOMItem {
@@ -90,39 +90,14 @@ const orderStatuses = [
 ];
 
 // BOM Items component for displaying order's BOM items
-function BOMItemsForOrder({ order, onEditPart, refreshTrigger }: { 
-  order: Order, 
+function BOMItemsForOrder({ order, onEditPart, refreshTrigger }: {
+  order: Order,
   onEditPart: (order: Order, item: any) => void,
-  refreshTrigger?: number 
+  refreshTrigger?: number
 }) {
-  const [bomItems, setBomItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadBomItems = useCallback(async () => {
-    if (!order.bomId) {
-      setBomItems([]);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/orders/${order.id}/parts`);
-      if (response.ok) {
-        const data = await response.json();
-        setBomItems(data.data.bomItems || []);
-        console.log('Loaded BOM items for order:', order.id, data.data.bomItems?.length || 0, 'items');
-      }
-    } catch (error) {
-      console.error('Failed to load BOM items:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [order.id, order.bomId]);
-
-  useEffect(() => {
-    loadBomItems();
-  }, [loadBomItems, refreshTrigger]); // 添加refreshTrigger依赖
+  // 直接使用预加载的BOM数据，不再发起额外的API请求
+  const bomItems = order.bom?.bomItems || [];
+  const isLoading = false; // 数据已经预加载，无需loading状态
 
   if (isLoading) {
     return (
@@ -214,6 +189,7 @@ export default function OrdersPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [boms, setBoms] = useState<BOM[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
+  const [processesCache, setProcessesCache] = useState<{[productId: string]: Process[]}>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -387,7 +363,8 @@ export default function OrdersPage() {
 
   const loadOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      // 使用合理的分页参数，一次加载50条记录
+      const response = await fetch('/api/orders?limit=50&page=1');
       if (response.ok) {
         const data = await response.json();
         setOrders(data.data.orders);
@@ -425,15 +402,27 @@ export default function OrdersPage() {
   };
 
   const loadProcessesByProduct = async (productId: string) => {
+    // 检查缓存
+    if (processesCache[productId]) {
+      console.log('使用缓存的工艺流程数据:', productId);
+      setProcesses(processesCache[productId]);
+      return;
+    }
+
     console.log('开始加载产品工艺流程:', productId);
     try {
       const response = await fetch(`/api/processes?productId=${productId}`);
       console.log('工艺流程API响应状态:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('工艺流程API响应数据:', data);
         const processesData = data.data?.processes || [];
-        console.log('设置工艺流程选项:', processesData.length, '个');
+
+        // 更新缓存
+        setProcessesCache(prev => ({
+          ...prev,
+          [productId]: processesData
+        }));
+
         setProcesses(processesData);
       } else {
         console.error('加载工艺流程失败，状态码:', response.status);
@@ -1037,20 +1026,12 @@ export default function OrdersPage() {
         setFilteredParts({ [order.id]: partsData });
       }
       
-      // 预加载BOM数据
-      if (!orderBOMData[order.id] && order.bomId) {
-        try {
-          const response = await fetch(`/api/boms/${order.bomId}/items`);
-          if (response.ok) {
-            const data = await response.json();
-            setOrderBOMData(prev => ({
-              ...prev,
-              [order.id]: data.bomItems || []
-            }));
-          }
-        } catch (error) {
-          console.error('Failed to load BOM data:', error);
-        }
+      // BOM数据已在主查询中预加载，无需额外API调用
+      if (order.bom?.bomItems) {
+        setOrderBOMData(prev => ({
+          ...prev,
+          [order.id]: order.bom.bomItems
+        }));
       }
     }
     

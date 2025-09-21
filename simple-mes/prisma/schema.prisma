@@ -86,29 +86,29 @@ model Client {
 }
 
 model Workstation {
-  id                  String                @id @default(cuid())
-  workstationId       String                @unique
-  name                String
-  description         String?
-  location            String?
-  type                WorkstationType       @default(VISUAL_CLIENT)
-  configuredIp        String
-  currentIp           String?
-  status              String                @default("offline")
-  lastConnected       DateTime?
-  settings            Json?
-  isOrderCompleteStation Boolean            @default(false)
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  orderSteps          OrderStep[]
-  currentOrders       Order[]               @relation("OrderCurrentStation")
-  productWorkstations ProductWorkstation[]
-  stepTemplates       StepTemplate[]
-  steps               Step[]
-  workstationDevices  WorkstationDevice[]
+  id                     String                  @id @default(cuid())
+  workstationId          String                  @unique
+  name                   String
+  description            String?
+  location               String?
+  type                   WorkstationType         @default(VISUAL_CLIENT)
+  configuredIp           String
+  currentIp              String?
+  status                 String                  @default("offline")
+  lastConnected          DateTime?
+  settings               Json?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  isOrderCompleteStation Boolean                 @default(false)
+  orderSteps             OrderStep[]
+  currentOrders          Order[]                 @relation("OrderCurrentStation")
+  productWorkstations    ProductWorkstation[]
+  stepTemplates          StepTemplate[]
+  steps                  Step[]
+  workstationDevices     WorkstationDevice[]
   workstationOrderQueues WorkstationOrderQueue[]
-  sessions            WorkstationSession[]
-  workState           WorkstationWorkState? @relation("WorkstationWorkState")
+  sessions               WorkstationSession[]
+  workState              WorkstationWorkState?   @relation("WorkstationWorkState")
 
   @@map("workstations")
 }
@@ -424,35 +424,35 @@ model ActionTemplate {
 }
 
 model Order {
-  id                String               @id @default(cuid())
-  orderNumber       String               @unique
-  productionNumber  String
-  productId         String
-  bomId             String?
-  processId         String
-  quantity          Int
-  completedQuantity Int                  @default(0)
-  priority          Int                  @default(0)
-  sequence          Int?
-  status            OrderStatus          @default(PENDING)
-  plannedDate       DateTime?
-  startedAt         DateTime?
-  completedAt       DateTime?
-  currentStationId  String?
-  currentStepId     String?
-  notes             String?
-  createdBy         String?
-  importSource      String?              @default("manual")
-  importBatch       String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  statusHistory     OrderStatusHistory[]
-  orderSteps        OrderStep[]
-  bom               BOM?                 @relation(fields: [bomId], references: [id])
-  currentStation    Workstation?         @relation("OrderCurrentStation", fields: [currentStationId], references: [id])
-  currentStep       Step?                @relation("OrderCurrentStep", fields: [currentStepId], references: [id])
-  process           Process              @relation(fields: [processId], references: [id])
-  product           Product              @relation(fields: [productId], references: [id])
+  id                     String                  @id @default(cuid())
+  orderNumber            String                  @unique
+  productionNumber       String
+  productId              String
+  bomId                  String?
+  processId              String
+  quantity               Int
+  completedQuantity      Int                     @default(0)
+  priority               Int                     @default(0)
+  sequence               Int?
+  status                 OrderStatus             @default(PENDING)
+  plannedDate            DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  currentStationId       String?
+  currentStepId          String?
+  notes                  String?
+  createdBy              String?
+  importSource           String?                 @default("manual")
+  importBatch            String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  statusHistory          OrderStatusHistory[]
+  orderSteps             OrderStep[]
+  bom                    BOM?                    @relation(fields: [bomId], references: [id])
+  currentStation         Workstation?            @relation("OrderCurrentStation", fields: [currentStationId], references: [id])
+  currentStep            Step?                   @relation("OrderCurrentStep", fields: [currentStepId], references: [id])
+  process                Process                 @relation(fields: [processId], references: [id])
+  product                Product                 @relation(fields: [productId], references: [id])
   workstationOrderQueues WorkstationOrderQueue[]
 
   @@index([status])
@@ -559,6 +559,29 @@ model SystemConfig {
   @@map("system_configs")
 }
 
+model WorkstationOrderQueue {
+  id            String                 @id @default(cuid())
+  orderId       String
+  workstationId String
+  status        WorkstationOrderStatus @default(PENDING)
+  assignedAt    DateTime               @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  priority      Int                    @default(0)
+  sequence      Int                    @default(0)
+  isVisible     Boolean                @default(true)
+  notes         String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  order         Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  workstation   Workstation            @relation(fields: [workstationId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, workstationId])
+  @@index([workstationId, status])
+  @@index([orderId])
+  @@map("workstation_order_queues")
+}
+
 enum UserRole {
   ADMIN
   SUPERVISOR
@@ -625,28 +648,4 @@ enum WorkstationOrderStatus {
   COMPLETED
   CANCELLED
   SKIPPED
-}
-
-model WorkstationOrderQueue {
-  id            String                @id @default(cuid())
-  orderId       String
-  workstationId String  
-  status        WorkstationOrderStatus @default(PENDING)
-  assignedAt    DateTime              @default(now())
-  startedAt     DateTime?
-  completedAt   DateTime?
-  priority      Int                   @default(0)
-  sequence      Int                   @default(0)
-  isVisible     Boolean               @default(true)
-  notes         String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  
-  order         Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  workstation   Workstation           @relation(fields: [workstationId], references: [id], onDelete: Cascade)
-  
-  @@unique([orderId, workstationId])
-  @@index([workstationId, status])
-  @@index([orderId])
-  @@map("workstation_order_queues")
 }

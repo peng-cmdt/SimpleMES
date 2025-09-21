@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface TakeoverModalProps {
   isOpen: boolean;
@@ -38,7 +38,36 @@ const TakeoverModal: React.FC<TakeoverModalProps> = ({
   onCancel,
   isLoading = false
 }) => {
-  if (!isOpen) return null;
+  console.log('TakeoverModal 渲染状态:', {
+    isOpen,
+    currentUser,
+    workstationName,
+    workState,
+    isLoading
+  });
+
+  // 键盘事件处理
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isLoading) {
+        onCancel();
+      } else if (event.key === 'Enter' && !isLoading) {
+        onTakeOver();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onCancel, onTakeOver]);
+
+  if (!isOpen) {
+    console.log('TakeoverModal: isOpen = false, 不渲染');
+    return null;
+  }
+
+  console.log('TakeoverModal: 开始渲染模态框');
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
@@ -68,7 +97,7 @@ const TakeoverModal: React.FC<TakeoverModalProps> = ({
   return (
     <>
       {/* 背景遮罩 */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4">
         {/* 弹框容器 */}
         <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-screen overflow-hidden">
           {/* 头部 - 蓝色背景 */}
@@ -200,7 +229,7 @@ const TakeoverModal: React.FC<TakeoverModalProps> = ({
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-4 border-white mr-4"></div>
-                    <span className="text-2xl">接管中...</span>
+                    <span className="text-2xl">正在接管控制权...</span>
                   </div>
                 ) : (
                   'Take over control'

@@ -152,7 +152,7 @@ export class RealTimeMonitoringService {
       }),
       
       // 设备信息
-      prisma.device.findMany({
+      prisma.workstationDevice.findMany({
         select: {
           id: true,
           status: true,
@@ -230,10 +230,10 @@ export class RealTimeMonitoringService {
   async getWorkstationStatuses(): Promise<WorkstationStatus[]> {
     const workstations = await prisma.workstation.findMany({
       include: {
-        devices: {
+        workstationDevices: {
           select: {
-            deviceId: true,
-            name: true,
+            instanceId: true,
+            displayName: true,
             status: true,
             isOnline: true,
             lastHeartbeat: true
@@ -268,9 +268,9 @@ export class RealTimeMonitoringService {
       const session = workstation.sessions[0];
 
       // 获取设备状态
-      const deviceStatuses = workstation.devices.map(device => ({
-        deviceId: device.deviceId,
-        name: device.name,
+      const deviceStatuses = workstation.workstationDevices.map(device => ({
+        deviceId: device.instanceId,
+        name: device.displayName,
         status: device.isOnline ? 'online' : 'offline' as 'online' | 'offline' | 'error',
         lastHeartbeat: device.lastHeartbeat
       }));

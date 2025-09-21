@@ -62,6 +62,8 @@ export default function ClientLogin() {
   // 检查工位会话状态
   const checkWorkstationSession = async (workstationId: string): Promise<{hasActiveSession: boolean, activeSession?: any}> => {
     try {
+      console.log('正在检查工位会话状态:', workstationId);
+
       const response = await fetch('/api/workstation/session/check', {
         method: 'POST',
         headers: {
@@ -74,12 +76,16 @@ export default function ClientLogin() {
       console.log('Session check result:', result);
 
       if (result.success) {
+        console.log('会话检查成功:', {
+          hasActiveSession: result.hasActiveSession,
+          activeSession: result.activeSession
+        });
         return {
           hasActiveSession: result.hasActiveSession,
           activeSession: result.activeSession
         };
       }
-      
+
       return { hasActiveSession: false };
     } catch (error) {
       console.error('Error checking workstation session:', error);
@@ -108,24 +114,63 @@ export default function ClientLogin() {
   const takeoverWorkstation = async (workstationId: string, newUsername: string): Promise<boolean> => {
     try {
       setIsTakingOver(true);
-      
-      const response = await fetch('/api/workstation/session/takeover', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          workstationId, 
-          newUsername,
-          forceLogout: true,
-          preserveWorkState: true // 保存工作状态以便新用户接管
-        })
-      });
 
-      const result = await response.json();
-      console.log('Takeover result:', result);
+      // 添加重试机制，处理Next.js路由编译延迟
+      let lastError = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`Takeover attempt ${attempt}/3 for workstation ${workstationId}`);
 
-      return result.success;
+          const response = await fetch('/api/workstation/session/takeover', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              workstationId,
+              newUsername,
+              forceLogout: true,
+              preserveWorkState: true
+            })
+          });
+
+          if (!response.ok) {
+            if (response.status === 404 && attempt < 3) {
+              console.log(`API route not ready (404), retrying in ${attempt * 500}ms...`);
+              await new Promise(resolve => setTimeout(resolve, attempt * 500));
+              continue;
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          console.log('Takeover result:', result);
+
+          // API调用成功，接管完成
+          if (result.success) {
+            return true;
+          } else {
+            // API返回失败，但不重试，直接返回失败
+            console.error('Takeover API returned failure:', result.error || result.message);
+            return false;
+          }
+
+        } catch (error) {
+          lastError = error;
+          console.error(`Takeover attempt ${attempt} failed:`, error);
+
+          // 只有网络错误或404才重试
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, attempt * 500));
+            continue;
+          }
+        }
+      }
+
+      // 所有重试都失败了
+      console.error('All takeover attempts failed, last error:', lastError);
+      return false;
+
     } catch (error) {
       console.error('Error taking over workstation:', error);
       return false;
@@ -331,22 +376,18 @@ export default function ClientLogin() {
       const sessionCheck = await checkWorkstationSession(workstation.workstationId);
       
       if (sessionCheck.hasActiveSession && sessionCheck.activeSession) {
-        // 有活跃会话，直接接管控制权
-        console.log(`工位 ${workstation.name} 被用户 ${sessionCheck.activeSession.username} 占用，直接接管...`);
-        
-        const takeoverSuccess = await takeoverWorkstation(workstation.workstationId, credentials.username.trim());
-        
-        if (!takeoverSuccess) {
-          // 接管失败，显示错误并回退到工位选择
-          setError('接管工位控制权失败，请重试');
-          setShowWorkstationSelector(true);
-          setIsIpMatching(false);
-          setIsLoading(false);
-          return;
-        }
-        
-        // 接管成功，继续登录流程（跳过会话检查）
-        console.log(`成功接管工位 ${workstation.name}，继续自动登录...`);
+        // 有活跃会话，获取工作状态并显示接管确认对话框
+        console.log(`工位 ${workstation.name} 被用户 ${sessionCheck.activeSession.username} 占用，显示接管确认对话框...`);
+
+        const workState = await getWorkState(workstation.workstationId);
+
+        setConflictSession(sessionCheck.activeSession);
+        setConflictWorkState(workState);
+        setPendingWorkstationId(workstation.workstationId);
+        setShowTakeoverModal(true);
+        setIsIpMatching(false);
+        setIsLoading(false);
+        return;
       }
 
       // 继续自动登录（如果刚才进行了接管，则跳过会话检查）
@@ -360,7 +401,7 @@ export default function ClientLogin() {
           username: credentials.username.trim(),
           clientIp: clientIpAddress,
           autoLogin: true,
-          skipSessionCheck: sessionCheck.hasActiveSession // 如果刚才有会话冲突并接管，则跳过检查
+          skipSessionCheck: false // 不跳过会话检查，让API处理会话冲突
         })
       });
 
@@ -542,21 +583,25 @@ export default function ClientLogin() {
       const sessionCheck = await checkWorkstationSession(selectedWorkstationId);
       
       if (sessionCheck.hasActiveSession && sessionCheck.activeSession) {
-        // 有活跃会话，直接接管控制权
+        // 有活跃会话，获取工作状态并显示接管确认对话框
         const selectedWorkstation = availableWorkstations.find(ws => ws.workstationId === selectedWorkstationId);
-        console.log(`工位 ${selectedWorkstation?.name} 被用户 ${sessionCheck.activeSession.username} 占用，直接接管...`);
-        
-        const takeoverSuccess = await takeoverWorkstation(selectedWorkstationId, credentials.username.trim());
-        
-        if (!takeoverSuccess) {
-          // 接管失败，显示错误
-          setError('接管工位控制权失败，请重试');
-          setIsLoading(false);
-          return;
-        }
-        
-        // 接管成功，继续登录流程
-        console.log(`成功接管工位 ${selectedWorkstation?.name}，继续登录...`);
+        console.log(`工位 ${selectedWorkstation?.name} 被用户 ${sessionCheck.activeSession.username} 占用，显示接管确认对话框...`);
+
+        const workState = await getWorkState(selectedWorkstationId);
+
+        setConflictSession(sessionCheck.activeSession);
+        setConflictWorkState(workState);
+        setPendingWorkstationId(selectedWorkstationId);
+
+        console.log('设置接管模态框状态:', {
+          showModal: true,
+          conflictSession: sessionCheck.activeSession,
+          workstationId: selectedWorkstationId
+        });
+
+        setShowTakeoverModal(true);
+        setIsLoading(false);
+        return;
       }
 
       // 没有会话冲突，直接进行登录
@@ -633,6 +678,7 @@ export default function ClientLogin() {
   // 全屏超大尺寸工位选择界面
   if (showWorkstationSelector) {
     return (
+      <>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* 标题区域 */}
         <div className="flex-shrink-0 px-12 pt-20 pb-12">
@@ -833,6 +879,22 @@ export default function ClientLogin() {
         {/* 底部区域（可选，用于额外信息） */}
         <div className="flex-shrink-0 h-20"></div>
       </div>
+
+      {/* 工位选择界面的接管控制权弹框 */}
+      <TakeoverModal
+        isOpen={showTakeoverModal}
+        currentUser={conflictSession ? {
+          username: conflictSession.username,
+          loginTime: conflictSession.loginTime,
+          lastActivity: conflictSession.lastActivity
+        } : undefined}
+        workstationName={availableWorkstations.find(ws => ws.workstationId === pendingWorkstationId)?.name}
+        workState={conflictWorkState}
+        onTakeOver={handleTakeoverConfirm}
+        onCancel={handleTakeoverCancel}
+        isLoading={isTakingOver}
+      />
+      </>
     );
   }
 
@@ -1007,6 +1069,12 @@ export default function ClientLogin() {
       </div>
       
       {/* 接管控制权弹框 */}
+      {console.log('渲染TakeoverModal:', {
+        showTakeoverModal,
+        conflictSession,
+        pendingWorkstationId,
+        availableWorkstationsCount: availableWorkstations.length
+      })}
       <TakeoverModal
         isOpen={showTakeoverModal}
         currentUser={conflictSession ? {

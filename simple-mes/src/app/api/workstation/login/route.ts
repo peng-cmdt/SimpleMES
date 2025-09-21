@@ -201,18 +201,19 @@ export async function POST(request: NextRequest) {
             }
           });
         } else {
-          // 有活跃会话，不允许登录
+          // 有活跃会话，返回会话信息让前端处理
           return NextResponse.json({
             success: false,
             error: 'WORKSTATION_OCCUPIED',
             message: 'Workstation is currently occupied by another user',
+            needsTakeover: true, // 添加标识表示需要接管处理
             activeSession: {
               sessionId: activeSession.sessionId,
               username: activeSession.username,
               loginTime: activeSession.loginTime,
               lastActivity: activeSession.lastActivity
             }
-          }, { status: 409 });
+          }, { status: 200 }); // 改为200状态码，让前端正常处理
         }
       }
     }
@@ -234,23 +235,42 @@ export async function POST(request: NextRequest) {
       const loginResult = await loginResponse.json();
 
       if (loginResult.success) {
-        // 创建工位会话记录
-        const session = await prisma.workstationSession.create({
-          data: {
-            sessionId: loginResult.sessionId,
-            workstationId: workstation.id,
-            userId: userId || null,
-            username: username || null,
-            connectedDevices: {
-              deviceIds: loginResult.connectedDevices
-                .filter((d: any) => d.success)
-                .map((d: any) => d.deviceId),
-              connections: loginResult.connectedDevices.reduce((acc: any, device: any) => {
-                acc[device.deviceId] = device.success ? 'connected' : 'error';
-                return acc;
-              }, {})
+            // 清理任何残留的无效会话，然后创建新会话
+        const session = await prisma.$transaction(async (tx) => {
+          // 先清理可能存在的无效会话
+          await tx.workstationSession.updateMany({
+            where: {
+              workstationId: workstation.id,
+              isActive: true,
+              logoutTime: null
+            },
+            data: {
+              isActive: false,
+              logoutTime: new Date(),
+              settings: {
+                cleanupReason: 'New session creation cleanup'
+              }
             }
-          }
+          });
+
+          // 创建新的工位会话记录
+          return await tx.workstationSession.create({
+            data: {
+              sessionId: loginResult.sessionId,
+              workstationId: workstation.id,
+              userId: userId || null,
+              username: username || null,
+              connectedDevices: {
+                deviceIds: loginResult.connectedDevices
+                  .filter((d: any) => d.success)
+                  .map((d: any) => d.deviceId),
+                connections: loginResult.connectedDevices.reduce((acc: any, device: any) => {
+                  acc[device.deviceId] = device.success ? 'connected' : 'error';
+                  return acc;
+                }, {})
+              }
+            }
+          });
         });
 
         // 更新工位状态
@@ -289,17 +309,36 @@ export async function POST(request: NextRequest) {
       console.error('Error calling C# service:', error);
       
       // 如果C#服务不可用，创建本地会话
-      const session = await prisma.workstationSession.create({
-        data: {
-          sessionId: `local-${Date.now()}`,
-          workstationId: workstation.id,
-          userId: userId || null,
-          username: username || null,
-          connectedDevices: {
-            deviceIds: [],
-            connections: {}
+      const session = await prisma.$transaction(async (tx) => {
+        // 先清理可能存在的无效会话
+        await tx.workstationSession.updateMany({
+          where: {
+            workstationId: workstation.id,
+            isActive: true,
+            logoutTime: null
+          },
+          data: {
+            isActive: false,
+            logoutTime: new Date(),
+            settings: {
+              cleanupReason: 'Offline mode session creation cleanup'
+            }
           }
-        }
+        });
+
+        // 创建本地会话
+        return await tx.workstationSession.create({
+          data: {
+            sessionId: `local-${Date.now()}`,
+            workstationId: workstation.id,
+            userId: userId || null,
+            username: username || null,
+            connectedDevices: {
+              deviceIds: [],
+              connections: {}
+            }
+          }
+        });
       });
 
       return NextResponse.json({

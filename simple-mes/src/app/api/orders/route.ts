@@ -93,7 +93,19 @@ export async function GET(request: NextRequest) {
             id: true,
             bomCode: true,
             name: true,
-            version: true
+            version: true,
+            bomItems: {
+              select: {
+                id: true,
+                itemCode: true,
+                itemName: true,
+                quantity: true,
+                unit: true,
+                description: true,
+                createdAt: true
+              },
+              orderBy: { createdAt: 'asc' }
+            }
           }
         },
         process: {

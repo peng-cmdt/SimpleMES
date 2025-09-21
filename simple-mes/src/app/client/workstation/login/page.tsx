@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import TakeoverModal from '@/components/client/TakeoverModal';
 
 interface Workstation {
   workstationId: string;
@@ -43,6 +44,13 @@ export default function WorkstationLoginPage() {
   const [isLoadingWorkstations, setIsLoadingWorkstations] = useState<boolean>(true);
   const [loginResult, setLoginResult] = useState<LoginResult | null>(null);
 
+  // 接管弹框相关状态
+  const [showTakeoverModal, setShowTakeoverModal] = useState(false);
+  const [conflictSession, setConflictSession] = useState<any>(null);
+  const [conflictWorkState, setConflictWorkState] = useState<any>(null);
+  const [pendingWorkstationId, setPendingWorkstationId] = useState<string>("");
+  const [isTakingOver, setIsTakingOver] = useState(false);
+
   // 加载工位列表
   useEffect(() => {
     const loadWorkstations = async () => {
@@ -74,6 +82,173 @@ export default function WorkstationLoginPage() {
     loadWorkstations();
   }, []);
 
+  // 检查工位会话状态
+  const checkWorkstationSession = async (workstationId: string): Promise<{hasActiveSession: boolean, activeSession?: any}> => {
+    try {
+      const response = await fetch('/api/workstation/session/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ workstationId })
+      });
+
+      const result = await response.json();
+      console.log('Session check result:', result);
+
+      if (result.success) {
+        return {
+          hasActiveSession: result.hasActiveSession,
+          activeSession: result.activeSession
+        };
+      }
+
+      return { hasActiveSession: false };
+    } catch (error) {
+      console.error('Error checking workstation session:', error);
+      return { hasActiveSession: false };
+    }
+  };
+
+  // 获取工作状态
+  const getWorkState = async (workstationId: string) => {
+    try {
+      const response = await fetch(`/api/workstation/work-state?workstationId=${workstationId}`);
+      const result = await response.json();
+
+      if (result.success && result.hasWorkState) {
+        return result.workState;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error fetching work state:', error);
+      return null;
+    }
+  };
+
+  // 接管控制权
+  const takeoverWorkstation = async (workstationId: string, newUsername: string): Promise<boolean> => {
+    try {
+      setIsTakingOver(true);
+
+      const response = await fetch('/api/workstation/session/takeover', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workstationId,
+          newUsername,
+          forceLogout: true,
+          preserveWorkState: true // 保存工作状态以便新用户接管
+        })
+      });
+
+      const result = await response.json();
+      console.log('Takeover result:', result);
+
+      return result.success;
+    } catch (error) {
+      console.error('Error taking over workstation:', error);
+      return false;
+    } finally {
+      setIsTakingOver(false);
+    }
+  };
+
+  // 处理接管确认
+  const handleTakeoverConfirm = async () => {
+    if (!pendingWorkstationId) return;
+
+    const success = await takeoverWorkstation(pendingWorkstationId, username.trim());
+
+    if (success) {
+      // 接管成功，关闭弹框并继续登录
+      setShowTakeoverModal(false);
+      setConflictSession(null);
+
+      // 继续执行工位登录（跳过会话检查）
+      await proceedWithWorkstationLogin(pendingWorkstationId, true);
+
+      // 清除待处理的工位ID
+      setPendingWorkstationId("");
+    } else {
+      // 接管失败，显示错误但保持弹框打开
+      alert('接管控制权失败，请重试');
+    }
+  };
+
+  // 处理取消接管
+  const handleTakeoverCancel = () => {
+    setShowTakeoverModal(false);
+    setConflictSession(null);
+    setConflictWorkState(null);
+    setPendingWorkstationId("");
+    setIsLoading(false);
+  };
+
+  // 实际执行工位登录（可选择跳过会话检查）
+  const proceedWithWorkstationLogin = async (workstationId: string, skipSession = false) => {
+    setLoginResult(null);
+
+    try {
+      const response = await fetch('/api/workstation/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workstationId: workstationId,
+          username: username.trim(),
+          skipSessionCheck: skipSession // 是否跳过会话检查
+        })
+      });
+
+      const result = await response.json();
+
+      // 检查是否需要接管会话
+      if (!result.success && result.needsTakeover && result.activeSession) {
+        console.log(`工位 ${workstationId} 被用户 ${result.activeSession.username} 占用`);
+
+        const workState = await getWorkState(workstationId);
+
+        setConflictSession(result.activeSession);
+        setConflictWorkState(workState);
+        setPendingWorkstationId(workstationId);
+        setShowTakeoverModal(true);
+        setIsLoading(false);
+        return;
+      }
+
+      setLoginResult(result);
+
+      if (result.success) {
+        // 保存工位会话信息（使用工位特定的key）
+        const sessionKey = `workstationSession_${result.workstation.workstationId}`;
+        localStorage.setItem(sessionKey, JSON.stringify({
+          sessionId: result.sessionId,
+          workstation: result.workstation,
+          username: username.trim(),
+          loginTime: result.loginTime
+        }));
+
+        // 跳转到工位操作界面，包含工位ID参数
+        setTimeout(() => {
+          router.push(`/client/workstation?workstationId=${result.workstation.workstationId}`);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Workstation login error:', error);
+      setLoginResult({
+        success: false,
+        error: '登录失败，请检查网络连接'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogin = async () => {
     if (!selectedWorkstation) {
       alert('请选择工位');
@@ -89,42 +264,15 @@ export default function WorkstationLoginPage() {
     setLoginResult(null);
 
     try {
-      const response = await fetch('/api/workstation/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workstationId: selectedWorkstation,
-          username: username.trim()
-        })
-      });
+      // 直接进行登录，API会处理会话检测
+      await proceedWithWorkstationLogin(selectedWorkstation, false);
 
-      const result = await response.json();
-      setLoginResult(result);
-
-      if (result.success) {
-        // 保存会话信息到localStorage（使用工位特定的key）
-        const sessionKey = `workstationSession_${result.workstation.workstationId}`;
-        localStorage.setItem(sessionKey, JSON.stringify({
-          sessionId: result.sessionId,
-          workstation: result.workstation,
-          username: username.trim(),
-          loginTime: result.loginTime
-        }));
-
-        // 跳转到工位工作台，包含工位ID参数
-        setTimeout(() => {
-          router.push(`/client/workstation?workstationId=${result.workstation.workstationId}`);
-        }, 2000);
-      }
     } catch (error) {
       console.error('Login error:', error);
       setLoginResult({
         success: false,
         error: '登录失败，请检查网络连接'
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -305,6 +453,21 @@ export default function WorkstationLoginPage() {
           <p>SimpleMES 工位管理系统</p>
         </div>
       </div>
+
+      {/* 接管控制权弹框 */}
+      <TakeoverModal
+        isOpen={showTakeoverModal}
+        currentUser={conflictSession ? {
+          username: conflictSession.username,
+          loginTime: conflictSession.loginTime,
+          lastActivity: conflictSession.lastActivity
+        } : undefined}
+        workstationName={workstations.find(ws => ws.workstationId === pendingWorkstationId)?.name}
+        workState={conflictWorkState}
+        onTakeOver={handleTakeoverConfirm}
+        onCancel={handleTakeoverCancel}
+        isLoading={isTakingOver}
+      />
     </div>
   );
 }

@@ -49,6 +49,24 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
 
+  // 获取角色显示名称
+  const getRoleName = (role: string): string => {
+    switch (role?.toUpperCase()) {
+      case 'ADMIN':
+        return '系统管理员';
+      case 'SUPERVISOR':
+        return '生产主管';
+      case 'ENGINEER':
+        return '工程师';
+      case 'OPERATOR':
+        return '操作员';
+      case 'CLIENT':
+        return '客户端用户';
+      default:
+        return role || '未知角色';
+    }
+  };
+
   // 如果没有传入title，使用默认的仪表盘翻译
   const displayTitle = title || t('menu.dashboard');
 
@@ -125,6 +143,141 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
   const handleParentClick = (menuId: string) => {
     setOpenMenu(prevOpenMenu => (prevOpenMenu === menuId ? null : menuId));
+  };
+
+  const handleShowProfile = () => {
+    setProfileFormData({
+      username: userInfo?.username || '',
+      email: userInfo?.email || '',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setShowUserMenu(false);
+    setShowProfileModal(true);
+  };
+
+  const handleShowAvatar = () => {
+    setShowUserMenu(false);
+    setShowAvatarModal(true);
+  };
+
+  const handleShowAccount = () => {
+    setProfileFormData({
+      username: userInfo?.username || '',
+      email: userInfo?.email || '',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setShowUserMenu(false);
+    setShowAccountModal(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminAuth");
+    localStorage.removeItem("adminUserInfo");
+    router.push("/admin/login");
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/admin/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: profileFormData.username,
+          email: profileFormData.email,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUserInfo(updatedUser.data);
+        localStorage.setItem("adminUserInfo", JSON.stringify(updatedUser.data));
+        setShowProfileModal(false);
+        alert('Profile updated successfully!');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      alert('Failed to update profile');
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const response = await fetch('/api/admin/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const updatedUser = { ...userInfo, avatar: result.data.avatar };
+        setUserInfo(updatedUser);
+        localStorage.setItem("adminUserInfo", JSON.stringify(updatedUser));
+        setShowAvatarModal(false);
+        alert('Avatar updated successfully!');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to upload avatar');
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      alert('Failed to upload avatar');
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (profileFormData.newPassword !== profileFormData.confirmPassword) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: profileFormData.currentPassword,
+          newPassword: profileFormData.newPassword,
+        }),
+      });
+
+      if (response.ok) {
+        setShowAccountModal(false);
+        setProfileFormData({
+          username: '',
+          email: '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        alert('Password changed successfully!');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to change password');
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      alert('Failed to change password');
+    }
   };
 
   const renderMenuItem = (item: MenuItem, level: number = 0) => {

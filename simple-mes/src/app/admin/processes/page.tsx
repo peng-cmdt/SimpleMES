@@ -1232,11 +1232,10 @@ export default function ProcessesPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     <div>
                       <div className="font-medium">{process.product.name}</div>
-                      <div className="text-xs text-gray-400">{process.product.productCode}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                    {process._count.steps} 个步骤
+                    {process._count.steps}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(process.status)}`}>

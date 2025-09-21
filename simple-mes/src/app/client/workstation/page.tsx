@@ -462,6 +462,62 @@ export default function WorkstationPage() {
     return () => clearInterval(interval);
   }, [workstationSession, isExecutionMode]);
 
+  // 轻量级会话状态检查 - 每2秒检查一次是否被接管，不更新心跳
+  useEffect(() => {
+    if (!workstationSession) return;
+
+    const checkSessionStatus = async () => {
+      try {
+        const response = await fetch('/api/workstation/session/status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: workstationSession.sessionId
+          })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          // 会话被终止或接管，立即处理
+          if (result.error === 'SESSION_TAKEN_OVER') {
+            alert(`您的会话已被 ${result.takenOverBy} 接管，系统将自动退出到登录界面。`);
+          } else if (result.error === 'SESSION_TERMINATED') {
+            alert('您的会话已过期或被终止，系统将自动退出到登录界面。');
+          }
+
+          if (result.shouldLogout) {
+            // 清理本地存储并退出到登录界面
+            localStorage.removeItem("clientAuth");
+            localStorage.removeItem("clientUserInfo");
+            localStorage.removeItem("clientInfo");
+            // 只清理当前工位的session
+            if (workstationSession && workstationSession.workstation) {
+              const sessionKey = `workstationSession_${workstationSession.workstation.workstationId}`;
+              localStorage.removeItem(sessionKey);
+            }
+            localStorage.removeItem('workstationSession');
+            router.push("/client/login");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('会话状态检查失败:', error);
+        // 轻量级检查失败不影响系统运行，静默处理
+      }
+    };
+
+    // 立即检查一次
+    checkSessionStatus();
+
+    // 每2秒检查一次会话状态（轻量级，不更新心跳）- 优化响应速度
+    const statusCheckInterval = setInterval(checkSessionStatus, 2000);
+
+    return () => clearInterval(statusCheckInterval);
+  }, [workstationSession, router]);
+
   // 会话心跳维持 - 每60秒发送一次心跳，检测会话状态
   useEffect(() => {
     if (!workstationSession) return;
@@ -3620,10 +3676,10 @@ export default function WorkstationPage() {
               </div>
             )}
             <div className="w-full h-full flex items-center justify-center">
-              {currentStep?.step.stepTemplate.image ? (
+              {currentStep?.step?.stepTemplate?.image ? (
                 <img 
                   src={currentStep.step.stepTemplate.image}
-                  alt={currentStep.step.name}
+                  alt={currentStep.step?.name || '工艺步骤'}
                   className="max-w-full max-h-full object-contain"
                   onError={(e) => {
                     e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDYwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI2MDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yODcuNSAyMjVMMjczIDIzOS41TDI4NyAyNTRIMzEzTDMyNyAyMzkuNUwzMTIuNSAyMjVIMjg3LjVaIiBmaWxsPSIjOUI5QkFCIi8+CjxwYXRoIGQ9Ik0yNTggMTk2SDM0MlYyMjVIMjU4VjE5NloiIGZpbGw9IiM5QjlCQUIiLz4KPHRleHQgeD0iMzAwIiB5PSIxODAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzlCOUJBQiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5ZKl6IOM5LiN5Yiw5Zu+54mHPC90ZXh0Pgo8L3N2Zz4K';

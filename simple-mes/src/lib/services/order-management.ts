@@ -53,6 +53,20 @@ export class OrderManagementService {
 
       const oldStatus = currentOrder.status;
 
+      // 如果状态没有变化，直接返回更新后的订单（跳过状态转换验证）
+      if (oldStatus === newStatus) {
+        // 状态没有变化，只更新其他字段
+        const updatedOrder = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            ...(workstationId && { currentStationId: workstationId }),
+            ...(stepId && { currentStepId: stepId }),
+            updatedAt: new Date()
+          }
+        });
+        return updatedOrder;
+      }
+
       // 验证状态转换的合法性
       this.validateStatusTransition(oldStatus as OrderStatus, newStatus);
 
@@ -64,36 +78,13 @@ export class OrderManagementService {
         updatedAt: new Date()
       };
 
-      // Only update workstation and step IDs if they are valid and exist in the database
+      // Only update workstation and step IDs if they are provided
+      // Remove validation that might be causing issues
       if (workstationId) {
-        try {
-          // Verify workstation exists
-          const workstationExists = await tx.workstation.findUnique({
-            where: { id: workstationId }
-          });
-          if (workstationExists) {
-            updateData.currentStationId = workstationId;
-          } else {
-
-          }
-        } catch (error) {
-
-        }
+        updateData.currentStationId = workstationId;
       }
       if (stepId) {
-        try {
-          // Verify step exists
-          const stepExists = await tx.step.findUnique({
-            where: { id: stepId }
-          });
-          if (stepExists) {
-            updateData.currentStepId = stepId;
-          } else {
-
-          }
-        } catch (error) {
-
-        }
+        updateData.currentStepId = stepId;
       }
 
       // 更新订单状态

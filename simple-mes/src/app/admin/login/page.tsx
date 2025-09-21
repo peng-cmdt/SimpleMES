@@ -13,6 +13,9 @@ export default function AdminLogin() {
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loginProgress, setLoginProgress] = useState(0);
+  const [loginStatus, setLoginStatus] = useState("");
+  const [performanceData, setPerformanceData] = useState<any>(null);
   const router = useRouter();
   const { t } = useLanguage();
 
@@ -20,6 +23,9 @@ export default function AdminLogin() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setLoginProgress(0);
+    setLoginStatus("开始登录...");
+    setPerformanceData(null);
 
     // 调试信息
     console.log('Login attempt with credentials:', {
@@ -29,6 +35,11 @@ export default function AdminLogin() {
     });
 
     try {
+      const startTime = performance.now();
+
+      setLoginProgress(25);
+      setLoginStatus("验证用户信息...");
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -41,21 +52,54 @@ export default function AdminLogin() {
         }),
       });
 
+      setLoginProgress(75);
+      setLoginStatus("获取用户权限...");
+
       const data = await response.json();
+      const clientTime = performance.now() - startTime;
+
+      setLoginProgress(100);
 
       if (response.ok && data.success) {
+        setLoginStatus("登录成功！");
+
+        // 显示性能数据
+        if (data.performance) {
+          setPerformanceData({
+            server: data.performance,
+            client: Math.round(clientTime),
+            total: Math.round(clientTime)
+          });
+
+          console.log('Login Performance:', {
+            server: data.performance,
+            client: `${clientTime.toFixed(2)}ms`,
+            total: `${clientTime.toFixed(2)}ms`
+          });
+        }
+
         localStorage.setItem("adminAuth", "true");
         localStorage.setItem("adminUserInfo", JSON.stringify(data.user));
-        router.push("/admin/dashboard");
+
+        // 延迟跳转，让用户看到性能数据
+        setTimeout(() => {
+          router.push("/admin/dashboard");
+        }, 1500);
       } else {
+        setLoginProgress(0);
+        setLoginStatus("");
         setError(data.error || t('error.loginFailed'));
       }
     } catch (error) {
       console.error('Login error:', error);
+      setLoginProgress(0);
+      setLoginStatus("");
       setError(t('error.networkError'));
     }
 
-    setIsLoading(false);
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
   };
 
   return (
@@ -109,12 +153,45 @@ export default function AdminLogin() {
             <div className="text-red-600 text-sm text-center">{error}</div>
           )}
 
+          {/* 登录进度条 */}
+          {isLoading && (
+            <div className="space-y-3">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${loginProgress}%` }}
+                ></div>
+              </div>
+              <div className="text-center text-sm text-blue-600 font-medium">
+                {loginStatus}
+              </div>
+            </div>
+          )}
+
+          {/* 性能监控显示 */}
+          {performanceData && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+              <div className="font-medium text-green-800 mb-2">登录性能分析</div>
+              <div className="space-y-1 text-green-700">
+                <div>总耗时: {performanceData.total}ms</div>
+                <div className="text-xs space-y-1">
+                  <div>• 用户查询: {performanceData.server.breakdown.userQuery}ms</div>
+                  <div>• 密码验证: {performanceData.server.breakdown.passwordCheck}ms</div>
+                  <div>• 权限查询: {performanceData.server.breakdown.permissionsQuery}ms</div>
+                </div>
+                {performanceData.total < 200 && (
+                  <div className="text-green-600 font-medium">⚡ 性能优秀</div>
+                )}
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={isLoading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
           >
-            {isLoading ? t('login.loggingIn') : t('login.loginButton')}
+            {isLoading ? loginStatus || t('login.loggingIn') : t('login.loginButton')}
           </button>
         </form>
 
