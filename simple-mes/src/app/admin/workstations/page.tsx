@@ -974,10 +974,10 @@ export default function WorkstationsPage() {
                   >
                     <option value="">请选择USB设备类型</option>
                     {availableDeviceTypes
-                      .filter(t => t.type === 'BARCODE_SCANNER' && t.brand === 'Generic')
+                      .filter(t => t.type === 'BARCODE_SCANNER')
                       .map(template => (
                         <option key={template.id} value={template.id}>
-                          {template.name}
+                          {template.name} ({template.brand} {template.model})
                         </option>
                       ))}
                   </select>

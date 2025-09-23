@@ -237,7 +237,9 @@ export class WorkstationOrderQueueService {
               completedQuantity: true,
               priority: true,
               status: true,
-              productId: true
+              productId: true,
+              createdAt: true,
+              plannedDate: true
             }
           },
           workstation: {

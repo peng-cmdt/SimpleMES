@@ -25,12 +25,14 @@ const safeJsonParse = async (response: Response) => {
 interface Order {
   id: string;
   orderNumber: string; // Customer seq #
-  productionNumber: string; // Car number  
+  productionNumber: string; // Car number
   productFamily: string; // Product family
   carrierId: string; // carrier_id
   status: string;
   priority: number;
   quantity?: number; // 订单数量
+  createdAt?: string; // 订单创建时间
+  plannedDate?: string; // 订单计划时间
   product?: {
     name: string;
     productCode: string;
@@ -930,7 +932,9 @@ export default function WorkstationPage() {
               carrierId: order.notes || `CARR-${order.id.slice(-6)}`, // 使用备注或生成载具ID
               status: order.status.toLowerCase(),
               priority: order.priority,
-              product: order.product
+              product: order.product,
+              createdAt: order.createdAt,
+              plannedDate: order.plannedDate
             }))
             // 按订单号从小到大排序（T001, T002, T003...）
             .sort((a: any, b: any) => {
@@ -2174,6 +2178,33 @@ export default function WorkstationPage() {
     }
   };
   
+  // 计算交付时间的函数
+  const calculateDeliveryDate = (order: Order) => {
+    if (!order.createdAt) {
+      return '未设置';
+    }
+
+    let baseDate: Date;
+
+    if (order.plannedDate) {
+      // 如果有计划时间，使用计划时间 + 2天
+      baseDate = new Date(order.plannedDate);
+    } else {
+      // 如果没有计划时间，使用创建时间 + 2天
+      baseDate = new Date(order.createdAt);
+    }
+
+    // 加2天
+    const deliveryDate = new Date(baseDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+    // 格式化为 YYYY-MM-DD 格式
+    return deliveryDate.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
+  };
+
   // 将函数赋值给ref，以便在useUSBScannerDetector中使用
   handleScannerValidationRef.current = handleScannerValidation;
 
@@ -4388,7 +4419,7 @@ export default function WorkstationPage() {
                       
                       {/* 交付时间 */}
                       <div className="text-center">
-                        <div className="text-2xl">2025-01-15</div>
+                        <div className="text-2xl">{calculateDeliveryDate(order)}</div>
                       </div>
                     </div>
                   </div>

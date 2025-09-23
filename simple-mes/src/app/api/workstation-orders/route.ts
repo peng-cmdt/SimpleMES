@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       orderNumber: wo.order.orderNumber,
       productionNumber: wo.order.productionNumber,
       productFamily: wo.order.product?.name || wo.order.product?.productCode || 'N/A',
-      carrierId: `CARR-${wo.order.id.slice(-6)}`, 
+      carrierId: `CARR-${wo.order.id.slice(-6)}`,
       status: wo.status.toLowerCase(), // 使用工位级别的状态
       priority: wo.priority,
       product: wo.order.product,
@@ -74,7 +74,9 @@ export async function GET(request: NextRequest) {
       assignedAt: wo.assignedAt,
       startedAt: wo.startedAt,
       completedAt: wo.completedAt,
-      globalOrderStatus: wo.order.status // 全局订单状态（用于参考）
+      globalOrderStatus: wo.order.status, // 全局订单状态（用于参考）
+      createdAt: wo.order.createdAt, // 订单创建时间
+      plannedDate: wo.order.plannedDate // 订单计划时间
     }));
 
     // 按优先级和序号排序
