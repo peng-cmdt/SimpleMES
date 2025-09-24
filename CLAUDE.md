@@ -42,7 +42,7 @@ dotnet build
 
 ## Database Architecture
 
-- **ORM**: Prisma with SQLite database (`simple-mes/prisma/dev.db`)
+- **ORM**: Prisma with PostgreSQL database
 - **Key Models**: Users, Workstations, Devices, Products, Processes, Steps, Actions, Orders
 - **Seed Data**: Default users created via `prisma/seed.ts`
   - admin/admin, supervisor/supervisor, engineer/engineer, operator/operator, client/client

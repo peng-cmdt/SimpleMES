@@ -181,8 +181,17 @@ export default function StepTemplatesPage() {
   ];
 
   useEffect(() => {
-    loadStepTemplates();
-    loadWorkstations();
+    // 优化加载顺序：先加载步骤模板，再加载工位
+    const initializeData = async () => {
+      try {
+        await loadStepTemplates();
+        await loadWorkstations();
+      } catch (error) {
+        console.error('初始化数据失败:', error);
+      }
+    };
+    
+    initializeData();
     // 不在初始加载时加载设备，只在选中特定步骤模板时加载对应工位的设备
   }, []);
 
@@ -388,69 +397,106 @@ export default function StepTemplatesPage() {
     return reverseTypeMapping[dbType] || dbType;
   };
 
-  const handleTemplateClick = (template: StepTemplate) => {
+  const handleTemplateClick = async (template: StepTemplate) => {
     if (expandedTemplateId === template.id) {
       setExpandedTemplateId(null);
       setEditingTemplate(null);
     } else {
       setExpandedTemplateId(template.id);
-      setEditingTemplate(template);
-      setFormData({
-        name: template.name,
-        workstationId: template.workstationId || '',
-        description: template.description || '',
-        instructions: template.instructions || '',
-        image: template.image || ''
-      });
       
-      // 重新加载该工位的设备列表
-      if (template.workstationId) {
-        loadDevices(template.workstationId);
-      }
-      
-      // 映射动作模板数据，转换类型格式并从parameters中恢复前端字段
-      setTempActionTemplates((template.actionTemplates || []).map(action => {
-        const params = action.parameters as any || {};
-        
-        return {
-          ...action,
-          type: mapActionTypeFromDB(action.type), // 转换动作类型
-          // 从parameters中恢复前端特有字段
-          deviceId: params.deviceId || '',
-          sensorType: params.sensorType || '',
-          sensor: params.sensor || '',
-          sensorValue: params.sensorValue || '',
-          nameLocal: params.nameLocal || '',
-          componentType: params.componentType || '',
-          sensorInit: params.sensorInit || '',
-          maxExecutionTime: params.maxExecutionTime || 0,
-          expectedExecutionTime: params.expectedExecutionTime || 0,
-          idleTime: params.idleTime || 0,
-          okPin: params.okPin || '0',
-          errorPin: params.errorPin || '0',
-          dSign: params.dSign || false,
-          sSign: params.sSign || false,
-          actionAfterError: params.actionAfterError || 'Repeat action',
-          image: params.image || '',
-          imageWidth: params.imageWidth || 0,
-          imageHeight: params.imageHeight || 0,
-          fullSizeImage: params.fullSizeImage || false,
-          imagePosition: params.imagePosition || 'Top-left',
-          soundFile: params.soundFile || ''
-        };
-      }));
-      
-      // 从数据库加载条件数据
-      if (template.conditions && Array.isArray(template.conditions)) {
-        setConditionItems(template.conditions);
-      } else {
+      // 异步加载详细信息
+      try {
+        const response = await fetch(`/api/step-templates/${template.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          const detailedTemplate = data.data.stepTemplate;
+          
+          setEditingTemplate(detailedTemplate);
+          setFormData({
+            name: detailedTemplate.name,
+            workstationId: detailedTemplate.workstationId || '',
+            description: detailedTemplate.description || '',
+            instructions: detailedTemplate.instructions || '',
+            image: detailedTemplate.image || ''
+          });
+          
+          // 重新加载该工位的设备列表
+          if (detailedTemplate.workstationId) {
+            loadDevices(detailedTemplate.workstationId);
+          }
+          
+          // 映射动作模板数据，转换类型格式并从parameters中恢复前端字段
+          setTempActionTemplates((detailedTemplate.actionTemplates || []).map((action: any) => {
+            const params = action.parameters as any || {};
+            
+            return {
+              ...action,
+              type: mapActionTypeFromDB(action.type), // 转换动作类型
+              // 从parameters中恢复前端特有字段
+              deviceId: params.deviceId || action.deviceId || '',
+              sensorType: params.sensorType || action.sensorType || '',
+              sensor: params.sensor || action.sensor || '',
+              sensorValue: params.sensorValue || action.sensorValue || '',
+              nameLocal: params.nameLocal || action.nameLocal || '',
+              componentType: params.componentType || action.componentType || '',
+              sensorInit: params.sensorInit || action.sensorInit || '',
+              maxExecutionTime: params.maxExecutionTime || action.maxExecutionTime || 0,
+              expectedExecutionTime: params.expectedExecutionTime || action.expectedExecutionTime || 0,
+              idleTime: params.idleTime || action.idleTime || 0,
+              okPin: params.okPin || action.okPin || '0',
+              errorPin: params.errorPin || action.errorPin || '0',
+              dSign: params.dSign || action.dSign || false,
+              sSign: params.sSign || action.sSign || false,
+              actionAfterError: params.actionAfterError || action.actionAfterError || 'Repeat action',
+              image: params.image || action.image || '',
+              imageWidth: params.imageWidth || action.imageWidth || 0,
+              imageHeight: params.imageHeight || action.imageHeight || 0,
+              fullSizeImage: params.fullSizeImage || action.fullSizeImage || false,
+              imagePosition: params.imagePosition || action.imagePosition || 'Top-left',
+              soundFile: params.soundFile || action.soundFile || ''
+            };
+          }));
+          
+          // 从数据库加载条件数据
+          if (detailedTemplate.conditions && Array.isArray(detailedTemplate.conditions)) {
+            setConditionItems(detailedTemplate.conditions);
+          } else {
+            setConditionItems([]);
+          }
+          
+          if (detailedTemplate.image) {
+            setImagePreview(detailedTemplate.image);
+          }
+        } else {
+          // 如果详细信息加载失败，使用基本信息
+          setEditingTemplate(template);
+          setFormData({
+            name: template.name,
+            workstationId: template.workstationId || '',
+            description: template.description || '',
+            instructions: template.instructions || '',
+            image: template.image || ''
+          });
+          setTempActionTemplates([]);
+          setConditionItems([]);
+        }
+      } catch (error) {
+        console.error('加载步骤模板详情失败:', error);
+        // 使用基本信息作为后备
+        setEditingTemplate(template);
+        setFormData({
+          name: template.name,
+          workstationId: template.workstationId || '',
+          description: template.description || '',
+          instructions: template.instructions || '',
+          image: template.image || ''
+        });
+        setTempActionTemplates([]);
         setConditionItems([]);
       }
+      
       setActiveTab('info');
       setInfoEditing(false);
-      if (template.image) {
-        setImagePreview(template.image);
-      }
     }
   };
 
@@ -1525,22 +1571,22 @@ export default function StepTemplatesPage() {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 步骤ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 步骤名称
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                图片
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                描述说明
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 工位
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                图片
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                描述说明
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 是否被项目引用
               </th>
             </tr>
@@ -1553,7 +1599,7 @@ export default function StepTemplatesPage() {
                   className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                   onClick={() => handleTemplateClick(template)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <div className="flex items-center">
                       <svg 
                         className={`w-4 h-4 mr-3 transform transition-transform ${expandedTemplateId === template.id ? 'rotate-90' : ''}`}
@@ -1568,41 +1614,41 @@ export default function StepTemplatesPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
                       {template.name}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    {template.workstation ? template.workstation.name : '未指定'}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <div className="flex items-center justify-center">
                       {template.image ? (
                         <img
                           src={template.image}
                           alt={template.name}
-                          className="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
+                          className="w-8 h-8 rounded object-cover cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleImageClick(template.image!);
                           }}
                         />
                       ) : (
-                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
-                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
+                  <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-300">
                     <div className="max-w-xs truncate" title={template.description || '无描述'}>
                       {template.description || '无描述'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                    {template.workstation ? template.workstation.name : '未指定'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     {template._count.steps > 0 ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         已引用 ({template._count.steps})

@@ -112,7 +112,7 @@ Invoke-WebRequest -Uri "http://localhost:3000/api/device-communication/devices/$
 ## 系统架构说明
 
 ### 数据流程
-1. **配置存储**：设备参数配置在前端数据库（SQLite）
+1. **配置存储**：设备参数配置在前端数据库（PostgreSQL）
 2. **客户端访问**：通过前端API访问数据库获取设备配置
 3. **设备连接**：后端服务根据配置连接真实PLC设备
 4. **操作执行**：根据配置的Action操作真实设备

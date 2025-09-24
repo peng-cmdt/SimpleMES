@@ -3,54 +3,28 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
+    // 优化查询，只获取基本工位信息，不包含设备详情
     const workstations = await prisma.workstation.findMany({
-      include: {
-        workstationDevices: {
-          include: {
-            template: {
-              select: {
-                id: true,
-                templateId: true,
-                name: true,
-                type: true,
-                brand: true,
-                model: true,
-                driver: true
-              }
-            }
-          }
-        }
+      select: {
+        id: true,
+        workstationId: true,
+        name: true,
+        description: true,
+        location: true,
+        configuredIp: true,
+        status: true,
+        isOrderCompleteStation: true,
+        createdAt: true,
+        updatedAt: true
       },
       orderBy: {
         createdAt: 'desc'
       }
     })
 
-    // 转换工位设备数据格式以兼容前端
-    const workstationsWithDevices = workstations.map(ws => {
-      const devices = ws.workstationDevices?.map(wd => ({
-        id: wd.id,
-        deviceId: wd.instanceId,
-        name: wd.displayName,
-        type: wd.template.type,
-        brand: wd.template.brand,
-        model: wd.template.model,
-        status: wd.status,
-        ipAddress: wd.ipAddress,
-        port: wd.port,
-        workstationId: wd.workstationId
-      })) || []
-
-      return {
-        ...ws,
-        devices,
-        workstationDevices: undefined  // 删除原始字段
-      };
-    })
-
     return NextResponse.json({
       success: true,
-      workstations: workstationsWithDevices
+      workstations: workstations
     })
   } catch (error) {
     console.error('Get workstations error:', error)

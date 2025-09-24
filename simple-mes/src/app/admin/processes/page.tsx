@@ -471,7 +471,6 @@ export default function ProcessesPage() {
         }
         
         setLastUpdated(new Date());
-        alert('保存成功');
       } else {
         console.log('保存失败:', data);
         setError(data.error || '保存失败');

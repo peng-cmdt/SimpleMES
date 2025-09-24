@@ -299,7 +299,7 @@ export default function WorkstationTestPage() {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-purple-900">数据库</p>
-                  <p className="text-xs text-purple-700">SQLite + Prisma</p>
+                  <p className="text-xs text-purple-700">PostgreSQL + Prisma</p>
                 </div>
               </div>
             </div>

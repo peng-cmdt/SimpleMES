@@ -1,0 +1,3688 @@
+{
+  "timestamp": "2025-09-23T15:00:45.295Z",
+  "data": {
+    "users": [
+      {
+        "id": "cmfw42ppy0089tmdc6xgqamnl",
+        "username": "admin",
+        "password": "$2b$10$cPB3BkW2p2RFrhcfl4.QWeW4jdL0pqYFxRys3kYdhi1AAGw23/gEa",
+        "email": "admin@example.com",
+        "avatar": null,
+        "role": "ADMIN",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.895Z",
+        "updatedAt": "2025-09-23T08:39:10.192Z"
+      },
+      {
+        "id": "cmfw42pq7008atmdcz6z6yp2a",
+        "username": "supervisor",
+        "password": "$2b$10$LzbZv83bvfDEMZXGz1l9vuQR/X.twMMxMb1PIXx7HFqB1FU5WkoQm",
+        "email": "supervisor@example.com",
+        "avatar": null,
+        "role": "SUPERVISOR",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.903Z",
+        "updatedAt": "2025-09-23T08:39:10.195Z"
+      },
+      {
+        "id": "cmfw42pq8008btmdc25hsjm2s",
+        "username": "engineer",
+        "password": "$2b$10$9YRl2kqzJzG/7iGAyQFCvOlfUKs5zGlrs3FyGC5JDwokoS.cc1rPq",
+        "email": "engineer@example.com",
+        "avatar": null,
+        "role": "ENGINEER",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.905Z",
+        "updatedAt": "2025-09-23T08:39:10.196Z"
+      },
+      {
+        "id": "cmfw42pqa008ctmdcqo0tvu5h",
+        "username": "operator",
+        "password": "$2b$10$JWtYFiwXgEbCE3Y2/Mirc.giFEkFF4fh95jMKyAU9GF.OPP9Y5GrW",
+        "email": "operator@example.com",
+        "avatar": null,
+        "role": "OPERATOR",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.906Z",
+        "updatedAt": "2025-09-23T08:39:10.197Z"
+      },
+      {
+        "id": "cmfw42pqb008dtmdcic0wg81r",
+        "username": "client",
+        "password": "$2b$10$3Hocph6EFfU2vO.d8PdJauF7Sd9pVS1Xy32Sn5ebM.vIs393qutaC",
+        "email": "client@example.com",
+        "avatar": null,
+        "role": "CLIENT",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.908Z",
+        "updatedAt": "2025-09-23T08:39:10.198Z"
+      }
+    ],
+    "roles": [
+      {
+        "id": "cmfw42p8z001ctmdcyfdg6ha7",
+        "name": "ADMIN",
+        "description": "系统管理员 - 拥有所有权限",
+        "createdAt": "2025-09-23T05:25:07.283Z",
+        "updatedAt": "2025-09-23T08:39:09.652Z"
+      },
+      {
+        "id": "cmfw42p91001dtmdcxps2q066",
+        "name": "SUPERVISOR",
+        "description": "主管 - 生产管理和用户管理权限",
+        "createdAt": "2025-09-23T05:25:07.285Z",
+        "updatedAt": "2025-09-23T08:39:09.654Z"
+      },
+      {
+        "id": "cmfw42p92001etmdc8j8v528b",
+        "name": "ENGINEER",
+        "description": "工程师 - 技术配置和工艺管理权限",
+        "createdAt": "2025-09-23T05:25:07.287Z",
+        "updatedAt": "2025-09-23T08:39:09.655Z"
+      },
+      {
+        "id": "cmfw42p93001ftmdct9udd0qu",
+        "name": "OPERATOR",
+        "description": "操作员 - 生产执行权限",
+        "createdAt": "2025-09-23T05:25:07.287Z",
+        "updatedAt": "2025-09-23T08:39:09.656Z"
+      },
+      {
+        "id": "cmfw42p94001gtmdchak9ye4l",
+        "name": "CLIENT",
+        "description": "客户端 - 工位操作权限",
+        "createdAt": "2025-09-23T05:25:07.288Z",
+        "updatedAt": "2025-09-23T08:39:09.657Z"
+      }
+    ],
+    "permissions": [
+      {
+        "id": "cmfw42p770000tmdcbco5xlx2",
+        "name": "users:read",
+        "description": "查看用户",
+        "resource": "users",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.219Z",
+        "updatedAt": "2025-09-23T08:39:09.589Z"
+      },
+      {
+        "id": "cmfw42p7i0001tmdcjjaq1w81",
+        "name": "users:create",
+        "description": "创建用户",
+        "resource": "users",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.230Z",
+        "updatedAt": "2025-09-23T08:39:09.605Z"
+      },
+      {
+        "id": "cmfw42p7j0002tmdc7hl11cq1",
+        "name": "users:update",
+        "description": "更新用户",
+        "resource": "users",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.231Z",
+        "updatedAt": "2025-09-23T08:39:09.607Z"
+      },
+      {
+        "id": "cmfw42p7k0003tmdcv9inq5at",
+        "name": "users:delete",
+        "description": "删除用户",
+        "resource": "users",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.233Z",
+        "updatedAt": "2025-09-23T08:39:09.608Z"
+      },
+      {
+        "id": "cmfw42p7l0004tmdc2bdayfz5",
+        "name": "roles:read",
+        "description": "查看角色",
+        "resource": "roles",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.234Z",
+        "updatedAt": "2025-09-23T08:39:09.609Z"
+      },
+      {
+        "id": "cmfw42p7n0005tmdcqmigeynh",
+        "name": "roles:create",
+        "description": "创建角色",
+        "resource": "roles",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.235Z",
+        "updatedAt": "2025-09-23T08:39:09.610Z"
+      },
+      {
+        "id": "cmfw42p7o0006tmdcs2omkq7w",
+        "name": "roles:update",
+        "description": "更新角色",
+        "resource": "roles",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.237Z",
+        "updatedAt": "2025-09-23T08:39:09.611Z"
+      },
+      {
+        "id": "cmfw42p7s0007tmdcyxqxutv8",
+        "name": "roles:delete",
+        "description": "删除角色",
+        "resource": "roles",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.240Z",
+        "updatedAt": "2025-09-23T08:39:09.612Z"
+      },
+      {
+        "id": "cmfw42p7u0008tmdcaq8i8liq",
+        "name": "permissions:read",
+        "description": "查看权限",
+        "resource": "permissions",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.242Z",
+        "updatedAt": "2025-09-23T08:39:09.614Z"
+      },
+      {
+        "id": "cmfw42p7v0009tmdcj9qiumzv",
+        "name": "permissions:manage",
+        "description": "管理权限",
+        "resource": "permissions",
+        "action": "manage",
+        "createdAt": "2025-09-23T05:25:07.243Z",
+        "updatedAt": "2025-09-23T08:39:09.615Z"
+      },
+      {
+        "id": "cmfw42p7w000atmdcb4erou90",
+        "name": "menus:read",
+        "description": "查看菜单",
+        "resource": "menus",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.244Z",
+        "updatedAt": "2025-09-23T08:39:09.616Z"
+      },
+      {
+        "id": "cmfw42p7x000btmdcll8gxa8d",
+        "name": "menus:create",
+        "description": "创建菜单",
+        "resource": "menus",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.245Z",
+        "updatedAt": "2025-09-23T08:39:09.617Z"
+      },
+      {
+        "id": "cmfw42p7y000ctmdcucw6n8rz",
+        "name": "menus:update",
+        "description": "更新菜单",
+        "resource": "menus",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.247Z",
+        "updatedAt": "2025-09-23T08:39:09.618Z"
+      },
+      {
+        "id": "cmfw42p7z000dtmdcmtk79tbh",
+        "name": "menus:delete",
+        "description": "删除菜单",
+        "resource": "menus",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.248Z",
+        "updatedAt": "2025-09-23T08:39:09.619Z"
+      },
+      {
+        "id": "cmfw42p80000etmdc9edo1h83",
+        "name": "products:read",
+        "description": "查看产品",
+        "resource": "products",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.249Z",
+        "updatedAt": "2025-09-23T08:39:09.620Z"
+      },
+      {
+        "id": "cmfw42p81000ftmdcv3dlgmeb",
+        "name": "products:create",
+        "description": "创建产品",
+        "resource": "products",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.250Z",
+        "updatedAt": "2025-09-23T08:39:09.621Z"
+      },
+      {
+        "id": "cmfw42p82000gtmdcswlgn413",
+        "name": "products:update",
+        "description": "更新产品",
+        "resource": "products",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.251Z",
+        "updatedAt": "2025-09-23T08:39:09.622Z"
+      },
+      {
+        "id": "cmfw42p83000htmdc9jesamms",
+        "name": "products:delete",
+        "description": "删除产品",
+        "resource": "products",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.252Z",
+        "updatedAt": "2025-09-23T08:39:09.623Z"
+      },
+      {
+        "id": "cmfw42p84000itmdc2pgbip3g",
+        "name": "boms:read",
+        "description": "查看BOM",
+        "resource": "boms",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.253Z",
+        "updatedAt": "2025-09-23T08:39:09.624Z"
+      },
+      {
+        "id": "cmfw42p86000jtmdc178tdot1",
+        "name": "boms:create",
+        "description": "创建BOM",
+        "resource": "boms",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.254Z",
+        "updatedAt": "2025-09-23T08:39:09.624Z"
+      },
+      {
+        "id": "cmfw42p87000ktmdcr6h4x4ym",
+        "name": "boms:update",
+        "description": "更新BOM",
+        "resource": "boms",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.255Z",
+        "updatedAt": "2025-09-23T08:39:09.625Z"
+      },
+      {
+        "id": "cmfw42p88000ltmdcczlovna3",
+        "name": "boms:delete",
+        "description": "删除BOM",
+        "resource": "boms",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.256Z",
+        "updatedAt": "2025-09-23T08:39:09.626Z"
+      },
+      {
+        "id": "cmfw42p88000mtmdchrp0c4z3",
+        "name": "processes:read",
+        "description": "查看工艺",
+        "resource": "processes",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.257Z",
+        "updatedAt": "2025-09-23T08:39:09.627Z"
+      },
+      {
+        "id": "cmfw42p89000ntmdc9b28tlr7",
+        "name": "processes:create",
+        "description": "创建工艺",
+        "resource": "processes",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.258Z",
+        "updatedAt": "2025-09-23T08:39:09.628Z"
+      },
+      {
+        "id": "cmfw42p8b000otmdcywt6gh48",
+        "name": "processes:update",
+        "description": "更新工艺",
+        "resource": "processes",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.259Z",
+        "updatedAt": "2025-09-23T08:39:09.629Z"
+      },
+      {
+        "id": "cmfw42p8c000ptmdcwgz4vz23",
+        "name": "processes:delete",
+        "description": "删除工艺",
+        "resource": "processes",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.260Z",
+        "updatedAt": "2025-09-23T08:39:09.630Z"
+      },
+      {
+        "id": "cmfw42p8c000qtmdcnhmbr14k",
+        "name": "orders:read",
+        "description": "查看订单",
+        "resource": "orders",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.261Z",
+        "updatedAt": "2025-09-23T08:39:09.631Z"
+      },
+      {
+        "id": "cmfw42p8d000rtmdc0s499lp6",
+        "name": "orders:create",
+        "description": "创建订单",
+        "resource": "orders",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.262Z",
+        "updatedAt": "2025-09-23T08:39:09.632Z"
+      },
+      {
+        "id": "cmfw42p8e000stmdcnzf0tcmw",
+        "name": "orders:update",
+        "description": "更新订单",
+        "resource": "orders",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.263Z",
+        "updatedAt": "2025-09-23T08:39:09.633Z"
+      },
+      {
+        "id": "cmfw42p8f000ttmdcrrxnc48e",
+        "name": "orders:delete",
+        "description": "删除订单",
+        "resource": "orders",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.264Z",
+        "updatedAt": "2025-09-23T08:39:09.634Z"
+      },
+      {
+        "id": "cmfw42p8g000utmdcvn1xipeb",
+        "name": "orders:execute",
+        "description": "执行订单",
+        "resource": "orders",
+        "action": "execute",
+        "createdAt": "2025-09-23T05:25:07.265Z",
+        "updatedAt": "2025-09-23T08:39:09.635Z"
+      },
+      {
+        "id": "cmfw42p8h000vtmdchhhncdee",
+        "name": "workstations:read",
+        "description": "查看工位",
+        "resource": "workstations",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.265Z",
+        "updatedAt": "2025-09-23T08:39:09.636Z"
+      },
+      {
+        "id": "cmfw42p8i000wtmdcwc3gv02a",
+        "name": "workstations:create",
+        "description": "创建工位",
+        "resource": "workstations",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.266Z",
+        "updatedAt": "2025-09-23T08:39:09.637Z"
+      },
+      {
+        "id": "cmfw42p8j000xtmdcx6m2qsv8",
+        "name": "workstations:update",
+        "description": "更新工位",
+        "resource": "workstations",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.267Z",
+        "updatedAt": "2025-09-23T08:39:09.638Z"
+      },
+      {
+        "id": "cmfw42p8k000ytmdclaheke6s",
+        "name": "workstations:delete",
+        "description": "删除工位",
+        "resource": "workstations",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.268Z",
+        "updatedAt": "2025-09-23T08:39:09.639Z"
+      },
+      {
+        "id": "cmfw42p8l000ztmdcho76h9p3",
+        "name": "workstations:control",
+        "description": "控制工位",
+        "resource": "workstations",
+        "action": "control",
+        "createdAt": "2025-09-23T05:25:07.269Z",
+        "updatedAt": "2025-09-23T08:39:09.640Z"
+      },
+      {
+        "id": "cmfw42p8n0010tmdckwa3ghcf",
+        "name": "devices:read",
+        "description": "查看设备",
+        "resource": "devices",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.270Z",
+        "updatedAt": "2025-09-23T08:39:09.640Z"
+      },
+      {
+        "id": "cmfw42p8o0011tmdcswu197y3",
+        "name": "devices:create",
+        "description": "创建设备",
+        "resource": "devices",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.272Z",
+        "updatedAt": "2025-09-23T08:39:09.641Z"
+      },
+      {
+        "id": "cmfw42p8p0012tmdc4zxd76gm",
+        "name": "devices:update",
+        "description": "更新设备",
+        "resource": "devices",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.273Z",
+        "updatedAt": "2025-09-23T08:39:09.642Z"
+      },
+      {
+        "id": "cmfw42p8q0013tmdc8j5rekd5",
+        "name": "devices:delete",
+        "description": "删除设备",
+        "resource": "devices",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.274Z",
+        "updatedAt": "2025-09-23T08:39:09.643Z"
+      },
+      {
+        "id": "cmfw42p8q0014tmdc23jhwjfn",
+        "name": "devices:control",
+        "description": "控制设备",
+        "resource": "devices",
+        "action": "control",
+        "createdAt": "2025-09-23T05:25:07.275Z",
+        "updatedAt": "2025-09-23T08:39:09.644Z"
+      },
+      {
+        "id": "cmfw42p8s0015tmdcdc5lz7nd",
+        "name": "clients:read",
+        "description": "查看客户端",
+        "resource": "clients",
+        "action": "read",
+        "createdAt": "2025-09-23T05:25:07.276Z",
+        "updatedAt": "2025-09-23T08:39:09.645Z"
+      },
+      {
+        "id": "cmfw42p8t0016tmdcyw1rjh9g",
+        "name": "clients:create",
+        "description": "创建客户端",
+        "resource": "clients",
+        "action": "create",
+        "createdAt": "2025-09-23T05:25:07.277Z",
+        "updatedAt": "2025-09-23T08:39:09.646Z"
+      },
+      {
+        "id": "cmfw42p8u0017tmdcj5vd8rws",
+        "name": "clients:update",
+        "description": "更新客户端",
+        "resource": "clients",
+        "action": "update",
+        "createdAt": "2025-09-23T05:25:07.278Z",
+        "updatedAt": "2025-09-23T08:39:09.646Z"
+      },
+      {
+        "id": "cmfw42p8v0018tmdc2x136yat",
+        "name": "clients:delete",
+        "description": "删除客户端",
+        "resource": "clients",
+        "action": "delete",
+        "createdAt": "2025-09-23T05:25:07.279Z",
+        "updatedAt": "2025-09-23T08:39:09.647Z"
+      },
+      {
+        "id": "cmfw42p8v0019tmdcnqjkf14a",
+        "name": "export:data",
+        "description": "导出数据",
+        "resource": "export",
+        "action": "data",
+        "createdAt": "2025-09-23T05:25:07.280Z",
+        "updatedAt": "2025-09-23T08:39:09.648Z"
+      },
+      {
+        "id": "cmfw42p8w001atmdclx4guq9k",
+        "name": "dashboard:view",
+        "description": "查看仪表盘",
+        "resource": "dashboard",
+        "action": "view",
+        "createdAt": "2025-09-23T05:25:07.281Z",
+        "updatedAt": "2025-09-23T08:39:09.649Z"
+      },
+      {
+        "id": "cmfw42p8x001btmdcbf72bg76",
+        "name": "system:config",
+        "description": "系统配置",
+        "resource": "system",
+        "action": "config",
+        "createdAt": "2025-09-23T05:25:07.282Z",
+        "updatedAt": "2025-09-23T08:39:09.650Z"
+      }
+    ],
+    "userRoleAssignments": [
+      {
+        "id": "cmfw42pqd008ftmdcupwc7vmb",
+        "userId": "cmfw42ppy0089tmdc6xgqamnl",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7"
+      },
+      {
+        "id": "cmfw42pqh008htmdcmjcngl4m",
+        "userId": "cmfw42pq7008atmdcz6z6yp2a",
+        "roleId": "cmfw42p91001dtmdcxps2q066"
+      },
+      {
+        "id": "cmfw42pqk008jtmdc2uj5yydn",
+        "userId": "cmfw42pq8008btmdc25hsjm2s",
+        "roleId": "cmfw42p92001etmdc8j8v528b"
+      },
+      {
+        "id": "cmfw42pqm008ltmdcuid8te7p",
+        "userId": "cmfw42pqa008ctmdcqo0tvu5h",
+        "roleId": "cmfw42p93001ftmdct9udd0qu"
+      },
+      {
+        "id": "cmfw42pqo008ntmdctdushznq",
+        "userId": "cmfw42pqb008dtmdcic0wg81r",
+        "roleId": "cmfw42p94001gtmdchak9ye4l"
+      }
+    ],
+    "rolePermissions": [
+      {
+        "id": "cmfw42p95001itmdc11huxijo",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p770000tmdcbco5xlx2"
+      },
+      {
+        "id": "cmfw42p9a001ktmdc749ldp6d",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7i0001tmdcjjaq1w81"
+      },
+      {
+        "id": "cmfw42p9c001mtmdc3gw8y6li",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7j0002tmdc7hl11cq1"
+      },
+      {
+        "id": "cmfw42p9e001otmdc2qt0jvqm",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7k0003tmdcv9inq5at"
+      },
+      {
+        "id": "cmfw42p9f001qtmdcr6jhnmah",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7l0004tmdc2bdayfz5"
+      },
+      {
+        "id": "cmfw42p9h001stmdcjweq107e",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7n0005tmdcqmigeynh"
+      },
+      {
+        "id": "cmfw42p9j001utmdc1tapuwvx",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7o0006tmdcs2omkq7w"
+      },
+      {
+        "id": "cmfw42p9l001wtmdcq5guaedu",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7s0007tmdcyxqxutv8"
+      },
+      {
+        "id": "cmfw42p9m001ytmdcbz7boo5v",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7u0008tmdcaq8i8liq"
+      },
+      {
+        "id": "cmfw42p9o0020tmdcg4vvewyr",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7v0009tmdcj9qiumzv"
+      },
+      {
+        "id": "cmfw42p9q0022tmdc4od9hkss",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7w000atmdcb4erou90"
+      },
+      {
+        "id": "cmfw42p9s0024tmdccks7bdx7",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7x000btmdcll8gxa8d"
+      },
+      {
+        "id": "cmfw42p9t0026tmdcx3rn2cwj",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7y000ctmdcucw6n8rz"
+      },
+      {
+        "id": "cmfw42p9v0028tmdc4njrh2fo",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p7z000dtmdcmtk79tbh"
+      },
+      {
+        "id": "cmfw42p9x002atmdci3danynr",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p80000etmdc9edo1h83"
+      },
+      {
+        "id": "cmfw42p9z002ctmdcoyzt9ton",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p81000ftmdcv3dlgmeb"
+      },
+      {
+        "id": "cmfw42pa1002etmdcanmh0g8w",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p82000gtmdcswlgn413"
+      },
+      {
+        "id": "cmfw42pa3002gtmdcncavi7d5",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p83000htmdc9jesamms"
+      },
+      {
+        "id": "cmfw42pa5002itmdceo5kh1gp",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p84000itmdc2pgbip3g"
+      },
+      {
+        "id": "cmfw42pa7002ktmdcjef406n9",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p86000jtmdc178tdot1"
+      },
+      {
+        "id": "cmfw42pa9002mtmdcliq0b0dx",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p87000ktmdcr6h4x4ym"
+      },
+      {
+        "id": "cmfw42paa002otmdc6fqb7l7t",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p88000ltmdcczlovna3"
+      },
+      {
+        "id": "cmfw42pac002qtmdc85ait2d1",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p88000mtmdchrp0c4z3"
+      },
+      {
+        "id": "cmfw42pae002stmdcvvlz1kp4",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p89000ntmdc9b28tlr7"
+      },
+      {
+        "id": "cmfw42paf002utmdcf32ebagi",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8b000otmdcywt6gh48"
+      },
+      {
+        "id": "cmfw42pah002wtmdcumdn6yb4",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8c000ptmdcwgz4vz23"
+      },
+      {
+        "id": "cmfw42paj002ytmdcg4tk94ns",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8c000qtmdcnhmbr14k"
+      },
+      {
+        "id": "cmfw42pak0030tmdcjbao2qqf",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8d000rtmdc0s499lp6"
+      },
+      {
+        "id": "cmfw42pam0032tmdcg8ndl83p",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8e000stmdcnzf0tcmw"
+      },
+      {
+        "id": "cmfw42pao0034tmdcbrivh6cr",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8f000ttmdcrrxnc48e"
+      },
+      {
+        "id": "cmfw42pap0036tmdcgq75zl8y",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8g000utmdcvn1xipeb"
+      },
+      {
+        "id": "cmfw42par0038tmdc7yfnnyg4",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8h000vtmdchhhncdee"
+      },
+      {
+        "id": "cmfw42pat003atmdcciy1kzdq",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8i000wtmdcwc3gv02a"
+      },
+      {
+        "id": "cmfw42pav003ctmdcwpc2vr97",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8j000xtmdcx6m2qsv8"
+      },
+      {
+        "id": "cmfw42pax003etmdc4l6n9y16",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8k000ytmdclaheke6s"
+      },
+      {
+        "id": "cmfw42pay003gtmdcp42mgcf4",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8l000ztmdcho76h9p3"
+      },
+      {
+        "id": "cmfw42pb0003itmdcuesjsnyk",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8n0010tmdckwa3ghcf"
+      },
+      {
+        "id": "cmfw42pb2003ktmdcfy1q7vix",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8o0011tmdcswu197y3"
+      },
+      {
+        "id": "cmfw42pb4003mtmdczklayxhl",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8p0012tmdc4zxd76gm"
+      },
+      {
+        "id": "cmfw42pb6003otmdcstlryok8",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8q0013tmdc8j5rekd5"
+      },
+      {
+        "id": "cmfw42pb8003qtmdcouf23l0b",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8q0014tmdc23jhwjfn"
+      },
+      {
+        "id": "cmfw42pba003stmdcwn7iezxu",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8s0015tmdcdc5lz7nd"
+      },
+      {
+        "id": "cmfw42pbc003utmdcc3qo86mq",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8t0016tmdcyw1rjh9g"
+      },
+      {
+        "id": "cmfw42pbe003wtmdc755f6ziu",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8u0017tmdcj5vd8rws"
+      },
+      {
+        "id": "cmfw42pbf003ytmdcgp66eprx",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8v0018tmdc2x136yat"
+      },
+      {
+        "id": "cmfw42pbi0040tmdcgj2ni6zy",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8v0019tmdcnqjkf14a"
+      },
+      {
+        "id": "cmfw42pbl0042tmdcljblk5ho",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8w001atmdclx4guq9k"
+      },
+      {
+        "id": "cmfw42pbn0044tmdcpqhb4xbx",
+        "roleId": "cmfw42p8z001ctmdcyfdg6ha7",
+        "permissionId": "cmfw42p8x001btmdcbf72bg76"
+      },
+      {
+        "id": "cmfw42pbq0046tmdc4t5ajioo",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p770000tmdcbco5xlx2"
+      },
+      {
+        "id": "cmfw42pbs0048tmdctt0dxjyl",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p7i0001tmdcjjaq1w81"
+      },
+      {
+        "id": "cmfw42pbu004atmdco69xi1kj",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p7j0002tmdc7hl11cq1"
+      },
+      {
+        "id": "cmfw42pbw004ctmdc7lkcmzmp",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p7k0003tmdcv9inq5at"
+      },
+      {
+        "id": "cmfw42pby004etmdcvjo4s9hl",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p80000etmdc9edo1h83"
+      },
+      {
+        "id": "cmfw42pc1004gtmdc7srevonr",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p81000ftmdcv3dlgmeb"
+      },
+      {
+        "id": "cmfw42pc3004itmdc4sqh7f05",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p82000gtmdcswlgn413"
+      },
+      {
+        "id": "cmfw42pc5004ktmdc302cihx2",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p83000htmdc9jesamms"
+      },
+      {
+        "id": "cmfw42pc7004mtmdcc7s27ak0",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p88000mtmdchrp0c4z3"
+      },
+      {
+        "id": "cmfw42pca004otmdcnlvy4aro",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8c000qtmdcnhmbr14k"
+      },
+      {
+        "id": "cmfw42pcc004qtmdcrowm00pe",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8d000rtmdc0s499lp6"
+      },
+      {
+        "id": "cmfw42pce004stmdcnzxdyjb1",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8e000stmdcnzf0tcmw"
+      },
+      {
+        "id": "cmfw42pcg004utmdchvg8unx9",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8f000ttmdcrrxnc48e"
+      },
+      {
+        "id": "cmfw42pci004wtmdc12n90vxh",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8g000utmdcvn1xipeb"
+      },
+      {
+        "id": "cmfw42pcj004ytmdcg0zlyew6",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8h000vtmdchhhncdee"
+      },
+      {
+        "id": "cmfw42pcl0050tmdcnk21jbjj",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8i000wtmdcwc3gv02a"
+      },
+      {
+        "id": "cmfw42pcn0052tmdcmrgykdse",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8j000xtmdcx6m2qsv8"
+      },
+      {
+        "id": "cmfw42pcp0054tmdcnmql6jbu",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8k000ytmdclaheke6s"
+      },
+      {
+        "id": "cmfw42pcr0056tmdcf6mzssli",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8l000ztmdcho76h9p3"
+      },
+      {
+        "id": "cmfw42pct0058tmdc7ilqtzgz",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8n0010tmdckwa3ghcf"
+      },
+      {
+        "id": "cmfw42pcw005atmdcwx0nk7g8",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8o0011tmdcswu197y3"
+      },
+      {
+        "id": "cmfw42pcy005ctmdcqty2cxr5",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8p0012tmdc4zxd76gm"
+      },
+      {
+        "id": "cmfw42pd0005etmdctu87qvss",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8q0014tmdc23jhwjfn"
+      },
+      {
+        "id": "cmfw42pd3005gtmdcylkesicf",
+        "roleId": "cmfw42p91001dtmdcxps2q066",
+        "permissionId": "cmfw42p8w001atmdclx4guq9k"
+      },
+      {
+        "id": "cmfw42pd5005itmdc53eynjg9",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p80000etmdc9edo1h83"
+      },
+      {
+        "id": "cmfw42pd7005ktmdcu4ozzfo0",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p81000ftmdcv3dlgmeb"
+      },
+      {
+        "id": "cmfw42pda005mtmdcr4xs1t0z",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p82000gtmdcswlgn413"
+      },
+      {
+        "id": "cmfw42pdc005otmdcqhurwk4y",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p83000htmdc9jesamms"
+      },
+      {
+        "id": "cmfw42pdg005qtmdc3emdidtc",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p84000itmdc2pgbip3g"
+      },
+      {
+        "id": "cmfw42pdi005stmdc5xr5qvim",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p86000jtmdc178tdot1"
+      },
+      {
+        "id": "cmfw42pdk005utmdcqxv88b4u",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p87000ktmdcr6h4x4ym"
+      },
+      {
+        "id": "cmfw42pdm005wtmdcti1f3dys",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p88000ltmdcczlovna3"
+      },
+      {
+        "id": "cmfw42pdo005ytmdc7p6dy8x2",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p88000mtmdchrp0c4z3"
+      },
+      {
+        "id": "cmfw42pdq0060tmdc173xjfdj",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p89000ntmdc9b28tlr7"
+      },
+      {
+        "id": "cmfw42pds0062tmdc8115tzdl",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8b000otmdcywt6gh48"
+      },
+      {
+        "id": "cmfw42pdu0064tmdcnntpolko",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8c000ptmdcwgz4vz23"
+      },
+      {
+        "id": "cmfw42pdw0066tmdcsf13qgo7",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8c000qtmdcnhmbr14k"
+      },
+      {
+        "id": "cmfw42pdy0068tmdcdf1rnu87",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8h000vtmdchhhncdee"
+      },
+      {
+        "id": "cmfw42pe0006atmdciir8prcj",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8i000wtmdcwc3gv02a"
+      },
+      {
+        "id": "cmfw42pe1006ctmdc4ncn6vp7",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8j000xtmdcx6m2qsv8"
+      },
+      {
+        "id": "cmfw42pe3006etmdc27jwwifo",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8k000ytmdclaheke6s"
+      },
+      {
+        "id": "cmfw42pe5006gtmdc5dng5qt3",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8l000ztmdcho76h9p3"
+      },
+      {
+        "id": "cmfw42pe7006itmdcjaveol39",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8n0010tmdckwa3ghcf"
+      },
+      {
+        "id": "cmfw42pe8006ktmdc480ekg83",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8o0011tmdcswu197y3"
+      },
+      {
+        "id": "cmfw42pea006mtmdc4a1k1ivc",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8p0012tmdc4zxd76gm"
+      },
+      {
+        "id": "cmfw42pec006otmdcozujlldz",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8q0013tmdc8j5rekd5"
+      },
+      {
+        "id": "cmfw42pee006qtmdcm7amsxh3",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8q0014tmdc23jhwjfn"
+      },
+      {
+        "id": "cmfw42peg006stmdclsyja8h2",
+        "roleId": "cmfw42p92001etmdc8j8v528b",
+        "permissionId": "cmfw42p8w001atmdclx4guq9k"
+      },
+      {
+        "id": "cmfw42pei006utmdcj040uahd",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p80000etmdc9edo1h83"
+      },
+      {
+        "id": "cmfw42pej006wtmdc9ctkyx0d",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p88000mtmdchrp0c4z3"
+      },
+      {
+        "id": "cmfw42pel006ytmdcj1tkvx0g",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8c000qtmdcnhmbr14k"
+      },
+      {
+        "id": "cmfw42pen0070tmdcz1b3zlqs",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8g000utmdcvn1xipeb"
+      },
+      {
+        "id": "cmfw42pep0072tmdcx2py3zmb",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8h000vtmdchhhncdee"
+      },
+      {
+        "id": "cmfw42peq0074tmdcx368k74z",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8l000ztmdcho76h9p3"
+      },
+      {
+        "id": "cmfw42pes0076tmdcc5znrorq",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8n0010tmdckwa3ghcf"
+      },
+      {
+        "id": "cmfw42peu0078tmdcp3vfestj",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8q0014tmdc23jhwjfn"
+      },
+      {
+        "id": "cmfw42pev007atmdcrne916hd",
+        "roleId": "cmfw42p93001ftmdct9udd0qu",
+        "permissionId": "cmfw42p8w001atmdclx4guq9k"
+      },
+      {
+        "id": "cmfw42pex007ctmdcyb1rt4gs",
+        "roleId": "cmfw42p94001gtmdchak9ye4l",
+        "permissionId": "cmfw42p8g000utmdcvn1xipeb"
+      },
+      {
+        "id": "cmfw42pey007etmdcvd8aguj1",
+        "roleId": "cmfw42p94001gtmdchak9ye4l",
+        "permissionId": "cmfw42p8l000ztmdcho76h9p3"
+      },
+      {
+        "id": "cmfw42pf0007gtmdcutwm1sgo",
+        "roleId": "cmfw42p94001gtmdchak9ye4l",
+        "permissionId": "cmfw42p8w001atmdclx4guq9k"
+      }
+    ],
+    "clients": [],
+    "workstations": [
+      {
+        "id": "cmfwm1mxs0038tme4gwmr2xdr",
+        "workstationId": "M2",
+        "name": "M2",
+        "description": null,
+        "location": null,
+        "type": "VISUAL_CLIENT",
+        "configuredIp": "192.168.1.5",
+        "currentIp": null,
+        "status": "offline",
+        "lastConnected": null,
+        "settings": {},
+        "createdAt": "2025-09-23T13:48:10.721Z",
+        "updatedAt": "2025-09-23T13:48:10.721Z",
+        "isOrderCompleteStation": false
+      },
+      {
+        "id": "cmfwm24320039tme4tny7om30",
+        "workstationId": "M3",
+        "name": "M3",
+        "description": "终检工位",
+        "location": null,
+        "type": "VISUAL_CLIENT",
+        "configuredIp": "192.168.1.7",
+        "currentIp": null,
+        "status": "offline",
+        "lastConnected": null,
+        "settings": {},
+        "createdAt": "2025-09-23T13:48:32.943Z",
+        "updatedAt": "2025-09-23T13:49:40.478Z",
+        "isOrderCompleteStation": true
+      },
+      {
+        "id": "cmfw42pqv008ptmdc5ryk1go3",
+        "workstationId": "M0",
+        "name": "M0",
+        "description": "主装配工位",
+        "location": "车间一区",
+        "type": "VISUAL_CLIENT",
+        "configuredIp": "192.168.1.101",
+        "currentIp": null,
+        "status": "offline",
+        "lastConnected": null,
+        "settings": {
+          "timeout": 30000,
+          "retryCount": 3,
+          "autoConnect": true
+        },
+        "createdAt": "2025-09-23T05:25:07.928Z",
+        "updatedAt": "2025-09-23T14:09:18.975Z",
+        "isOrderCompleteStation": false
+      },
+      {
+        "id": "cmfw42pqq008otmdc5bi6tjld",
+        "workstationId": "M1",
+        "name": "M1",
+        "description": "主装配工位M1",
+        "location": "生产线A",
+        "type": "VISUAL_CLIENT",
+        "configuredIp": "192.168.124.5",
+        "currentIp": null,
+        "status": "offline",
+        "lastConnected": null,
+        "settings": {
+          "timeout": 30000,
+          "retryCount": 3,
+          "autoConnect": true
+        },
+        "createdAt": "2025-09-23T05:25:07.922Z",
+        "updatedAt": "2025-09-23T14:09:45.173Z",
+        "isOrderCompleteStation": false
+      }
+    ],
+    "deviceTemplates": [
+      {
+        "id": "cmfw42pqy008qtmdcnsa66fcc",
+        "templateId": "PLC_SIEMENS_S7_1200",
+        "name": "PLC SIEMENS",
+        "type": "PLC_CONTROLLER",
+        "brand": "SIEMENS",
+        "model": "S7_1200",
+        "driver": "siemens_s7",
+        "description": "Siemens S7-1200 PLC Controller",
+        "capabilities": {
+          "read": true,
+          "write": true,
+          "monitoring": true
+        },
+        "configSchema": {
+          "rack": {
+            "type": "number",
+            "default": 0,
+            "description": "PLC机架号"
+          },
+          "slot": {
+            "type": "number",
+            "default": 1,
+            "description": "PLC插槽号"
+          }
+        },
+        "createdAt": "2025-09-23T05:25:07.930Z",
+        "updatedAt": "2025-09-23T08:39:10.218Z"
+      },
+      {
+        "id": "cmfw42pr1008rtmdcz2v924bb",
+        "templateId": "BARCODE_SCANNER_HONEYWELL",
+        "name": "扫码器",
+        "type": "BARCODE_SCANNER",
+        "brand": "USB_KEYBOARD",
+        "model": "",
+        "driver": "hid_keyboard",
+        "description": "Honeywell Voyager 1200g Barcode Scanner",
+        "capabilities": {},
+        "configSchema": {},
+        "createdAt": "2025-09-23T05:25:07.933Z",
+        "updatedAt": "2025-09-23T12:28:01.514Z"
+      },
+      {
+        "id": "cmfwjdbxi000ytmmgat7cmy55",
+        "templateId": "BARCODE_SCANNER_USB_KEYBOARD_",
+        "name": "USB_KEYBOARD",
+        "type": "BARCODE_SCANNER",
+        "brand": "USB_KEYBOARD",
+        "model": "",
+        "driver": "hid_keyboard",
+        "description": "",
+        "capabilities": {},
+        "configSchema": {},
+        "createdAt": "2025-09-23T12:33:17.479Z",
+        "updatedAt": "2025-09-23T12:33:17.479Z"
+      }
+    ],
+    "workstationDevices": [
+      {
+        "id": "cmfwjc7yd000wtmmgr1pvnb5n",
+        "instanceId": "cmfwjc7yd000xtmmg0hdwz1qx",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "templateId": "cmfw42pr1008rtmdcz2v924bb",
+        "displayName": "USB_01",
+        "ipAddress": "0.0.0.0",
+        "port": 0,
+        "protocol": "USB",
+        "connectionString": null,
+        "config": {},
+        "status": "OFFLINE",
+        "isOnline": false,
+        "lastConnected": null,
+        "lastHeartbeat": null,
+        "createdAt": "2025-09-23T12:32:25.669Z",
+        "updatedAt": "2025-09-23T12:32:25.669Z"
+      },
+      {
+        "id": "cmfwjmlnb000ztmmg40w7zfau",
+        "instanceId": "cmfwjmlnb0010tmmgp6cv072k",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "templateId": "cmfw42pr1008rtmdcz2v924bb",
+        "displayName": "USB_01",
+        "ipAddress": "0.0.0.0",
+        "port": 0,
+        "protocol": "USB",
+        "connectionString": null,
+        "config": {},
+        "status": "OFFLINE",
+        "isOnline": false,
+        "lastConnected": null,
+        "lastHeartbeat": null,
+        "createdAt": "2025-09-23T12:40:29.975Z",
+        "updatedAt": "2025-09-23T12:40:29.975Z"
+      },
+      {
+        "id": "cmfwj8f95000stmmgqwb3za5m",
+        "instanceId": "cmfwj8f95000ttmmgx0w6mn3y",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "templateId": "cmfw42pqy008qtmdcnsa66fcc",
+        "displayName": "PLC_PAS_10.102.10.83",
+        "ipAddress": "10.102.10.83",
+        "port": 102,
+        "protocol": "TCP",
+        "connectionString": null,
+        "config": {
+          "rack": 0,
+          "slot": 1,
+          "plcType": "Siemens_S7"
+        },
+        "status": "ONLINE",
+        "isOnline": false,
+        "lastConnected": null,
+        "lastHeartbeat": "2025-09-23T12:42:00.558Z",
+        "createdAt": "2025-09-23T12:29:28.505Z",
+        "updatedAt": "2025-09-23T12:42:00.559Z"
+      },
+      {
+        "id": "cmfwjbirz000utmmghwvk2ucz",
+        "instanceId": "cmfwjbirz000vtmmg6yk4uym0",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "templateId": "cmfw42pqy008qtmdcnsa66fcc",
+        "displayName": "PAS_PLC_10.102.10.83",
+        "ipAddress": "10.102.10.83",
+        "port": 102,
+        "protocol": "TCP",
+        "connectionString": null,
+        "config": {
+          "rack": 0,
+          "slot": 1,
+          "plcType": "Siemens_S7"
+        },
+        "status": "ONLINE",
+        "isOnline": false,
+        "lastConnected": null,
+        "lastHeartbeat": "2025-09-23T13:12:17.378Z",
+        "createdAt": "2025-09-23T12:31:53.039Z",
+        "updatedAt": "2025-09-23T13:12:17.380Z"
+      },
+      {
+        "id": "cmfwm5ku6003atme4wnuq0h5b",
+        "instanceId": "cmfwm5ku6003btme4py4m6qii",
+        "workstationId": "cmfwm1mxs0038tme4gwmr2xdr",
+        "templateId": "cmfw42pqy008qtmdcnsa66fcc",
+        "displayName": "PAS_PLC_10.102.10.83",
+        "ipAddress": "10.102.10.83",
+        "port": 102,
+        "protocol": "TCP",
+        "connectionString": null,
+        "config": {
+          "rack": 0,
+          "slot": 1,
+          "plcType": "Siemens_S7"
+        },
+        "status": "OFFLINE",
+        "isOnline": false,
+        "lastConnected": null,
+        "lastHeartbeat": null,
+        "createdAt": "2025-09-23T13:51:14.622Z",
+        "updatedAt": "2025-09-23T13:51:14.622Z"
+      },
+      {
+        "id": "cmfwm6dd5003ctme48w9v8s32",
+        "instanceId": "cmfwm6dd5003dtme4db4cafj3",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "templateId": "cmfw42pr1008rtmdcz2v924bb",
+        "displayName": "USB_01",
+        "ipAddress": "0.0.0.0",
+        "port": 0,
+        "protocol": "USB",
+        "connectionString": null,
+        "config": {},
+        "status": "OFFLINE",
+        "isOnline": false,
+        "lastConnected": null,
+        "lastHeartbeat": null,
+        "createdAt": "2025-09-23T13:51:51.594Z",
+        "updatedAt": "2025-09-23T13:51:51.594Z"
+      }
+    ],
+    "menus": [
+      {
+        "id": "cmfw42pf4007itmdchs1xpr02",
+        "name": "仪表盘",
+        "path": "/admin/dashboard",
+        "icon": "📊",
+        "parentId": null,
+        "order": 1,
+        "permissions": "dashboard:view",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.504Z",
+        "updatedAt": "2025-09-23T08:39:09.805Z"
+      },
+      {
+        "id": "cmfw42pf6007ktmdckat84u4y",
+        "name": "生产订单",
+        "path": "/admin/orders",
+        "icon": "📋",
+        "parentId": null,
+        "order": 2,
+        "permissions": "orders:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.506Z",
+        "updatedAt": "2025-09-23T08:39:09.807Z"
+      },
+      {
+        "id": "cmfw42pf8007mtmdc5yaupewp",
+        "name": "产品管理",
+        "path": "/admin/products",
+        "icon": "📦",
+        "parentId": null,
+        "order": 3,
+        "permissions": "products:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.508Z",
+        "updatedAt": "2025-09-23T08:39:09.809Z"
+      },
+      {
+        "id": "cmfw42pfa007otmdc95n3m1dd",
+        "name": "BOM管理",
+        "path": "/admin/boms",
+        "icon": "📝",
+        "parentId": null,
+        "order": 4,
+        "permissions": "boms:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.511Z",
+        "updatedAt": "2025-09-23T08:39:09.811Z"
+      },
+      {
+        "id": "cmfw42pfc007qtmdciekpv8ah",
+        "name": "工艺管理",
+        "path": "/admin/processes",
+        "icon": "⚙️",
+        "parentId": null,
+        "order": 5,
+        "permissions": "processes:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.512Z",
+        "updatedAt": "2025-09-23T08:39:09.812Z"
+      },
+      {
+        "id": "cmfw42pfe007stmdc5wed3ifa",
+        "name": "工位管理",
+        "path": "/admin/workstations",
+        "icon": "🏭",
+        "parentId": null,
+        "order": 6,
+        "permissions": "workstations:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.514Z",
+        "updatedAt": "2025-09-23T08:39:09.814Z"
+      },
+      {
+        "id": "cmfw42pfg007utmdcl2ca2cyp",
+        "name": "设备管理",
+        "path": "/admin/devices",
+        "icon": "🔧",
+        "parentId": null,
+        "order": 7,
+        "permissions": "devices:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.516Z",
+        "updatedAt": "2025-09-23T08:39:09.816Z"
+      },
+      {
+        "id": "cmfw42pfh007wtmdcdt13sq71",
+        "name": "设备通信管理",
+        "path": "/admin/device-communication",
+        "icon": "📡",
+        "parentId": null,
+        "order": 8,
+        "permissions": "devices:control",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.518Z",
+        "updatedAt": "2025-09-23T08:39:09.818Z"
+      },
+      {
+        "id": "cmfw42pfj007ytmdchy48s3mh",
+        "name": "数据导出",
+        "path": "/admin/export",
+        "icon": "📤",
+        "parentId": null,
+        "order": 9,
+        "permissions": "export:data",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.520Z",
+        "updatedAt": "2025-09-23T08:39:09.819Z"
+      },
+      {
+        "id": "cmfw42pfl0080tmdcfh1jepri",
+        "name": "系统管理",
+        "path": null,
+        "icon": "🔧",
+        "parentId": null,
+        "order": 10,
+        "permissions": "users:read,roles:read,menus:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.522Z",
+        "updatedAt": "2025-09-23T08:39:09.821Z"
+      },
+      {
+        "id": "cmfw42pft0088tmdcbwclyhz4",
+        "name": "客户端配置",
+        "path": "/admin/clients",
+        "icon": "💻",
+        "parentId": null,
+        "order": 11,
+        "permissions": "clients:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.529Z",
+        "updatedAt": "2025-09-23T08:39:09.829Z"
+      },
+      {
+        "id": "cmfw42pfn0082tmdcuvcx2692",
+        "name": "菜单管理",
+        "path": "/admin/menus",
+        "icon": "📋",
+        "parentId": "cmfw42pfl0080tmdcfh1jepri",
+        "order": 1,
+        "permissions": "menus:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.523Z",
+        "updatedAt": "2025-09-23T08:39:09.830Z"
+      },
+      {
+        "id": "cmfwb08ov007itmaggeqr7syb",
+        "name": "菜单管理",
+        "path": "/admin/menus",
+        "icon": "📋",
+        "parentId": "cmfw42pfl0080tmdcfh1jepri",
+        "order": 1,
+        "permissions": "menus:read",
+        "status": "active",
+        "createdAt": "2025-09-23T08:39:09.823Z",
+        "updatedAt": "2025-09-23T08:39:09.830Z"
+      },
+      {
+        "id": "cmfw42pfp0084tmdcfh9x519t",
+        "name": "用户管理",
+        "path": "/admin/users",
+        "icon": "👥",
+        "parentId": "cmfw42pfl0080tmdcfh1jepri",
+        "order": 2,
+        "permissions": "users:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.526Z",
+        "updatedAt": "2025-09-23T08:39:09.831Z"
+      },
+      {
+        "id": "cmfwb08ox007ktmagign44mhg",
+        "name": "用户管理",
+        "path": "/admin/users",
+        "icon": "👥",
+        "parentId": "cmfw42pfl0080tmdcfh1jepri",
+        "order": 2,
+        "permissions": "users:read",
+        "status": "active",
+        "createdAt": "2025-09-23T08:39:09.825Z",
+        "updatedAt": "2025-09-23T08:39:09.831Z"
+      },
+      {
+        "id": "cmfw42pfr0086tmdc8bdwcnpw",
+        "name": "角色权限",
+        "path": "/admin/roles",
+        "icon": "🔐",
+        "parentId": "cmfw42pfl0080tmdcfh1jepri",
+        "order": 3,
+        "permissions": "roles:read",
+        "status": "active",
+        "createdAt": "2025-09-23T05:25:07.527Z",
+        "updatedAt": "2025-09-23T08:39:09.832Z"
+      },
+      {
+        "id": "cmfwb08oz007mtmag6tceprh1",
+        "name": "角色权限",
+        "path": "/admin/roles",
+        "icon": "🔐",
+        "parentId": "cmfw42pfl0080tmdcfh1jepri",
+        "order": 3,
+        "permissions": "roles:read",
+        "status": "active",
+        "createdAt": "2025-09-23T08:39:09.827Z",
+        "updatedAt": "2025-09-23T08:39:09.832Z"
+      }
+    ],
+    "workstationSessions": [
+      {
+        "id": "cmfwl5t30002ntme4awptse9m",
+        "sessionId": "local-1758633805691",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T13:23:25.693Z",
+        "logoutTime": "2025-09-23T14:09:18.743Z",
+        "isActive": false,
+        "lastActivity": "2025-09-23T14:08:42.090Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": {
+          "loggedOutBy": "admin",
+          "logoutReason": "normal_logout"
+        },
+        "createdAt": "2025-09-23T13:23:25.693Z",
+        "updatedAt": "2025-09-23T14:09:18.745Z"
+      },
+      {
+        "id": "cmfwkquhr002ctme43vqyg3gp",
+        "sessionId": "local-1758633107677",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T13:11:47.679Z",
+        "logoutTime": "2025-09-23T14:09:45.053Z",
+        "isActive": false,
+        "lastActivity": "2025-09-23T14:08:49.175Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": {
+          "loggedOutBy": "admin",
+          "logoutReason": "normal_logout"
+        },
+        "createdAt": "2025-09-23T13:11:47.679Z",
+        "updatedAt": "2025-09-23T14:09:45.055Z"
+      },
+      {
+        "id": "cmfwjnfeh0012tmmgjil2oi0h",
+        "sessionId": "local-1758631268535",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T12:41:08.537Z",
+        "logoutTime": "2025-09-23T13:22:45.766Z",
+        "isActive": false,
+        "lastActivity": "2025-09-23T13:22:18.752Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": {
+          "loggedOutBy": "admin",
+          "logoutReason": "normal_logout"
+        },
+        "createdAt": "2025-09-23T12:41:08.537Z",
+        "updatedAt": "2025-09-23T13:22:45.768Z"
+      },
+      {
+        "id": "cmfwnqxyh005htme405ol1qmn",
+        "sessionId": "local-1758638151016",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T14:35:51.018Z",
+        "logoutTime": null,
+        "isActive": true,
+        "lastActivity": "2025-09-23T15:00:22.343Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": null,
+        "createdAt": "2025-09-23T14:35:51.018Z",
+        "updatedAt": "2025-09-23T15:00:22.344Z"
+      },
+      {
+        "id": "cmfwnqlv3005ftme44xiyk8xm",
+        "sessionId": "local-1758638135336",
+        "workstationId": "cmfwm1mxs0038tme4gwmr2xdr",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T14:35:35.343Z",
+        "logoutTime": null,
+        "isActive": true,
+        "lastActivity": "2025-09-23T15:00:35.076Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": null,
+        "createdAt": "2025-09-23T14:35:35.343Z",
+        "updatedAt": "2025-09-23T15:00:35.077Z"
+      },
+      {
+        "id": "cmfwneevb005dtme49fl9s5me",
+        "sessionId": "local-1758637566405",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T14:26:06.407Z",
+        "logoutTime": null,
+        "isActive": true,
+        "lastActivity": "2025-09-23T15:00:37.097Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": null,
+        "createdAt": "2025-09-23T14:26:06.407Z",
+        "updatedAt": "2025-09-23T15:00:37.098Z"
+      },
+      {
+        "id": "cmfwmwcw4005btme4p3fvolnc",
+        "sessionId": "local-1758636724034",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "userId": null,
+        "username": "admin",
+        "loginTime": "2025-09-23T14:12:04.036Z",
+        "logoutTime": null,
+        "isActive": true,
+        "lastActivity": "2025-09-23T15:00:41.059Z",
+        "connectedDevices": {
+          "deviceIds": [],
+          "connections": {}
+        },
+        "settings": null,
+        "createdAt": "2025-09-23T14:12:04.036Z",
+        "updatedAt": "2025-09-23T15:00:41.060Z"
+      }
+    ],
+    "workstationWorkStates": [
+      {
+        "id": "cmfwlobj3002xtme44occ7kvm",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "workState": {
+          "savedAt": "2025-09-23T13:38:52.383Z",
+          "currentOrder": {
+            "id": "cmfwkinma001btme4ortrn0om",
+            "bom": {
+              "id": "cmfwkmcgi0023tme46ks2sj46",
+              "name": "V174 - T004 BOM",
+              "status": "active",
+              "bomCode": "BOM-T004-1758632897681",
+              "version": "1.0",
+              "bomItems": [
+                {
+                  "id": "cmfwkmcgr0025tme445izx9bj",
+                  "unit": "pcs",
+                  "bomId": "cmfwkmcgi0023tme46ks2sj46",
+                  "itemCode": "A004",
+                  "itemName": "A004",
+                  "quantity": 1,
+                  "createdAt": "2025-09-23T13:08:17.691Z",
+                  "updatedAt": "2025-09-23T13:08:17.691Z",
+                  "description": ""
+                }
+              ],
+              "createdAt": "2025-09-23T13:08:17.683Z",
+              "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+              "updatedAt": "2025-09-23T13:08:17.683Z",
+              "description": "为订单 T004 自动创建的BOM"
+            },
+            "bomId": "cmfwkmcgi0023tme46ks2sj46",
+            "notes": "",
+            "status": "IN_PROGRESS",
+            "process": {
+              "id": "cmfwj2pt3000jtmmgfcpmybsp",
+              "name": "P2",
+              "steps": [
+                {
+                  "id": "cmfwkg0iw000ctme4pq1b61wl",
+                  "name": "M0.S01",
+                  "actions": [
+                    {
+                      "id": "cmfwkg0j3000dtme4su8iskzf",
+                      "name": "A0",
+                      "type": "DEVICE_READ",
+                      "device": {
+                        "id": "cmfwj8f95000stmmgqwb3za5m",
+                        "name": "PLC_PAS_10.102.10.83",
+                        "port": 102,
+                        "type": "PLC_CONTROLLER",
+                        "brand": "SIEMENS",
+                        "model": "S7_1200",
+                        "status": "ONLINE",
+                        "deviceId": "cmfwj8f95000ttmmgx0w6mn3y",
+                        "isOnline": false,
+                        "protocol": "TCP",
+                        "ipAddress": "10.102.10.83"
+                      },
+                      "timeout": 30,
+                      "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                      "sequence": 1,
+                      "actionCode": "A1",
+                      "isRequired": true,
+                      "parameters": {
+                        "dSign": false,
+                        "image": "",
+                        "okPin": "0",
+                        "sSign": false,
+                        "sensor": "",
+                        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                        "errorPin": "0",
+                        "idleTime": 0,
+                        "nameLocal": "",
+                        "soundFile": "",
+                        "imageWidth": 0,
+                        "sensorInit": "",
+                        "sensorType": "PLC_PAS_10.102.10.83",
+                        "imageHeight": 0,
+                        "sensorValue": "DB0.DBX0.0=1",
+                        "componentType": "",
+                        "fullSizeImage": false,
+                        "imagePosition": "Top-left",
+                        "actionAfterError": "Repeat action",
+                        "maxExecutionTime": 0,
+                        "expectedExecutionTime": 0
+                      },
+                      "retryCount": 0,
+                      "description": "",
+                      "deviceAddress": "DB0.DBX0.0=1",
+                      "expectedValue": "DB0.DBX0.0=1",
+                      "validationRule": ""
+                    }
+                  ],
+                  "sequence": 1,
+                  "stepCode": "ST-327982",
+                  "createdAt": "2025-09-23T13:03:22.280Z",
+                  "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+                  "updatedAt": "2025-09-23T13:03:30.888Z",
+                  "isRequired": true,
+                  "description": "测试3",
+                  "workstation": {
+                    "id": "cmfw42pqv008ptmdc5ryk1go3",
+                    "name": "M0",
+                    "type": "VISUAL_CLIENT",
+                    "workstationId": "M0"
+                  },
+                  "estimatedTime": 0,
+                  "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+                  "stepTemplateId": "cmfwj39po000ltmmgwxvci94p"
+                },
+                {
+                  "id": "cmfwkg0i70008tme4sah60vja",
+                  "name": "M0.S02",
+                  "actions": [
+                    {
+                      "id": "cmfwkg0is0009tme44t61cffo",
+                      "name": "A01",
+                      "type": "DEVICE_READ",
+                      "device": {
+                        "id": "cmfwj8f95000stmmgqwb3za5m",
+                        "name": "PLC_PAS_10.102.10.83",
+                        "port": 102,
+                        "type": "PLC_CONTROLLER",
+                        "brand": "SIEMENS",
+                        "model": "S7_1200",
+                        "status": "ONLINE",
+                        "deviceId": "cmfwj8f95000ttmmgx0w6mn3y",
+                        "isOnline": false,
+                        "protocol": "TCP",
+                        "ipAddress": "10.102.10.83"
+                      },
+                      "timeout": 30,
+                      "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                      "sequence": 1,
+                      "actionCode": "A1",
+                      "isRequired": true,
+                      "parameters": {
+                        "dSign": false,
+                        "image": "",
+                        "okPin": "0",
+                        "sSign": false,
+                        "sensor": "",
+                        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                        "errorPin": "0",
+                        "idleTime": 0,
+                        "nameLocal": "",
+                        "soundFile": "",
+                        "imageWidth": 0,
+                        "sensorInit": "",
+                        "sensorType": "PLC_PAS_10.102.10.83",
+                        "imageHeight": 0,
+                        "sensorValue": "DB1.DBX0.0=1",
+                        "componentType": "",
+                        "fullSizeImage": false,
+                        "imagePosition": "Top-left",
+                        "actionAfterError": "Repeat action",
+                        "maxExecutionTime": 0,
+                        "expectedExecutionTime": 0
+                      },
+                      "retryCount": 0,
+                      "description": "",
+                      "deviceAddress": "DB1.DBX0.0=1",
+                      "expectedValue": "DB1.DBX0.0=1",
+                      "validationRule": ""
+                    },
+                    {
+                      "id": "cmfwkg0is000atme4ov549fjo",
+                      "name": "A02",
+                      "type": "DEVICE_READ",
+                      "device": {
+                        "id": "cmfwjmlnb000ztmmg40w7zfau",
+                        "name": "USB_01",
+                        "port": 0,
+                        "type": "BARCODE_SCANNER",
+                        "brand": "USB_KEYBOARD",
+                        "model": "",
+                        "status": "OFFLINE",
+                        "deviceId": "cmfwjmlnb0010tmmgp6cv072k",
+                        "isOnline": false,
+                        "protocol": "USB",
+                        "ipAddress": "0.0.0.0"
+                      },
+                      "timeout": 30,
+                      "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+                      "sequence": 2,
+                      "actionCode": "A2",
+                      "isRequired": true,
+                      "parameters": {
+                        "dSign": false,
+                        "image": "",
+                        "okPin": "0",
+                        "sSign": false,
+                        "sensor": "",
+                        "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+                        "errorPin": "0",
+                        "idleTime": 0,
+                        "nameLocal": "",
+                        "soundFile": "",
+                        "imageWidth": 0,
+                        "sensorInit": "",
+                        "sensorType": "USB_01",
+                        "imageHeight": 0,
+                        "sensorValue": "345",
+                        "componentType": "",
+                        "fullSizeImage": false,
+                        "imagePosition": "Top-left",
+                        "actionAfterError": "Repeat action",
+                        "maxExecutionTime": 0,
+                        "expectedExecutionTime": 0
+                      },
+                      "retryCount": 0,
+                      "description": "",
+                      "deviceAddress": "345",
+                      "expectedValue": "345",
+                      "validationRule": ""
+                    }
+                  ],
+                  "sequence": 2,
+                  "stepCode": "ST-339127",
+                  "createdAt": "2025-09-23T13:03:22.255Z",
+                  "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+                  "updatedAt": "2025-09-23T13:03:30.891Z",
+                  "isRequired": true,
+                  "description": "测试2",
+                  "workstation": {
+                    "id": "cmfw42pqv008ptmdc5ryk1go3",
+                    "name": "M0",
+                    "type": "VISUAL_CLIENT",
+                    "workstationId": "M0"
+                  },
+                  "estimatedTime": 0,
+                  "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+                  "stepTemplateId": "cmfwj3iau000ntmmgtlevudza"
+                }
+              ],
+              "status": "active",
+              "version": "1.0",
+              "createdAt": "2025-09-23T12:25:02.247Z",
+              "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+              "updatedAt": "2025-09-23T12:25:02.247Z",
+              "description": "",
+              "processCode": "P2"
+            },
+            "product": {
+              "id": "cmfwiy4zn0000tmmg0xjz7au9",
+              "name": "V174",
+              "description": "",
+              "productCode": "V174"
+            },
+            "priority": 0,
+            "quantity": 1,
+            "sequence": 4,
+            "createdAt": "2025-09-23T13:05:25.522Z",
+            "createdBy": "manual",
+            "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+            "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+            "startedAt": "2025-09-23T13:38:51.149Z",
+            "updatedAt": "2025-09-23T13:38:51.149Z",
+            "orderSteps": [
+              {
+                "id": "cmfwkinmi001ftme4j91fiabn",
+                "step": {
+                  "id": "cmfwkg0iw000ctme4pq1b61wl",
+                  "name": "M0.S01",
+                  "actions": [
+                    {
+                      "id": "cmfwkg0j3000dtme4su8iskzf",
+                      "name": "A0",
+                      "type": "DEVICE_READ",
+                      "device": {
+                        "id": "cmfwj8f95000stmmgqwb3za5m",
+                        "name": "PLC_PAS_10.102.10.83",
+                        "port": 102,
+                        "type": "PLC_CONTROLLER",
+                        "brand": "SIEMENS",
+                        "model": "S7_1200",
+                        "status": "ONLINE",
+                        "deviceId": "cmfwj8f95000ttmmgx0w6mn3y",
+                        "isOnline": false,
+                        "protocol": "TCP",
+                        "ipAddress": "10.102.10.83"
+                      },
+                      "status": "pending",
+                      "timeout": 30,
+                      "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                      "sequence": 1,
+                      "actionCode": "A1",
+                      "isRequired": true,
+                      "parameters": {
+                        "dSign": false,
+                        "image": "",
+                        "okPin": "0",
+                        "sSign": false,
+                        "sensor": "",
+                        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                        "errorPin": "0",
+                        "idleTime": 0,
+                        "nameLocal": "",
+                        "soundFile": "",
+                        "imageWidth": 0,
+                        "sensorInit": "",
+                        "sensorType": "PLC_PAS_10.102.10.83",
+                        "imageHeight": 0,
+                        "sensorValue": "DB0.DBX0.0=1",
+                        "componentType": "",
+                        "fullSizeImage": false,
+                        "imagePosition": "Top-left",
+                        "actionAfterError": "Repeat action",
+                        "maxExecutionTime": 0,
+                        "expectedExecutionTime": 0
+                      },
+                      "retryCount": 0,
+                      "description": "",
+                      "deviceAddress": "DB0.DBX0.0=1",
+                      "expectedValue": "DB0.DBX0.0=1",
+                      "validationRule": ""
+                    }
+                  ],
+                  "sequence": 1,
+                  "stepCode": "ST-327982",
+                  "createdAt": "2025-09-23T13:03:22.280Z",
+                  "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+                  "updatedAt": "2025-09-23T13:03:30.888Z",
+                  "isRequired": true,
+                  "description": "测试3",
+                  "estimatedTime": 0,
+                  "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+                  "stepTemplateId": "cmfwj39po000ltmmgwxvci94p"
+                },
+                "notes": null,
+                "status": "pending",
+                "stepId": "cmfwkg0iw000ctme4pq1b61wl",
+                "orderId": "cmfwkinma001btme4ortrn0om",
+                "createdAt": "2025-09-23T13:05:25.531Z",
+                "startedAt": null,
+                "updatedAt": "2025-09-23T13:05:25.531Z",
+                "actualTime": null,
+                "executedBy": null,
+                "completedAt": null,
+                "workstation": {
+                  "id": "cmfw42pqv008ptmdc5ryk1go3",
+                  "name": "M0",
+                  "type": "VISUAL_CLIENT",
+                  "workstationId": "M0"
+                },
+                "errorMessage": null,
+                "workstationId": "cmfw42pqv008ptmdc5ryk1go3"
+              },
+              {
+                "id": "cmfwkinmk001htme4hngy77e0",
+                "step": {
+                  "id": "cmfwkg0i70008tme4sah60vja",
+                  "name": "M0.S02",
+                  "actions": [
+                    {
+                      "id": "cmfwkg0is0009tme44t61cffo",
+                      "name": "A01",
+                      "type": "DEVICE_READ",
+                      "device": {
+                        "id": "cmfwj8f95000stmmgqwb3za5m",
+                        "name": "PLC_PAS_10.102.10.83",
+                        "port": 102,
+                        "type": "PLC_CONTROLLER",
+                        "brand": "SIEMENS",
+                        "model": "S7_1200",
+                        "status": "ONLINE",
+                        "deviceId": "cmfwj8f95000ttmmgx0w6mn3y",
+                        "isOnline": false,
+                        "protocol": "TCP",
+                        "ipAddress": "10.102.10.83"
+                      },
+                      "status": "pending",
+                      "timeout": 30,
+                      "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                      "sequence": 1,
+                      "actionCode": "A1",
+                      "isRequired": true,
+                      "parameters": {
+                        "dSign": false,
+                        "image": "",
+                        "okPin": "0",
+                        "sSign": false,
+                        "sensor": "",
+                        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+                        "errorPin": "0",
+                        "idleTime": 0,
+                        "nameLocal": "",
+                        "soundFile": "",
+                        "imageWidth": 0,
+                        "sensorInit": "",
+                        "sensorType": "PLC_PAS_10.102.10.83",
+                        "imageHeight": 0,
+                        "sensorValue": "DB1.DBX0.0=1",
+                        "componentType": "",
+                        "fullSizeImage": false,
+                        "imagePosition": "Top-left",
+                        "actionAfterError": "Repeat action",
+                        "maxExecutionTime": 0,
+                        "expectedExecutionTime": 0
+                      },
+                      "retryCount": 0,
+                      "description": "",
+                      "deviceAddress": "DB1.DBX0.0=1",
+                      "expectedValue": "DB1.DBX0.0=1",
+                      "validationRule": ""
+                    },
+                    {
+                      "id": "cmfwkg0is000atme4ov549fjo",
+                      "name": "A02",
+                      "type": "DEVICE_READ",
+                      "device": {
+                        "id": "cmfwjmlnb000ztmmg40w7zfau",
+                        "name": "USB_01",
+                        "port": 0,
+                        "type": "BARCODE_SCANNER",
+                        "brand": "USB_KEYBOARD",
+                        "model": "",
+                        "status": "OFFLINE",
+                        "deviceId": "cmfwjmlnb0010tmmgp6cv072k",
+                        "isOnline": false,
+                        "protocol": "USB",
+                        "ipAddress": "0.0.0.0"
+                      },
+                      "status": "pending",
+                      "timeout": 30,
+                      "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+                      "sequence": 2,
+                      "actionCode": "A2",
+                      "isRequired": true,
+                      "parameters": {
+                        "dSign": false,
+                        "image": "",
+                        "okPin": "0",
+                        "sSign": false,
+                        "sensor": "",
+                        "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+                        "errorPin": "0",
+                        "idleTime": 0,
+                        "nameLocal": "",
+                        "soundFile": "",
+                        "imageWidth": 0,
+                        "sensorInit": "",
+                        "sensorType": "USB_01",
+                        "imageHeight": 0,
+                        "sensorValue": "345",
+                        "componentType": "",
+                        "fullSizeImage": false,
+                        "imagePosition": "Top-left",
+                        "actionAfterError": "Repeat action",
+                        "maxExecutionTime": 0,
+                        "expectedExecutionTime": 0
+                      },
+                      "retryCount": 0,
+                      "description": "",
+                      "deviceAddress": "345",
+                      "expectedValue": "345",
+                      "validationRule": ""
+                    }
+                  ],
+                  "sequence": 2,
+                  "stepCode": "ST-339127",
+                  "createdAt": "2025-09-23T13:03:22.255Z",
+                  "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+                  "updatedAt": "2025-09-23T13:03:30.891Z",
+                  "isRequired": true,
+                  "description": "测试2",
+                  "estimatedTime": 0,
+                  "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+                  "stepTemplateId": "cmfwj3iau000ntmmgtlevudza"
+                },
+                "notes": null,
+                "status": "pending",
+                "stepId": "cmfwkg0i70008tme4sah60vja",
+                "orderId": "cmfwkinma001btme4ortrn0om",
+                "createdAt": "2025-09-23T13:05:25.532Z",
+                "startedAt": null,
+                "updatedAt": "2025-09-23T13:05:25.532Z",
+                "actualTime": null,
+                "executedBy": null,
+                "completedAt": null,
+                "workstation": {
+                  "id": "cmfw42pqv008ptmdc5ryk1go3",
+                  "name": "M0",
+                  "type": "VISUAL_CLIENT",
+                  "workstationId": "M0"
+                },
+                "errorMessage": null,
+                "workstationId": "cmfw42pqv008ptmdc5ryk1go3"
+              }
+            ],
+            "completedAt": null,
+            "currentStep": null,
+            "importBatch": null,
+            "orderNumber": "T004",
+            "plannedDate": null,
+            "importSource": "manual",
+            "currentStepId": null,
+            "currentStation": {
+              "id": "cmfw42pqv008ptmdc5ryk1go3",
+              "name": "M0",
+              "type": "VISUAL_CLIENT",
+              "workstationId": "M0"
+            },
+            "currentStationId": "cmfw42pqv008ptmdc5ryk1go3",
+            "productionNumber": "CN04",
+            "completedQuantity": 0
+          },
+          "orderProgress": {
+            "status": "IN_PROGRESS",
+            "orderId": "cmfwkinma001btme4ortrn0om",
+            "totalSteps": 2,
+            "currentStep": 0
+          },
+          "isExecutionMode": true,
+          "currentStepIndex": 0,
+          "currentStepResult": null,
+          "stepExecutionResults": []
+        },
+        "isActive": false,
+        "createdAt": "2025-09-23T13:37:49.407Z",
+        "updatedAt": "2025-09-23T13:39:03.284Z"
+      }
+    ],
+    "products": [
+      {
+        "id": "cmfwm7kpz003etme4olm6m1ar",
+        "productCode": "V244",
+        "name": "V244",
+        "description": "",
+        "version": "1.0",
+        "status": "active",
+        "createdAt": "2025-09-23T13:52:47.783Z",
+        "updatedAt": "2025-09-23T13:52:47.783Z"
+      },
+      {
+        "id": "cmfwm7xie003jtme41h4evcob",
+        "productCode": "V248",
+        "name": "V248",
+        "description": "",
+        "version": "1.0",
+        "status": "active",
+        "createdAt": "2025-09-23T13:53:04.358Z",
+        "updatedAt": "2025-09-23T13:53:04.358Z"
+      },
+      {
+        "id": "cmfwiy4zn0000tmmg0xjz7au9",
+        "productCode": "V174",
+        "name": "V174",
+        "description": "",
+        "version": "1.0",
+        "status": "active",
+        "createdAt": "2025-09-23T12:21:28.643Z",
+        "updatedAt": "2025-09-23T13:53:28.481Z"
+      },
+      {
+        "id": "cmfwj18cf000btmmgu0a7h5wo",
+        "productCode": "V178",
+        "name": "V178",
+        "description": "",
+        "version": "1.0",
+        "status": "active",
+        "createdAt": "2025-09-23T12:23:52.959Z",
+        "updatedAt": "2025-09-23T13:53:55.931Z"
+      }
+    ],
+    "productWorkstations": [
+      {
+        "id": "cmfwm7kq0003gtme40jqvucj6",
+        "productId": "cmfwm7kpz003etme4olm6m1ar",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "sequence": 1,
+        "createdAt": "2025-09-23T13:52:47.785Z",
+        "updatedAt": "2025-09-23T13:52:47.785Z"
+      },
+      {
+        "id": "cmfwm7kq3003itme4u3ensoty",
+        "productId": "cmfwm7kpz003etme4olm6m1ar",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "sequence": 2,
+        "createdAt": "2025-09-23T13:52:47.787Z",
+        "updatedAt": "2025-09-23T13:52:47.787Z"
+      },
+      {
+        "id": "cmfwm7xif003ltme4qoioee12",
+        "productId": "cmfwm7xie003jtme41h4evcob",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "sequence": 1,
+        "createdAt": "2025-09-23T13:53:04.360Z",
+        "updatedAt": "2025-09-23T13:53:04.360Z"
+      },
+      {
+        "id": "cmfwm7xih003ntme4p28dgtyg",
+        "productId": "cmfwm7xie003jtme41h4evcob",
+        "workstationId": "cmfwm1mxs0038tme4gwmr2xdr",
+        "sequence": 2,
+        "createdAt": "2025-09-23T13:53:04.361Z",
+        "updatedAt": "2025-09-23T13:53:04.361Z"
+      },
+      {
+        "id": "cmfwm7xij003ptme46vdn924f",
+        "productId": "cmfwm7xie003jtme41h4evcob",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "sequence": 3,
+        "createdAt": "2025-09-23T13:53:04.363Z",
+        "updatedAt": "2025-09-23T13:53:04.363Z"
+      },
+      {
+        "id": "cmfwm8g740043tme4nyfiqo7t",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "sequence": 1,
+        "createdAt": "2025-09-23T13:53:28.577Z",
+        "updatedAt": "2025-09-23T13:53:28.577Z"
+      },
+      {
+        "id": "cmfwm8g7b0045tme4bkbb0jx9",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "sequence": 2,
+        "createdAt": "2025-09-23T13:53:28.583Z",
+        "updatedAt": "2025-09-23T13:53:28.583Z"
+      },
+      {
+        "id": "cmfwm8g7e0047tme40488ry59",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "sequence": 3,
+        "createdAt": "2025-09-23T13:53:28.586Z",
+        "updatedAt": "2025-09-23T13:53:28.586Z"
+      },
+      {
+        "id": "cmfwm91b20049tme4z2n6iyou",
+        "productId": "cmfwj18cf000btmmgu0a7h5wo",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "sequence": 1,
+        "createdAt": "2025-09-23T13:53:55.934Z",
+        "updatedAt": "2025-09-23T13:53:55.934Z"
+      },
+      {
+        "id": "cmfwm91b3004btme4w0azsm55",
+        "productId": "cmfwj18cf000btmmgu0a7h5wo",
+        "workstationId": "cmfwm1mxs0038tme4gwmr2xdr",
+        "sequence": 2,
+        "createdAt": "2025-09-23T13:53:55.936Z",
+        "updatedAt": "2025-09-23T13:53:55.936Z"
+      },
+      {
+        "id": "cmfwm91b5004dtme4z6ctxs0e",
+        "productId": "cmfwj18cf000btmmgu0a7h5wo",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "sequence": 3,
+        "createdAt": "2025-09-23T13:53:55.938Z",
+        "updatedAt": "2025-09-23T13:53:55.938Z"
+      }
+    ],
+    "boms": [
+      {
+        "id": "cmfwklskj001vtme4mjdcof1i",
+        "bomCode": "BOM-T002-1758632871905",
+        "name": "V178 - T002 BOM",
+        "version": "1.0",
+        "productId": "cmfwj18cf000btmmgu0a7h5wo",
+        "description": "为订单 T002 自动创建的BOM",
+        "status": "active",
+        "createdAt": "2025-09-23T13:07:51.907Z",
+        "updatedAt": "2025-09-23T13:07:51.907Z"
+      },
+      {
+        "id": "cmfwkm3ri001ztme4lz6moiox",
+        "bomCode": "BOM-T003-1758632886412",
+        "name": "V174 - T003 BOM",
+        "version": "1.0",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "description": "为订单 T003 自动创建的BOM",
+        "status": "active",
+        "createdAt": "2025-09-23T13:08:06.414Z",
+        "updatedAt": "2025-09-23T13:08:06.414Z"
+      },
+      {
+        "id": "cmfwkmcgi0023tme46ks2sj46",
+        "bomCode": "BOM-T004-1758632897681",
+        "name": "V174 - T004 BOM",
+        "version": "1.0",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "description": "为订单 T004 自动创建的BOM",
+        "status": "active",
+        "createdAt": "2025-09-23T13:08:17.683Z",
+        "updatedAt": "2025-09-23T13:08:17.683Z"
+      },
+      {
+        "id": "cmfwmq74p0057tme49rt8eabt",
+        "bomCode": "BOM-T001-1758636436631",
+        "name": "V174 - T001 BOM",
+        "version": "1.0",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "description": "为订单 T001 自动创建的BOM",
+        "status": "active",
+        "createdAt": "2025-09-23T14:07:16.633Z",
+        "updatedAt": "2025-09-23T14:07:16.633Z"
+      },
+      {
+        "id": "cmfwnsj84005rtme458fz5def",
+        "bomCode": "BOM-T005-1758638225234",
+        "name": "V244 - T005 BOM",
+        "version": "1.0",
+        "productId": "cmfwm7kpz003etme4olm6m1ar",
+        "description": "为订单 T005 自动创建的BOM",
+        "status": "active",
+        "createdAt": "2025-09-23T14:37:05.236Z",
+        "updatedAt": "2025-09-23T14:37:05.236Z"
+      }
+    ],
+    "bomItems": [
+      {
+        "id": "cmfwklskv001xtme4qd7z380w",
+        "bomId": "cmfwklskj001vtme4mjdcof1i",
+        "itemCode": "A002",
+        "itemName": "A002",
+        "quantity": 1,
+        "unit": "pcs",
+        "description": "",
+        "createdAt": "2025-09-23T13:07:51.919Z",
+        "updatedAt": "2025-09-23T13:07:51.919Z"
+      },
+      {
+        "id": "cmfwkm3rv0021tme4u0vf6kvd",
+        "bomId": "cmfwkm3ri001ztme4lz6moiox",
+        "itemCode": "A003",
+        "itemName": "A003",
+        "quantity": 1,
+        "unit": "pcs",
+        "description": "",
+        "createdAt": "2025-09-23T13:08:06.427Z",
+        "updatedAt": "2025-09-23T13:08:06.427Z"
+      },
+      {
+        "id": "cmfwkmcgr0025tme445izx9bj",
+        "bomId": "cmfwkmcgi0023tme46ks2sj46",
+        "itemCode": "A004",
+        "itemName": "A004",
+        "quantity": 1,
+        "unit": "pcs",
+        "description": "",
+        "createdAt": "2025-09-23T13:08:17.691Z",
+        "updatedAt": "2025-09-23T13:08:17.691Z"
+      },
+      {
+        "id": "cmfwmq7540059tme4nbqmv41k",
+        "bomId": "cmfwmq74p0057tme49rt8eabt",
+        "itemCode": "A001",
+        "itemName": "底盘",
+        "quantity": 1,
+        "unit": "pcs",
+        "description": "",
+        "createdAt": "2025-09-23T14:07:16.648Z",
+        "updatedAt": "2025-09-23T14:07:16.648Z"
+      },
+      {
+        "id": "cmfwnsj8l005ttme41x75dk29",
+        "bomId": "cmfwnsj84005rtme458fz5def",
+        "itemCode": "A003",
+        "itemName": "A003",
+        "quantity": 2,
+        "unit": "pcs",
+        "description": "",
+        "createdAt": "2025-09-23T14:37:05.253Z",
+        "updatedAt": "2025-09-23T14:37:05.340Z"
+      }
+    ],
+    "parts": [
+      {
+        "id": "cmfwizq3s0007tmmgi88jeiq4",
+        "partNumber": "A001",
+        "name": "底盘",
+        "partDescription": "V174总成",
+        "visible": true,
+        "category": "1",
+        "status": "active",
+        "createdAt": "2025-09-23T12:22:42.664Z",
+        "updatedAt": "2025-09-23T14:01:38.832Z"
+      },
+      {
+        "id": "cmfwj05rr0008tmmg9i1s0oe7",
+        "partNumber": "A002",
+        "name": "A002",
+        "partDescription": "V178总成",
+        "visible": true,
+        "category": "1",
+        "status": "active",
+        "createdAt": "2025-09-23T12:23:02.968Z",
+        "updatedAt": "2025-09-23T14:01:51.354Z"
+      },
+      {
+        "id": "cmfwj0jj90009tmmg1ammo0a9",
+        "partNumber": "A003",
+        "name": "A003",
+        "partDescription": "V244总成",
+        "visible": true,
+        "category": "1",
+        "status": "active",
+        "createdAt": "2025-09-23T12:23:20.806Z",
+        "updatedAt": "2025-09-23T14:02:04.266Z"
+      },
+      {
+        "id": "cmfwj0u2t000atmmgmn8eek8n",
+        "partNumber": "A004",
+        "name": "A004",
+        "partDescription": "V248总成",
+        "visible": true,
+        "category": "1",
+        "status": "active",
+        "createdAt": "2025-09-23T12:23:34.469Z",
+        "updatedAt": "2025-09-23T14:02:23.110Z"
+      }
+    ],
+    "processes": [
+      {
+        "id": "cmfwj2gip000htmmgccqadfs7",
+        "processCode": "P1",
+        "name": "P1",
+        "productId": "cmfwj18cf000btmmgu0a7h5wo",
+        "version": "1.0",
+        "description": "",
+        "status": "active",
+        "createdAt": "2025-09-23T12:24:50.210Z",
+        "updatedAt": "2025-09-23T12:24:50.210Z"
+      },
+      {
+        "id": "cmfwj2pt3000jtmmgfcpmybsp",
+        "processCode": "P2",
+        "name": "P2",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "version": "1.0",
+        "description": "",
+        "status": "active",
+        "createdAt": "2025-09-23T12:25:02.247Z",
+        "updatedAt": "2025-09-23T12:25:02.247Z"
+      },
+      {
+        "id": "cmfwmlfzr004ftme4jpga7f2z",
+        "processCode": "P3",
+        "name": "P3",
+        "productId": "cmfwm7kpz003etme4olm6m1ar",
+        "version": "1.0",
+        "description": "V244产品",
+        "status": "active",
+        "createdAt": "2025-09-23T14:03:34.839Z",
+        "updatedAt": "2025-09-23T14:03:34.839Z"
+      },
+      {
+        "id": "cmfwmm1x8004htme4s6i6i8b8",
+        "processCode": "P4",
+        "name": "P4",
+        "productId": "cmfwm7xie003jtme41h4evcob",
+        "version": "1.0",
+        "description": "V248产品",
+        "status": "active",
+        "createdAt": "2025-09-23T14:04:03.260Z",
+        "updatedAt": "2025-09-23T14:04:03.260Z"
+      }
+    ],
+    "steps": [
+      {
+        "id": "cmfwkg0iw000ctme4pq1b61wl",
+        "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+        "stepTemplateId": "cmfwj39po000ltmmgwxvci94p",
+        "stepCode": "ST-327982",
+        "name": "M0.S01",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "sequence": 1,
+        "description": "测试3",
+        "estimatedTime": 0,
+        "isRequired": true,
+        "createdAt": "2025-09-23T13:03:22.280Z",
+        "updatedAt": "2025-09-23T13:03:30.888Z"
+      },
+      {
+        "id": "cmfwkg0i70008tme4sah60vja",
+        "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+        "stepTemplateId": "cmfwj3iau000ntmmgtlevudza",
+        "stepCode": "ST-339127",
+        "name": "M0.S02",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "sequence": 2,
+        "description": "测试2",
+        "estimatedTime": 0,
+        "isRequired": true,
+        "createdAt": "2025-09-23T13:03:22.255Z",
+        "updatedAt": "2025-09-23T13:03:30.891Z"
+      },
+      {
+        "id": "cmfwkttrs002gtme4twz0eb44",
+        "processId": "cmfwj2gip000htmmgccqadfs7",
+        "stepTemplateId": "cmfwj39po000ltmmgwxvci94p",
+        "stepCode": "ST-327982",
+        "name": "M0.S01",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "sequence": 1,
+        "description": "测试3",
+        "estimatedTime": 0,
+        "isRequired": true,
+        "createdAt": "2025-09-23T13:14:06.712Z",
+        "updatedAt": "2025-09-23T13:14:15.972Z"
+      },
+      {
+        "id": "cmfwkfqph0004tme4icnfrkmi",
+        "processId": "cmfwj2gip000htmmgccqadfs7",
+        "stepTemplateId": "cmfwj48no000ptmmg5shf492v",
+        "stepCode": "ST-373276",
+        "name": "M1.S01",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "sequence": 2,
+        "description": "测试1",
+        "estimatedTime": 0,
+        "isRequired": true,
+        "createdAt": "2025-09-23T13:03:09.557Z",
+        "updatedAt": "2025-09-23T13:14:15.976Z"
+      }
+    ],
+    "stepTemplates": [
+      {
+        "id": "cmfwj3iau000ntmmgtlevudza",
+        "stepCode": "ST-339127",
+        "name": "M0.S02",
+        "category": null,
+        "workstationType": null,
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "description": "测试2",
+        "instructions": "",
+        "image": "",
+        "estimatedTime": null,
+        "isRequired": true,
+        "status": "active",
+        "createdAt": "2025-09-23T12:25:39.174Z",
+        "updatedAt": "2025-09-23T12:48:06.927Z"
+      },
+      {
+        "id": "cmfwj39po000ltmmgwxvci94p",
+        "stepCode": "ST-327982",
+        "name": "M0.S01",
+        "category": null,
+        "workstationType": null,
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "description": "测试3",
+        "instructions": "",
+        "image": "",
+        "estimatedTime": null,
+        "isRequired": true,
+        "status": "active",
+        "createdAt": "2025-09-23T12:25:28.044Z",
+        "updatedAt": "2025-09-23T13:02:24.182Z"
+      },
+      {
+        "id": "cmfwj48no000ptmmg5shf492v",
+        "stepCode": "ST-373276",
+        "name": "M1.S01",
+        "category": null,
+        "workstationType": null,
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "description": "测试1",
+        "instructions": "测试1",
+        "image": "",
+        "estimatedTime": null,
+        "isRequired": true,
+        "status": "active",
+        "createdAt": "2025-09-23T12:26:13.332Z",
+        "updatedAt": "2025-09-23T13:10:47.840Z"
+      }
+    ],
+    "stepConditions": [
+      {
+        "id": "cmfwjw0nw001dtmmgrlxkomft",
+        "stepTemplateId": "cmfwj3iau000ntmmgtlevudza",
+        "type": "BOM_CHECK",
+        "value": "A002",
+        "description": "BOM号检查: 当包含 A002 时显示",
+        "createdAt": "2025-09-23T12:47:49.341Z",
+        "updatedAt": "2025-09-23T12:47:49.341Z"
+      },
+      {
+        "id": "cmfwkf5870002tme4v6lzay67",
+        "stepTemplateId": "cmfwj39po000ltmmgwxvci94p",
+        "type": "BOM_CHECK",
+        "value": "A003",
+        "description": "BOM号检查: 当包含 A003 时显示",
+        "createdAt": "2025-09-23T13:02:41.720Z",
+        "updatedAt": "2025-09-23T13:02:41.720Z"
+      },
+      {
+        "id": "cmfwkowso0027tme4b7duojcb",
+        "stepTemplateId": "cmfwj48no000ptmmg5shf492v",
+        "type": "BOM_CHECK",
+        "value": "A001",
+        "description": "BOM号检查: 当包含 A001 时显示",
+        "createdAt": "2025-09-23T13:10:17.352Z",
+        "updatedAt": "2025-09-23T13:10:17.352Z"
+      }
+    ],
+    "actions": [
+      {
+        "id": "cmfwkg0is0009tme44t61cffo",
+        "stepId": "cmfwkg0i70008tme4sah60vja",
+        "actionCode": "A1",
+        "name": "A01",
+        "type": "DEVICE_READ",
+        "sequence": 1,
+        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+        "deviceAddress": "DB1.DBX0.0=1",
+        "expectedValue": "DB1.DBX0.0=1",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PLC_PAS_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB1.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "createdAt": "2025-09-23T13:03:22.276Z",
+        "updatedAt": "2025-09-23T13:03:22.276Z"
+      },
+      {
+        "id": "cmfwkg0is000atme4ov549fjo",
+        "stepId": "cmfwkg0i70008tme4sah60vja",
+        "actionCode": "A2",
+        "name": "A02",
+        "type": "DEVICE_READ",
+        "sequence": 2,
+        "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+        "deviceAddress": "345",
+        "expectedValue": "345",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "USB_01",
+          "imageHeight": 0,
+          "sensorValue": "345",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "createdAt": "2025-09-23T13:03:22.276Z",
+        "updatedAt": "2025-09-23T13:03:22.276Z"
+      },
+      {
+        "id": "cmfwkg0j3000dtme4su8iskzf",
+        "stepId": "cmfwkg0iw000ctme4pq1b61wl",
+        "actionCode": "A1",
+        "name": "A0",
+        "type": "DEVICE_READ",
+        "sequence": 1,
+        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+        "deviceAddress": "DB0.DBX0.0=1",
+        "expectedValue": "DB0.DBX0.0=1",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PLC_PAS_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB0.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "createdAt": "2025-09-23T13:03:22.287Z",
+        "updatedAt": "2025-09-23T13:03:22.287Z"
+      },
+      {
+        "id": "cmfwkpkcb002atme4q95gansq",
+        "stepId": "cmfwkfqph0004tme4icnfrkmi",
+        "actionCode": "A1",
+        "name": "A1",
+        "type": "DEVICE_READ",
+        "sequence": 1,
+        "deviceId": "cmfwjbirz000utmmghwvk2ucz",
+        "deviceAddress": "",
+        "expectedValue": "",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwjbirz000utmmghwvk2ucz",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PAS_PLC_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB1.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "createdAt": "2025-09-23T13:10:47.868Z",
+        "updatedAt": "2025-09-23T13:10:47.868Z"
+      },
+      {
+        "id": "cmfwktts2002htme4dr6lh8xh",
+        "stepId": "cmfwkttrs002gtme4twz0eb44",
+        "actionCode": "A1",
+        "name": "A0",
+        "type": "DEVICE_READ",
+        "sequence": 1,
+        "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+        "deviceAddress": "DB0.DBX0.0=1",
+        "expectedValue": "DB0.DBX0.0=1",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PLC_PAS_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB0.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "createdAt": "2025-09-23T13:14:06.722Z",
+        "updatedAt": "2025-09-23T13:14:06.722Z"
+      }
+    ],
+    "actionTemplates": [
+      {
+        "id": "cmfwjwe8e001etmmgfk0ldxoh",
+        "stepTemplateId": "cmfwj3iau000ntmmgtlevudza",
+        "actionCode": "A1-1758631654224-1",
+        "name": "A01",
+        "type": "DEVICE_READ",
+        "category": "",
+        "deviceType": "PLC_CONTROLLER",
+        "deviceAddress": "",
+        "expectedValue": "",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PLC_PAS_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB1.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "instructions": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "status": "active",
+        "createdAt": "2025-09-23T12:48:06.927Z",
+        "updatedAt": "2025-09-23T12:48:06.927Z"
+      },
+      {
+        "id": "cmfwjwe8f001ftmmgxyh1nkam",
+        "stepTemplateId": "cmfwj3iau000ntmmgtlevudza",
+        "actionCode": "A2-1758631686924-1",
+        "name": "A02",
+        "type": "DEVICE_READ",
+        "category": "",
+        "deviceType": "BARCODE_SCANNER",
+        "deviceAddress": "",
+        "expectedValue": "",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwjmlnb000ztmmg40w7zfau",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "USB_01",
+          "imageHeight": 0,
+          "sensorValue": "345",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "instructions": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "status": "active",
+        "createdAt": "2025-09-23T12:48:06.927Z",
+        "updatedAt": "2025-09-23T12:48:06.927Z"
+      },
+      {
+        "id": "cmfwkerp20000tme4x2qlk5nf",
+        "stepTemplateId": "cmfwj39po000ltmmgwxvci94p",
+        "actionCode": "A1-1758632544178-1",
+        "name": "A0",
+        "type": "DEVICE_READ",
+        "category": "",
+        "deviceType": "PLC_CONTROLLER",
+        "deviceAddress": "",
+        "expectedValue": "",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwj8f95000stmmgqwb3za5m",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PLC_PAS_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB0.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "instructions": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "status": "active",
+        "createdAt": "2025-09-23T13:02:24.182Z",
+        "updatedAt": "2025-09-23T13:02:24.182Z"
+      },
+      {
+        "id": "cmfwkpkbk0028tme4zmy9cays",
+        "stepTemplateId": "cmfwj48no000ptmmg5shf492v",
+        "actionCode": "A1",
+        "name": "A1",
+        "type": "DEVICE_READ",
+        "category": "",
+        "deviceType": "PLC_CONTROLLER",
+        "deviceAddress": "",
+        "expectedValue": "",
+        "validationRule": "",
+        "parameters": {
+          "dSign": false,
+          "image": "",
+          "okPin": "0",
+          "sSign": false,
+          "sensor": "",
+          "deviceId": "cmfwjbirz000utmmghwvk2ucz",
+          "errorPin": "0",
+          "idleTime": 0,
+          "nameLocal": "",
+          "soundFile": "",
+          "imageWidth": 0,
+          "sensorInit": "",
+          "sensorType": "PAS_PLC_10.102.10.83",
+          "imageHeight": 0,
+          "sensorValue": "DB1.DBX0.0=1",
+          "componentType": "",
+          "fullSizeImage": false,
+          "imagePosition": "Top-left",
+          "actionAfterError": "Repeat action",
+          "maxExecutionTime": 0,
+          "expectedExecutionTime": 0
+        },
+        "description": "",
+        "instructions": "",
+        "isRequired": true,
+        "timeout": 30,
+        "retryCount": 0,
+        "status": "active",
+        "createdAt": "2025-09-23T13:10:47.840Z",
+        "updatedAt": "2025-09-23T13:10:47.840Z"
+      }
+    ],
+    "orders": [
+      {
+        "id": "cmfwns365005jtme4kwhbthnd",
+        "orderNumber": "T005",
+        "productionNumber": "CN05",
+        "productId": "cmfwm7kpz003etme4olm6m1ar",
+        "bomId": "cmfwnsj84005rtme458fz5def",
+        "processId": "cmfwmlfzr004ftme4jpga7f2z",
+        "quantity": 1,
+        "completedQuantity": 0,
+        "priority": 0,
+        "sequence": 6,
+        "status": "PENDING",
+        "plannedDate": "2025-09-24T00:00:00.000Z",
+        "startedAt": null,
+        "completedAt": null,
+        "currentStationId": null,
+        "currentStepId": null,
+        "notes": "",
+        "createdBy": "manual",
+        "importSource": "manual",
+        "importBatch": null,
+        "createdAt": "2025-09-23T14:36:44.429Z",
+        "updatedAt": "2025-09-23T14:37:05.243Z"
+      },
+      {
+        "id": "cmfwmpp70004ttme4vo60qrwe",
+        "orderNumber": "T001",
+        "productionNumber": "CN01",
+        "productId": "cmfwiy4zn0000tmmg0xjz7au9",
+        "bomId": "cmfwmq74p0057tme49rt8eabt",
+        "processId": "cmfwj2pt3000jtmmgfcpmybsp",
+        "quantity": 1,
+        "completedQuantity": 0,
+        "priority": 0,
+        "sequence": 5,
+        "status": "PENDING",
+        "plannedDate": "2025-09-23T00:00:00.000Z",
+        "startedAt": null,
+        "completedAt": null,
+        "currentStationId": null,
+        "currentStepId": null,
+        "notes": "",
+        "createdBy": "manual",
+        "importSource": "manual",
+        "importBatch": null,
+        "createdAt": "2025-09-23T14:06:53.388Z",
+        "updatedAt": "2025-09-23T14:50:02.197Z"
+      },
+      {
+        "id": "cmfwki56a000ptme4aynxdwzm",
+        "orderNumber": "T002",
+        "productionNumber": "CN02",
+        "productId": "cmfwj18cf000btmmgu0a7h5wo",
+        "bomId": "cmfwklskj001vtme4mjdcof1i",
+        "processId": "cmfwj2gip000htmmgccqadfs7",
+        "quantity": 1,
+        "completedQuantity": 0,
+        "priority": 0,
+        "sequence": 2,
+        "status": "PENDING",
+        "plannedDate": "2025-09-24T00:00:00.000Z",
+        "startedAt": "2025-09-23T13:37:42.866Z",
+        "completedAt": "2025-09-23T13:39:38.396Z",
+        "currentStationId": "cmfw42pqq008otmdc5bi6tjld",
+        "currentStepId": null,
+        "notes": "",
+        "createdBy": "manual",
+        "importSource": "manual",
+        "importBatch": null,
+        "createdAt": "2025-09-23T13:05:01.618Z",
+        "updatedAt": "2025-09-23T14:50:09.985Z"
+      },
+      {
+        "id": "cmfwkiej3000ztme45mi1luum",
+        "orderNumber": "T003",
+        "productionNumber": "CN03",
+        "productId": "cmfwm7kpz003etme4olm6m1ar",
+        "bomId": "cmfwkm3ri001ztme4lz6moiox",
+        "processId": "cmfwmlfzr004ftme4jpga7f2z",
+        "quantity": 1,
+        "completedQuantity": 0,
+        "priority": 0,
+        "sequence": 3,
+        "status": "PENDING",
+        "plannedDate": "2025-09-23T00:00:00.000Z",
+        "startedAt": "2025-09-23T13:37:46.885Z",
+        "completedAt": "2025-09-23T13:38:44.984Z",
+        "currentStationId": "cmfw42pqq008otmdc5bi6tjld",
+        "currentStepId": null,
+        "notes": "",
+        "createdBy": "manual",
+        "importSource": "manual",
+        "importBatch": null,
+        "createdAt": "2025-09-23T13:05:13.744Z",
+        "updatedAt": "2025-09-23T14:50:19.843Z"
+      },
+      {
+        "id": "cmfwkinma001btme4ortrn0om",
+        "orderNumber": "T004",
+        "productionNumber": "CN04",
+        "productId": "cmfwm7xie003jtme41h4evcob",
+        "bomId": "cmfwkmcgi0023tme46ks2sj46",
+        "processId": "cmfwmm1x8004htme4s6i6i8b8",
+        "quantity": 1,
+        "completedQuantity": 0,
+        "priority": 0,
+        "sequence": 4,
+        "status": "PENDING",
+        "plannedDate": "2025-09-23T00:00:00.000Z",
+        "startedAt": "2025-09-23T13:38:51.149Z",
+        "completedAt": "2025-09-23T13:39:03.510Z",
+        "currentStationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "currentStepId": null,
+        "notes": "",
+        "createdBy": "manual",
+        "importSource": "manual",
+        "importBatch": null,
+        "createdAt": "2025-09-23T13:05:25.522Z",
+        "updatedAt": "2025-09-23T14:50:29.514Z"
+      }
+    ],
+    "orderSteps": [
+      {
+        "id": "cmfwki56j000ttme48gp7y7l9",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "stepId": "cmfwkfqph0004tme4icnfrkmi",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T13:05:01.627Z",
+        "updatedAt": "2025-09-23T13:05:01.627Z"
+      },
+      {
+        "id": "cmfwkiej90013tme4b3mytyye",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "stepId": "cmfwkg0iw000ctme4pq1b61wl",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T13:05:13.750Z",
+        "updatedAt": "2025-09-23T13:05:13.750Z"
+      },
+      {
+        "id": "cmfwkiejb0015tme4hvacnjvq",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "stepId": "cmfwkg0i70008tme4sah60vja",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T13:05:13.752Z",
+        "updatedAt": "2025-09-23T13:05:13.752Z"
+      },
+      {
+        "id": "cmfwkinmi001ftme4j91fiabn",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "stepId": "cmfwkg0iw000ctme4pq1b61wl",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T13:05:25.531Z",
+        "updatedAt": "2025-09-23T13:05:25.531Z"
+      },
+      {
+        "id": "cmfwkinmk001htme4hngy77e0",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "stepId": "cmfwkg0i70008tme4sah60vja",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T13:05:25.532Z",
+        "updatedAt": "2025-09-23T13:05:25.532Z"
+      },
+      {
+        "id": "cmfwlmlp00001tmospntxxcub",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "stepId": "cmfwkttrs002gtme4twz0eb44",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T13:36:29.268Z",
+        "updatedAt": "2025-09-23T13:36:29.268Z"
+      },
+      {
+        "id": "cmfwmpp7d004xtme4917zjsz8",
+        "orderId": "cmfwmpp70004ttme4vo60qrwe",
+        "stepId": "cmfwkg0iw000ctme4pq1b61wl",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T14:06:53.401Z",
+        "updatedAt": "2025-09-23T14:06:53.401Z"
+      },
+      {
+        "id": "cmfwmpp7f004ztme4bl6192ow",
+        "orderId": "cmfwmpp70004ttme4vo60qrwe",
+        "stepId": "cmfwkg0i70008tme4sah60vja",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "pending",
+        "startedAt": null,
+        "completedAt": null,
+        "executedBy": null,
+        "actualTime": null,
+        "errorMessage": null,
+        "notes": null,
+        "createdAt": "2025-09-23T14:06:53.404Z",
+        "updatedAt": "2025-09-23T14:06:53.404Z"
+      }
+    ],
+    "actionLogs": [],
+    "orderStatusHistories": [
+      {
+        "id": "cmfwki56e000rtme45u3cbza0",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "fromStatus": null,
+        "toStatus": "PENDING",
+        "changedBy": "manual",
+        "changedAt": "2025-09-23T13:05:01.622Z",
+        "reason": "手动创建订单",
+        "notes": null
+      },
+      {
+        "id": "cmfwkiej60011tme483266ipc",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "fromStatus": null,
+        "toStatus": "PENDING",
+        "changedBy": "manual",
+        "changedAt": "2025-09-23T13:05:13.746Z",
+        "reason": "手动创建订单",
+        "notes": null
+      },
+      {
+        "id": "cmfwkinme001dtme450n4kd0c",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "fromStatus": null,
+        "toStatus": "PENDING",
+        "changedBy": "manual",
+        "changedAt": "2025-09-23T13:05:25.526Z",
+        "reason": "手动创建订单",
+        "notes": null
+      },
+      {
+        "id": "cmfwlo6hq002rtme4athmanoq",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "fromStatus": "PENDING",
+        "toStatus": "IN_PROGRESS",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:37:42.877Z",
+        "reason": "开始工艺执行",
+        "notes": null
+      },
+      {
+        "id": "cmfwlo7yg002ttme4r223hb33",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "fromStatus": "IN_PROGRESS",
+        "toStatus": "COMPLETED",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:37:44.775Z",
+        "reason": "所有工艺步骤已完成",
+        "notes": null
+      },
+      {
+        "id": "cmfwlo9ld002vtme4rx6bmpsy",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "fromStatus": "PENDING",
+        "toStatus": "IN_PROGRESS",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:37:46.896Z",
+        "reason": "开始工艺执行",
+        "notes": null
+      },
+      {
+        "id": "cmfwlpif2002ztme4zw6yvjq2",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "fromStatus": "IN_PROGRESS",
+        "toStatus": "COMPLETED",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:38:44.989Z",
+        "reason": "所有工艺步骤已完成",
+        "notes": null
+      },
+      {
+        "id": "cmfwlpn6j0031tme4xnzqz9hr",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "fromStatus": "PENDING",
+        "toStatus": "IN_PROGRESS",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:38:51.162Z",
+        "reason": "开始工艺执行",
+        "notes": null
+      },
+      {
+        "id": "cmfwlpwpm0033tme46lgt4q9x",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "fromStatus": "IN_PROGRESS",
+        "toStatus": "COMPLETED",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:39:03.513Z",
+        "reason": "所有工艺步骤已完成",
+        "notes": null
+      },
+      {
+        "id": "cmfwlqm2j0035tme4lzxndnrm",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "fromStatus": "COMPLETED",
+        "toStatus": "IN_PROGRESS",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:39:36.377Z",
+        "reason": "开始工艺执行",
+        "notes": null
+      },
+      {
+        "id": "cmfwlqopm0037tme4x8rncsyx",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "fromStatus": "COMPLETED",
+        "toStatus": "IN_PROGRESS",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T13:39:39.801Z",
+        "reason": "开始工艺执行",
+        "notes": null
+      },
+      {
+        "id": "cmfwmox12004ntme4o9dmkfb8",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "fromStatus": "COMPLETED",
+        "toStatus": "PENDING",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T14:06:16.885Z",
+        "reason": "管理员重置订单状态为待开始",
+        "notes": null
+      },
+      {
+        "id": "cmfwmp36i004ptme4d0yb0xa4",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "fromStatus": "IN_PROGRESS",
+        "toStatus": "PENDING",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T14:06:24.857Z",
+        "reason": "管理员重置订单状态为待开始",
+        "notes": null
+      },
+      {
+        "id": "cmfwmp6eq004rtme480xq52a3",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "fromStatus": "COMPLETED",
+        "toStatus": "PENDING",
+        "changedBy": "admin",
+        "changedAt": "2025-09-23T14:06:29.040Z",
+        "reason": "管理员重置订单状态为待开始",
+        "notes": null
+      },
+      {
+        "id": "cmfwmpp75004vtme46t2rh4r5",
+        "orderId": "cmfwmpp70004ttme4vo60qrwe",
+        "fromStatus": null,
+        "toStatus": "PENDING",
+        "changedBy": "manual",
+        "changedAt": "2025-09-23T14:06:53.393Z",
+        "reason": "手动创建订单",
+        "notes": null
+      },
+      {
+        "id": "cmfwns36a005ltme4waxcqlm4",
+        "orderId": "cmfwns365005jtme4kwhbthnd",
+        "fromStatus": null,
+        "toStatus": "PENDING",
+        "changedBy": "manual",
+        "changedAt": "2025-09-23T14:36:44.434Z",
+        "reason": "手动创建订单",
+        "notes": null
+      }
+    ],
+    "dataExportRecords": [],
+    "systemConfigs": [],
+    "workstationOrderQueues": [
+      {
+        "id": "cmfwns36z005ptme4bpztnr21",
+        "orderId": "cmfwns365005jtme4kwhbthnd",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:36:44.459Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 2,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system",
+        "createdAt": "2025-09-23T14:36:44.459Z",
+        "updatedAt": "2025-09-23T14:36:44.459Z"
+      },
+      {
+        "id": "cmfwmpp7z0051tme4g0epfi9x",
+        "orderId": "cmfwmpp70004ttme4vo60qrwe",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:06:53.424Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 1,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system",
+        "createdAt": "2025-09-23T14:06:53.424Z",
+        "updatedAt": "2025-09-23T14:06:53.424Z"
+      },
+      {
+        "id": "cmfwmpp830053tme492wqnduc",
+        "orderId": "cmfwmpp70004ttme4vo60qrwe",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:06:53.428Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 2,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system",
+        "createdAt": "2025-09-23T14:06:53.428Z",
+        "updatedAt": "2025-09-23T14:06:53.428Z"
+      },
+      {
+        "id": "cmfwmpp860055tme4zcg8wljf",
+        "orderId": "cmfwmpp70004ttme4vo60qrwe",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:06:53.431Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 3,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system",
+        "createdAt": "2025-09-23T14:06:53.431Z",
+        "updatedAt": "2025-09-23T14:06:53.431Z"
+      },
+      {
+        "id": "cmfwnohxg0001tm7sxfmbi8t8",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "workstationId": "cmfw42pqv008ptmdc5ryk1go3",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.932Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 1,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.932Z",
+        "updatedAt": "2025-09-23T14:33:56.932Z"
+      },
+      {
+        "id": "cmfwnohxn0003tm7s5tkhyu65",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "workstationId": "cmfwm1mxs0038tme4gwmr2xdr",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.939Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 2,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.939Z",
+        "updatedAt": "2025-09-23T14:33:56.939Z"
+      },
+      {
+        "id": "cmfwnohxq0005tm7slr6yw0lp",
+        "orderId": "cmfwki56a000ptme4aynxdwzm",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.942Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 3,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.942Z",
+        "updatedAt": "2025-09-23T14:33:56.942Z"
+      },
+      {
+        "id": "cmfwnohxy0007tm7sqoc0veme",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.950Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 1,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.950Z",
+        "updatedAt": "2025-09-23T14:33:56.950Z"
+      },
+      {
+        "id": "cmfwnohy00009tm7s6mfwv2fd",
+        "orderId": "cmfwkiej3000ztme45mi1luum",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.953Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 2,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.953Z",
+        "updatedAt": "2025-09-23T14:33:56.953Z"
+      },
+      {
+        "id": "cmfwnohy5000btm7syihzw6j5",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.958Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 1,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.958Z",
+        "updatedAt": "2025-09-23T14:33:56.958Z"
+      },
+      {
+        "id": "cmfwnohy8000dtm7sx74egetf",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "workstationId": "cmfwm1mxs0038tme4gwmr2xdr",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.961Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 2,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.961Z",
+        "updatedAt": "2025-09-23T14:33:56.961Z"
+      },
+      {
+        "id": "cmfwnohyb000ftm7swekd4vcs",
+        "orderId": "cmfwkinma001btme4ortrn0om",
+        "workstationId": "cmfwm24320039tme4tny7om30",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:33:56.963Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 3,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system [全面修复]",
+        "createdAt": "2025-09-23T14:33:56.963Z",
+        "updatedAt": "2025-09-23T14:33:56.963Z"
+      },
+      {
+        "id": "cmfwns36t005ntme4mwpa5l7m",
+        "orderId": "cmfwns365005jtme4kwhbthnd",
+        "workstationId": "cmfw42pqq008otmdc5bi6tjld",
+        "status": "PENDING",
+        "assignedAt": "2025-09-23T14:36:44.453Z",
+        "startedAt": null,
+        "completedAt": null,
+        "priority": 0,
+        "sequence": 1,
+        "isVisible": true,
+        "notes": "基于产品工艺路线自动分配 - system",
+        "createdAt": "2025-09-23T14:36:44.453Z",
+        "updatedAt": "2025-09-23T14:36:44.453Z"
+      }
+    ]
+  }
+}
