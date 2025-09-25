@@ -922,6 +922,22 @@ export default function StepTemplatesPage() {
   const saveAction = async () => {
     if (!editingTemplate) return;
 
+    // 表单验证
+    if (!actionFormData.deviceId?.trim()) {
+      alert('请选择设备');
+      return;
+    }
+
+    if (!actionFormData.type?.trim()) {
+      alert('请选择动作类型');
+      return;
+    }
+
+    if (!actionFormData.name?.trim()) {
+      alert('请输入动作名称');
+      return;
+    }
+
     try {
       // 更新临时状态
       const newActions = [...tempActionTemplates];
@@ -1043,11 +1059,55 @@ export default function StepTemplatesPage() {
           setEditingTemplate(updatedTemplate);
         }
         
+        // 重新加载数据确保UI刷新
+        await loadStepTemplates();
+
+        // 关键：从新加载的数据中同步当前编辑模板
+        const response2 = await fetch(`/api/step-templates/${editingTemplate.id}`);
+        if (response2.ok) {
+          const freshData = await response2.json();
+          if (freshData.success && freshData.data.stepTemplate) {
+            console.log('Refreshing editingTemplate with latest data:', freshData.data.stepTemplate);
+            setEditingTemplate(freshData.data.stepTemplate);
+
+            // 重新映射动作模板数据到临时状态
+            const mappedActions = (freshData.data.stepTemplate.actionTemplates || []).map((action: any) => {
+              const params = action.parameters as any || {};
+              return {
+                ...action,
+                type: mapActionTypeFromDB(action.type),
+                deviceId: params.deviceId || '',
+                sensorType: params.sensorType || '',
+                sensor: params.sensor || '',
+                sensorValue: params.sensorValue || '',
+                nameLocal: params.nameLocal || '',
+                componentType: params.componentType || '',
+                sensorInit: params.sensorInit || '',
+                maxExecutionTime: params.maxExecutionTime || 0,
+                expectedExecutionTime: params.expectedExecutionTime || 0,
+                idleTime: params.idleTime || 0,
+                okPin: params.okPin || '0',
+                errorPin: params.errorPin || '0',
+                dSign: params.dSign || false,
+                sSign: params.sSign || false,
+                actionAfterError: params.actionAfterError || 'Repeat action',
+                image: params.image || '',
+                imageWidth: params.imageWidth || 0,
+                imageHeight: params.imageHeight || 0,
+                fullSizeImage: params.fullSizeImage || false,
+                imagePosition: params.imagePosition || 'Top-left',
+                soundFile: params.soundFile || ''
+              };
+            });
+            console.log('Refreshed tempActionTemplates:', mappedActions);
+            setTempActionTemplates(mappedActions);
+          }
+        }
+
         setLastUpdated(new Date());
         setShowActionModal(false);
         setError('');
         clearActionFiles(); // 清除文件状态
-        alert('动作保存成功');
       } else {
         const errorData = await response.json();
         console.error('Save failed:', errorData);
@@ -1144,7 +1204,6 @@ export default function StepTemplatesPage() {
         }
         
         setLastUpdated(new Date());
-        alert('动作删除成功');
       } else {
         const errorData = await response.json();
         alert('删除失败：' + (errorData.error || '未知错误'));
@@ -1257,7 +1316,6 @@ export default function StepTemplatesPage() {
         setLastUpdated(new Date());
         setHasUnsavedOrder(false); // 清除未保存状态
         setError('');
-        alert('顺序保存成功！');
       } else {
         const errorData = await response.json();
         alert('保存顺序失败：' + (errorData.error || '未知错误'));
@@ -1649,9 +1707,9 @@ export default function StepTemplatesPage() {
                     </div>
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                    {template._count.steps > 0 ? (
+                    {(template._count?.steps || 0) > 0 ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                        已引用 ({template._count.steps})
+                        已引用 ({template._count?.steps || 0})
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
@@ -2509,7 +2567,7 @@ export default function StepTemplatesPage() {
                                       数据不一致警告
                                     </h3>
                                     <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                                      步骤模板显示有 {editingTemplate._count.steps} 个引用，但API未返回具体的工艺过程数据。
+                                      步骤模板显示有 {editingTemplate._count?.steps || 0} 个引用，但API未返回具体的工艺过程数据。
                                       这可能是以下原因造成的：
                                     </p>
                                     <ul className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 ml-4 list-disc space-y-1">
