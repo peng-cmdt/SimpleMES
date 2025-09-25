@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    // 优化查询，只获取基本工位信息，不包含设备详情
-    const workstations = await prisma.workstation.findMany({
+    // 获取工位信息，包含关联的设备数据
+    const workstationsRaw = await prisma.workstation.findMany({
       select: {
         id: true,
         workstationId: true,
@@ -15,11 +15,50 @@ export async function GET() {
         status: true,
         isOrderCompleteStation: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        workstationDevices: {
+          include: {
+            template: {
+              select: {
+                id: true,
+                templateId: true,
+                name: true,
+                type: true,
+                brand: true,
+                model: true,
+                driver: true
+              }
+            }
+          }
+        }
       },
       orderBy: {
         createdAt: 'desc'
       }
+    })
+
+    // 转换工位设备数据格式以兼容前端
+    const workstations = workstationsRaw.map(workstation => {
+      const workstationWithDevices = {
+        ...workstation,
+        devices: workstation.workstationDevices?.map(wd => ({
+          id: wd.id,
+          deviceId: wd.instanceId,
+          name: wd.displayName,
+          type: wd.template.type,
+          brand: wd.template.brand,
+          model: wd.template.model,
+          status: wd.status,
+          ipAddress: wd.ipAddress,
+          port: wd.port,
+          workstationId: wd.workstationId
+        })) || []
+      }
+
+      // 删除原始的workstationDevices字段
+      delete workstationWithDevices.workstationDevices
+
+      return workstationWithDevices
     })
 
     return NextResponse.json({

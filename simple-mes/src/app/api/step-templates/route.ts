@@ -108,22 +108,32 @@ export async function POST(request: NextRequest) {
         instructions: instructions || null,
         image: image || null,
         actionTemplates: {
-          create: actionTemplates.map((action: any, index: number) => ({
-            actionCode: action.actionCode || `${stepCode}-A${index + 1}`,
-            name: action.name,
-            type: action.type,
-            category: action.category,
-            deviceType: action.deviceType,
-            deviceAddress: action.deviceAddress,
-            expectedValue: action.expectedValue,
-            validationRule: action.validationRule,
-            parameters: action.parameters,
-            description: action.description,
-            instructions: action.instructions,
-            isRequired: action.isRequired ?? true,
-            timeout: action.timeout,
-            retryCount: action.retryCount ?? 0,
-          }))
+          create: actionTemplates.map((action: any, index: number) => {
+            // 映射前端ActionType到数据库枚举
+            let dbActionType = action.type || 'MANUAL_CONFIRM';
+            if (dbActionType === 'PLC_READ' || dbActionType === 'PLC_WRITE') {
+              dbActionType = dbActionType === 'PLC_READ' ? 'DEVICE_READ' : 'DEVICE_WRITE';
+            } else if (dbActionType === 'SCAN_BARCODE') {
+              dbActionType = 'BARCODE_SCAN';
+            }
+
+            return {
+              actionCode: action.actionCode || `${stepCode}-A${index + 1}`,
+              name: action.name,
+              type: dbActionType,
+              category: action.category,
+              deviceType: action.deviceType,
+              deviceAddress: action.deviceAddress,
+              expectedValue: action.expectedValue,
+              validationRule: action.validationRule,
+              parameters: action.parameters,
+              description: action.description,
+              instructions: action.instructions,
+              isRequired: action.isRequired ?? true,
+              timeout: action.timeout,
+              retryCount: action.retryCount ?? 0,
+            }
+          })
         }
       },
       include: {
